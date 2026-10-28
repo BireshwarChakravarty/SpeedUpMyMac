@@ -282,7 +282,7 @@ struct SettingsView: View {
                 Toggle("Sound effects", isOn: $soundOn)
                 HStack {
                     Image(systemName: "speaker.fill").foregroundStyle(.secondary)
-                    Slider(value: $volume, in: 0...1) { editing in if !editing { SoundFX.shared.play(.success) } }
+                    Slider(value: $volume, in: 0...1, onEditingChanged: { editing in if !editing { SoundFX.shared.play(.success) } })
                     Image(systemName: "speaker.wave.3.fill").foregroundStyle(.secondary)
                 }
                 .disabled(!soundOn)
