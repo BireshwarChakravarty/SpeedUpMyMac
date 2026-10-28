@@ -100,7 +100,7 @@ struct MaintenanceView: View {
                             .labelsHidden()
                             .disabled(!(probe?.isRunnable ?? false) || (task.needsAdmin && !model.sudo))
                         Image(systemName: task.symbol).font(.system(size: 14, weight: .semibold)).frame(width: 22)
-                            .foregroundStyle(Module.maintenance.gradient)
+                            .foregroundStyle(.secondary)
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 6) {
                                 Text(task.title).fontWeight(.medium)

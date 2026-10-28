@@ -13,7 +13,7 @@ struct RootApp: App {
         WindowGroup("Root", id: "main") {
             ContentView()
                 .environment(model)
-                .frame(minWidth: 1060, minHeight: 700)
+                .frame(minWidth: 940, minHeight: 620)
                 .preferredColorScheme(alwaysDark ? .dark : nil)
                 .tint(Theme.leaf)
         }

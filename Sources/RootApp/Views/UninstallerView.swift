@@ -72,7 +72,7 @@ struct UninstallerView: View {
             }
             .padding(12)
             .frame(width: 340)
-            .glassCard()
+            .surface()
 
             Group {
                 if let app = selectedApp {
@@ -117,7 +117,6 @@ struct UninstallerView: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 16) {
                     ZStack {
-                        Circle().fill(Module.uninstaller.gradient).blur(radius: 26).opacity(0.5).frame(width: 80, height: 80)
                         Image(nsImage: NSWorkspace.shared.icon(forFile: app.path)).resizable().frame(width: 72, height: 72)
                             .shadow(color: .black.opacity(0.35), radius: 10, y: 6)
                     }
@@ -156,7 +155,7 @@ struct UninstallerView: View {
                         load()
                     })) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Remove completely — leave no trace").font(.system(.headline, design: .monospaced))
+                            Text("Remove completely — leave no trace").font(.system(.headline))
                             Text(complete
                                  ? "Deletes the app and every file it made, including its data and settings, and clears background jobs, privacy permissions, Login Items, the Dock tile and installer receipts. Then rescans to prove it's gone."
                                  : "Moves the app to the Trash and keeps its personal data (Application Support, containers) unless you tick it.")
@@ -212,7 +211,7 @@ struct UninstallerView: View {
                         ForEach(Array(traces.enumerated()), id: \.element.id) { index, t in
                             HStack(alignment: .top, spacing: 10) {
                                 Image(systemName: t.symbol).font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(Module.uninstaller.gradient).frame(width: 20)
+                                    .foregroundStyle(.secondary).frame(width: 20)
                                 VStack(alignment: .leading, spacing: 1) {
                                     HStack(spacing: 6) {
                                         Text(t.title).fontWeight(.medium)
@@ -315,10 +314,10 @@ struct VerdictCard: View {
         VStack(alignment: .leading, spacing: 8) {
             if verdict.remaining.isEmpty {
                 Label("\(verdict.app) is gone — verified, no trace left", systemImage: "checkmark.seal.fill")
-                    .font(.system(.headline, design: .monospaced)).foregroundStyle(Theme.safe)
+                    .font(.system(.headline)).foregroundStyle(Theme.safe)
             } else {
                 Label("\(verdict.remaining.count) item(s) of \(verdict.app) remain", systemImage: "exclamationmark.triangle.fill")
-                    .font(.system(.headline, design: .monospaced)).foregroundStyle(Theme.review)
+                    .font(.system(.headline)).foregroundStyle(Theme.review)
                 Text(model.sudo || !verdict.remaining.contains(where: \.system)
                      ? "These were in use or protected. Quit anything related and try again, or remove them from Finder."
                      : "These are system-level. Turn on Sudo mode and uninstall again to finish the job.")

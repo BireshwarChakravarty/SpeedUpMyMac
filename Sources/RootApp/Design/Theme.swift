@@ -1,29 +1,34 @@
 import SwiftUI
 import RootCore
 
-/// Design tokens from docs/DESIGN.md.
+/// Design tokens (docs/DESIGN.md): native macOS surfaces, SF Pro, and one accent, lime, kept for
+/// the thing you should press and the numbers that matter.
 enum Theme {
-    // Root: a lit terminal. Lime on near-black, with a little emerald for depth.
     static let lime = Color(hex: 0xBEF264)
     static let leaf = Color(hex: 0x84CC16)
     static let emerald = Color(hex: 0x10B981)
 
-    static let brand = LinearGradient(colors: [lime, leaf, emerald], startPoint: .topLeading, endPoint: .bottomTrailing)
-    static let brandAngular = AngularGradient(colors: [lime, leaf, emerald, Color(hex: 0x34D399), lime], center: .center)
+    static let brand = LinearGradient(colors: [lime, Color(hex: 0xA3E635)], startPoint: .topLeading, endPoint: .bottomTrailing)
+    static let brandAngular = AngularGradient(colors: [Color(hex: 0xD9F99D), lime, leaf, Color(hex: 0xD9F99D)], center: .center)
 
-    static let safe = Color(light: 0x16A34A, dark: 0x34D399)
-    static let review = Color(light: 0xD97706, dark: 0xFBBF24)
+    static let safe = Color(light: 0x15803D, dark: 0x4ADE80)
+    static let review = Color(light: 0xB45309, dark: 0xFBBF24)
     static let risky = Color(light: 0xDC2626, dark: 0xF87171)
     static let sudo = Color(light: 0xB45309, dark: 0xF59E0B)
-    static let sudoGradient = LinearGradient(colors: [Color(hex: 0xFBBF24), Color(hex: 0xF97316)], startPoint: .topLeading, endPoint: .bottomTrailing)
-    static let danger = LinearGradient(colors: [Color(hex: 0xFB7185), Color(hex: 0xE11D48)], startPoint: .topLeading, endPoint: .bottomTrailing)
+    static let danger = LinearGradient(colors: [Color(hex: 0xF43F5E), Color(hex: 0xE11D48)], startPoint: .top, endPoint: .bottom)
 
-    /// The window's night sky, under the aurora.
-    static let base = Color(light: 0xF1F5EE, dark: 0x060907)
-    static let baseRaised = Color(light: 0xFAFCF8, dark: 0x0E140F)
+    /// Window background and the grouped surfaces that sit on it.
+    static let base = Color(light: 0xF5F5F7, dark: 0x1C1C1E)
+    static let baseRaised = Color(light: 0xFFFFFF, dark: 0x262628)
+    static let surface = Color(light: 0xFFFFFF, dark: 0x262628)
+    static let sidebar = Color(light: 0xEDEDF0, dark: 0x2A2A2D)
+    static let separator = Color(light: 0xE5E5EA, dark: 0x343437)
+    static let track = Color(light: 0xE5E5EA, dark: 0x343437)
     static let rim = Color(light: 0x000000, dark: 0xFFFFFF)
-    /// Text on lime: the near-black of the terminal.
+    /// Text on lime.
     static let ink = Color(hex: 0x0A0F0A)
+    /// Text on the accent wash in light mode, where pure lime is unreadable.
+    static let accentText = Color(light: 0x4D7C0F, dark: 0xBEF264)
 
     static func color(for risk: Risk) -> Color {
         switch risk {
@@ -35,45 +40,25 @@ enum Theme {
 
     static func scoreColor(_ score: Int) -> Color { score >= 80 ? safe : score >= 60 ? review : risky }
 
-    static let hero = Font.system(size: 44, weight: .heavy, design: .monospaced)
-    static let heroSmall = Font.system(size: 27, weight: .heavy, design: .monospaced)
-    static let title = Font.system(size: 24, weight: .heavy, design: .monospaced)
+    static let hero = Font.system(size: 56, weight: .semibold)
+    static let heroUnit = Font.system(size: 26, weight: .medium)
+    static let heroSmall = Font.system(size: 28, weight: .semibold)
+    static let title = Font.system(size: 22, weight: .semibold)
     static let mono = Font.system(.caption, design: .monospaced)
 
     /// One spring for everything, so the whole app moves with the same weight.
-    static let spring = Animation.spring(response: 0.45, dampingFraction: 0.82)
-    static let snappy = Animation.spring(response: 0.28, dampingFraction: 0.75)
+    static let spring = Animation.spring(response: 0.42, dampingFraction: 0.86)
+    static let snappy = Animation.spring(response: 0.28, dampingFraction: 0.8)
 }
 
 extension Module {
-    /// Each module's two-colour accent: sidebar tile, aurora tint, hero glyph.
-    var tint: (Color, Color) {
-        switch self {
-        case .smartScan: return (Color(hex: 0xBEF264), Color(hex: 0x10B981))
-        case .cleanup: return (Color(hex: 0x22D3EE), Color(hex: 0x2F8CFF))
-        case .devPurge: return (Color(hex: 0xF472B6), Color(hex: 0xA855F7))
-        case .uninstaller: return (Color(hex: 0xFB7185), Color(hex: 0xF97316))
-        case .spaceLens: return (Color(hex: 0x818CF8), Color(hex: 0xC084FC))
-        case .processes: return (Color(hex: 0x34D399), Color(hex: 0x22D3EE))
-        case .maintenance: return (Color(hex: 0x2DD4BF), Color(hex: 0x3B82F6))
-        case .startup: return (Color(hex: 0xFBBF24), Color(hex: 0xF97316))
-        case .tweaks: return (Color(hex: 0xA78BFA), Color(hex: 0xEC4899))
-        case .health: return (Color(hex: 0x4ADE80), Color(hex: 0x2FD4B5))
-        case .fleet: return (Color(hex: 0x60A5FA), Color(hex: 0x6A5CFF))
-        case .history: return (Color(hex: 0x94A3B8), Color(hex: 0x818CF8))
-        }
-    }
+    /// One accent for every module: the brand stays coherent instead of changing colour per page.
+    var tint: (Color, Color) { (Theme.lime, Color(hex: 0xA3E635)) }
+    var ink: Color { Theme.ink }
+    var gradient: LinearGradient { Theme.brand }
 
-    /// Glyph colour on the module's tile: dark on the bright lime tile, white elsewhere.
-    var ink: Color { self == .smartScan ? Theme.ink : .white }
-
-    var gradient: LinearGradient {
-        LinearGradient(colors: [tint.0, tint.1], startPoint: .topLeading, endPoint: .bottomTrailing)
-    }
-
-    /// The accent at low strength, for selected-row fills.
     func wash(_ opacity: Double) -> LinearGradient {
-        LinearGradient(colors: [tint.0.opacity(opacity), tint.1.opacity(opacity)], startPoint: .leading, endPoint: .trailing)
+        LinearGradient(colors: [Theme.lime.opacity(opacity), Theme.lime.opacity(opacity)], startPoint: .leading, endPoint: .trailing)
     }
 
     var subtitle: String {
@@ -82,7 +67,7 @@ extension Module {
         case .cleanup: return "Caches, logs, browser junk, installers and Trash"
         case .devPurge: return "Build artifacts from projects you're not touching"
         case .uninstaller: return "Remove apps completely — no traces left"
-        case .spaceLens: return "See what's eating your disk"
+        case .spaceLens: return "See what's using your disk"
         case .processes: return "Tame CPU and memory hogs"
         case .maintenance: return "Fix what's actually broken"
         case .startup: return "What launches with your Mac"
@@ -111,37 +96,35 @@ extension Color {
 }
 
 extension View {
-    /// Liquid Glass on macOS 26 Tahoe; a frosted material with a lit rim on Sonoma/Sequoia.
+    /// Liquid Glass is for the navigation layer (sidebar, floating overlays), per Apple's guidance;
+    /// content sits on plain grouped surfaces. On Sonoma/Sequoia this falls back to a material.
     @ViewBuilder
-    func glassCard(cornerRadius: CGFloat = 20, interactive: Bool = false) -> some View {
+    func glassCard(cornerRadius: CGFloat = 16, interactive: Bool = false) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         #if compiler(>=6.2)
         if #available(macOS 26.0, *) {
             self.glassEffect(interactive ? Glass.regular.interactive() : Glass.regular, in: shape)
-                .overlay(shape.strokeBorder(Theme.rimGradient, lineWidth: 0.75).allowsHitTesting(false))
         } else {
-            self.frostedCard(shape)
+            self.background(.regularMaterial, in: shape)
+                .overlay(shape.strokeBorder(Theme.rim.opacity(0.08), lineWidth: 1).allowsHitTesting(false))
         }
         #else
-        self.frostedCard(shape)
+        self.background(.regularMaterial, in: shape)
+            .overlay(shape.strokeBorder(Theme.rim.opacity(0.08), lineWidth: 1).allowsHitTesting(false))
         #endif
     }
 
-    fileprivate func frostedCard(_ shape: RoundedRectangle) -> some View {
-        self.background(.ultraThinMaterial, in: shape)
-            .background(Theme.baseRaised.opacity(0.35), in: shape)
-            .overlay(shape.strokeBorder(Theme.rimGradient, lineWidth: 1).allowsHitTesting(false))
-            .shadow(color: .black.opacity(0.18), radius: 18, y: 10)
+    /// A grouped content surface, like a System Settings section: no border, no shadow.
+    func surface(cornerRadius: CGFloat = 12) -> some View {
+        self.background(Theme.surface, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 
-    /// Standard padded card used by every module. Cards rise into place the first time they appear.
+    /// Standard padded card used by every module.
     func card(padding: CGFloat = 18) -> some View {
-        self.padding(padding).frame(maxWidth: .infinity, alignment: .leading).glassCard().reveal()
+        self.padding(padding).frame(maxWidth: .infinity, alignment: .leading).surface().reveal()
     }
 }
 
 extension Theme {
-    /// Light catching the top edge of a pane of glass.
-    static let rimGradient = LinearGradient(colors: [rim.opacity(0.28), rim.opacity(0.06), rim.opacity(0.02), rim.opacity(0.12)],
-                                            startPoint: .top, endPoint: .bottom)
+    static let rimGradient = LinearGradient(colors: [rim.opacity(0.12), rim.opacity(0.06)], startPoint: .top, endPoint: .bottom)
 }

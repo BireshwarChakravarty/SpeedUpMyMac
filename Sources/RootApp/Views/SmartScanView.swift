@@ -12,184 +12,160 @@ struct SmartScanView: View {
         ModuleScroll {
             hero
             if let smart = model.smart, phase != .scanning {
+                summary(smart)
                 breakdown(smart)
-                HStack(alignment: .top, spacing: 16) {
-                    issues(smart)
-                    maintenance(smart)
-                }
             } else if phase == .idle {
-                HStack(spacing: 16) {
-                    feature("trash.slash", "Junk & caches", "50 cleanup rules, safe items pre-selected", delay: 0.1)
-                    feature("hammer", "Dev artifacts", "node_modules, target, .build, Pods…", delay: 0.16)
-                    feature("heart.text.square", "Health & security", "Disk, memory, battery, SIP, FileVault", delay: 0.22)
-                    feature("power", "Startup audit", "Unsigned and broken launch agents", delay: 0.28)
+                HStack(alignment: .top, spacing: 12) {
+                    feature("Junk & caches", "50 cleanup rules. Safe items are pre-selected; nothing goes without a receipt.")
+                    feature("Dev artifacts", "node_modules, target, .build and Pods in projects you haven't touched.")
+                    feature("Health & security", "Disk, memory, battery, SIP, FileVault, firewall and startup items.")
                 }
+                .reveal(delay: 0.05)
             }
         }
-        .navigationTitle("Smart Scan")
     }
 
     // MARK: Hero
 
     private var hero: some View {
-        HStack(spacing: 10) {
-            ScanOrb(phase: phase, progress: model.scanProgress ?? 0, size: 210, action: {
-                Task { await model.runSmartScan() }
-            }) {
-                orbLabel
-            }
-            VStack(alignment: .leading, spacing: 8) {
+        HStack(alignment: .center, spacing: 44) {
+            ScanRing(phase: phase, progress: model.scanProgress ?? 0, score: model.smart?.health.score)
+            VStack(alignment: .leading, spacing: 10) {
                 switch phase {
                 case .idle:
-                    Text("READY WHEN YOU ARE").font(.caption.weight(.bold)).tracking(1.6).foregroundStyle(.secondary)
-                    Text("Clean \(model.machine.name) to the root").font(.system(size: 32, weight: .heavy, design: .monospaced))
+                    Text("Ready when you are").font(.system(size: 13)).foregroundStyle(.secondary)
+                    Text("Scan \(model.machine.name)").font(.system(size: 30, weight: .semibold)).lineLimit(2)
                     Text("\(model.machine.chip) · macOS \(model.machine.osVersion) · \(model.machine.isAdmin ? "Administrator" : "Standard account")")
-                        .foregroundStyle(.secondary)
-                    Text("Tap the orb. Nothing is removed without a receipt.").font(.callout).foregroundStyle(.tertiary)
+                        .font(.system(size: 13)).foregroundStyle(.secondary)
+                    Button("Start Scan") { Task { await model.runSmartScan() } }
+                        .buttonStyle(.brand)
+                        .keyboardShortcut(.defaultAction)
+                        .padding(.top, 10)
                 case .scanning:
-                    Text("SCANNING").font(.caption.weight(.bold)).tracking(1.6).foregroundStyle(Theme.brand)
+                    Text("Scanning").font(.system(size: 13)).foregroundStyle(.secondary)
                     Text(model.scanStage)
-                        .font(.system(size: 26, weight: .semibold, design: .monospaced))
+                        .font(.system(size: 24, weight: .semibold))
                         .lineLimit(2)
                         .contentTransition(.opacity)
-                        .animation(.easeOut(duration: 0.2), value: model.scanStage)
-                    GrowingBar(fraction: model.scanProgress ?? 0, height: 6).frame(maxWidth: 360)
+                        .animation(.easeOut(duration: 0.15), value: model.scanStage)
+                    Text("Nothing is removed until you confirm a receipt.").font(.system(size: 13)).foregroundStyle(.secondary)
                 case .done:
                     if let smart = model.smart {
-                        Text("RECLAIMABLE NOW").font(.caption.weight(.bold)).tracking(1.6).foregroundStyle(.secondary)
-                        CountingBytes(bytes: smart.quickWinBytes, duration: 1.4)
-                            .font(.system(size: 56, weight: .heavy, design: .monospaced))
-                            .foregroundStyle(Theme.brand)
-                        Text("Safe junk and idle build folders on \(model.machine.name).").foregroundStyle(.secondary)
-                        if smart.sudoOnlyBytes > 0 && !model.sudo {
-                            Label(model.machine.isAdmin ? "\(Format.bytes(smart.sudoOnlyBytes)) more with Sudo mode"
-                                  : "\(Format.bytes(smart.sudoOnlyBytes)) more is system-level (needs an admin account)",
-                                  systemImage: "lock.fill").font(.callout).foregroundStyle(Theme.sudo)
-                        }
+                        Text(smart.quickWinBytes > 0 ? "Ready to clean" : "Nothing to clean").font(.system(size: 13)).foregroundStyle(.secondary)
+                        BigBytes(bytes: smart.quickWinBytes, size: 64, duration: 1.2)
+                        Text(heroDetail(smart)).font(.system(size: 14)).foregroundStyle(.secondary)
                         HStack(spacing: 10) {
-                            Button {
-                                model.cleanNow()
-                            } label: {
-                                Label("Clean now", systemImage: "sparkles")
-                            }
-                            .buttonStyle(.brand)
-                            .disabled(model.busy != nil || smart.quickWinBytes == 0)
+                            Button("Clean \(Format.bytes(smart.quickWinBytes))") { model.cleanNow() }
+                                .buttonStyle(.brand)
+                                .disabled(model.busy != nil || smart.quickWinBytes == 0)
+                            Button("Review…") { go(.cleanup) }
                             Button("Rescan") { Task { await model.runSmartScan() } }
                                 .disabled(model.busy != nil)
                         }
-                        .padding(.top, 6)
+                        .padding(.top, 10)
                     }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .animation(Theme.spring, value: phase)
         }
-        .padding(.vertical, 6)
-        .card(padding: 14)
+        .padding(.horizontal, 40).padding(.vertical, 36)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Theme.surface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(RadialGradient(colors: [Theme.lime.opacity(0.09), .clear], center: .topLeading, startRadius: 0, endRadius: 520)))
+        )
+        .reveal()
     }
 
-    @ViewBuilder
-    private var orbLabel: some View {
-        switch phase {
-        case .idle:
-            VStack(spacing: 2) {
-                Image(systemName: "number").font(.system(size: 30, weight: .bold))
-                Text("scan").font(.system(size: 30, weight: .bold, design: .monospaced))
-            }
-        case .scanning:
-            CountingText(value: (model.scanProgress ?? 0) * 100, duration: 0.3) { "\(Int($0))%" }
-                .font(.system(size: 40, weight: .heavy, design: .monospaced))
-        case .done:
-            if let score = model.smart?.health.score {
-                VStack(spacing: 0) {
-                    CountingText(value: Double(score)) { "\(Int($0.rounded()))" }
-                        .font(.system(size: 50, weight: .heavy, design: .monospaced))
-                    Text("health").font(.callout.weight(.semibold)).opacity(0.8)
-                }
-            }
+    private func heroDetail(_ smart: SmartScanResult) -> String {
+        var text = "Caches, logs and idle build folders."
+        if smart.sudoOnlyBytes > 0 && !model.sudo {
+            text += model.machine.isAdmin ? " \(Format.bytes(smart.sudoOnlyBytes)) more with Sudo." : " \(Format.bytes(smart.sudoOnlyBytes)) more needs an admin account."
         }
+        return text
     }
 
-    private func feature(_ symbol: String, _ title: String, _ detail: String, delay: Double) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: symbol).font(.system(size: 20, weight: .semibold)).foregroundStyle(Theme.brand)
-            Text(title).font(.system(.headline, design: .monospaced))
-            Text(detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+    private func feature(_ title: String, _ detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(.system(size: 13, weight: .semibold))
+            Text(detail).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
         .padding(16)
-        .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
-        .glassCard()
-        .hoverLift()
-        .reveal(delay: delay)
+        .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
+        .surface()
     }
 
     // MARK: Results
 
+    private func summary(_ smart: SmartScanResult) -> some View {
+        let categories = smart.cleanup.results.filter { $0.target.risk == .safe && $0.skippedReason == nil && $0.bytes > 0 }
+        let security = securityIssues(smart.health)
+        return HStack(alignment: .top, spacing: 12) {
+            tile("Junk", Format.bytes(smart.quickWinBytes),
+                 categories.isEmpty ? "Nothing worth removing" : "\(categories.count) categor\(categories.count == 1 ? "y" : "ies"), all safe",
+                 color: nil) { go(.cleanup) }
+            tile("Security", security.isEmpty ? "All good" : "\(security.count) to fix",
+                 security.isEmpty ? "SIP, Gatekeeper, FileVault and firewall" : security.joined(separator: ", ") + " off",
+                 color: security.isEmpty ? nil : Theme.review) { go(.health) }
+            tile("Startup", smart.suspiciousStartupItems.isEmpty ? "Clean" : "\(smart.suspiciousStartupItems.count) unsigned",
+                 smart.suspiciousStartupItems.isEmpty ? "Every launch item is signed" : "Review in Startup Items",
+                 color: nil) { go(.startup) }
+            tile("Maintenance", smart.recommendedTasks.isEmpty ? "Nothing to do" : "\(smart.recommendedTasks.count) suggested",
+                 smart.recommendedTasks.isEmpty ? "Checks found nothing broken" : smart.recommendedTasks.map(\.title).prefix(2).joined(separator: ", "),
+                 color: nil) { go(.maintenance) }
+        }
+        .reveal(delay: 0.06)
+    }
+
+    private func securityIssues(_ h: HealthReport) -> [String] {
+        var out: [String] = []
+        if h.security.sip == false { out.append("SIP") }
+        if h.security.fileVault == false { out.append("FileVault") }
+        if h.security.firewall == false { out.append("Firewall") }
+        if h.security.gatekeeper == false { out.append("Gatekeeper") }
+        return out
+    }
+
+    private func tile(_ label: String, _ value: String, _ detail: String, color: Color?, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(label).font(.system(size: 12)).foregroundStyle(.secondary)
+                Text(value).font(.system(size: 20, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
+                Text(detail).font(.system(size: 12)).foregroundStyle(color ?? .secondary).lineLimit(2)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, minHeight: 104, alignment: .topLeading)
+            .surface()
+            .hoverLift()
+            .contentShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+    }
+
     private func breakdown(_ smart: SmartScanResult) -> some View {
         let categories = smart.cleanup.byCategory()
         let artifactBytes = smart.artifacts.filter { !$0.recentlyActive }.reduce(0) { $0 + $1.bytes }
-        let rows: [(String, String, Int64)] = categories.map { ($0.0.rawValue, $0.0.symbol, $0.1) }
-            + (artifactBytes > 0 ? [("Idle build artifacts", "shippingbox.and.arrow.backward", artifactBytes)] : [])
-        let sorted = rows.sorted { $0.2 > $1.2 }
-        let maxBytes = max(sorted.first?.2 ?? 1, 1)
-        return VStack(alignment: .leading, spacing: 12) {
-            SectionTitle(title: "Where the space is", symbol: "chart.bar.xaxis", trailing: Format.bytes(rows.reduce(0) { $0 + $1.2 }))
+        let rows: [(String, Int64)] = categories.map { ($0.0.rawValue, $0.1) }
+            + (artifactBytes > 0 ? [("Idle build artifacts", artifactBytes)] : [])
+        let sorted = rows.filter { $0.1 > 0 }.sorted { $0.1 > $1.1 }
+        let maxBytes = max(sorted.first?.1 ?? 1, 1)
+        return VStack(alignment: .leading, spacing: 4) {
+            Text("Where the space is").font(.system(size: 15, weight: .semibold)).padding(.bottom, 6)
             ForEach(Array(sorted.enumerated()), id: \.element.0) { index, row in
-                HStack(spacing: 12) {
-                    Image(systemName: row.1).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.brand).frame(width: 20)
-                    Text(row.0).frame(width: 190, alignment: .leading)
-                    GrowingBar(fraction: Double(row.2) / Double(maxBytes), delay: 0.15 + Double(index) * 0.06)
-                    SizeText(bytes: row.2).frame(width: 90, alignment: .trailing)
+                Rectangle().fill(Theme.separator).frame(height: 1)
+                HStack(spacing: 18) {
+                    Text(row.0).font(.system(size: 13)).frame(width: 190, alignment: .leading)
+                    GrowingBar(fraction: Double(row.1) / Double(maxBytes), delay: 0.1 + Double(index) * 0.04)
+                        .opacity(1 - min(Double(index) * 0.08, 0.4))
+                    Text(Format.bytes(row.1)).font(.system(size: 13).monospacedDigit()).foregroundStyle(.secondary)
+                        .frame(width: 80, alignment: .trailing)
                 }
-                .padding(.vertical, 2)
-                .rowHover()
-                .reveal(index: index)
-            }
-            HStack {
-                Button("Review cleanup") { go(.cleanup) }
-                Button("Review dev purge") { go(.devPurge) }
-            }
-            .padding(.top, 4)
-        }
-        .card()
-    }
-
-    private func issues(_ smart: SmartScanResult) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionTitle(title: "Health & security", symbol: "heart.text.square", trailing: nil)
-            if smart.health.notes.isEmpty && smart.suspiciousStartupItems.isEmpty {
-                Label("Nothing needs attention", systemImage: "checkmark.seal.fill").foregroundStyle(Theme.safe)
-            }
-            ForEach(smart.health.notes, id: \.self) { note in
-                Label(note, systemImage: "exclamationmark.circle.fill").foregroundStyle(Theme.review)
-            }
-            if !smart.suspiciousStartupItems.isEmpty {
-                Button {
-                    go(.startup)
-                } label: {
-                    Label("\(smart.suspiciousStartupItems.count) unsigned or broken startup item(s)", systemImage: "power")
-                        .foregroundStyle(Theme.risky)
-                }
-                .buttonStyle(.plain)
-            }
-            if !smart.health.security.fullDiskAccess {
-                Button("Grant Full Disk Access…") { model.openFullDiskAccessSettings() }
+                .padding(.vertical, 9)
             }
         }
-        .card()
-    }
-
-    private func maintenance(_ smart: SmartScanResult) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionTitle(title: "Maintenance", symbol: "wrench.and.screwdriver", trailing: nil)
-            if smart.recommendedTasks.isEmpty {
-                Label("No maintenance needed — probes found nothing broken", systemImage: "checkmark.seal.fill").foregroundStyle(Theme.safe)
-            } else {
-                ForEach(smart.recommendedTasks) { task in Label(task.title, systemImage: task.symbol) }
-                Button("Open Maintenance") { go(.maintenance) }
-            }
-        }
-        .card()
+        .reveal(delay: 0.1)
     }
 
     private func go(_ module: Module) {

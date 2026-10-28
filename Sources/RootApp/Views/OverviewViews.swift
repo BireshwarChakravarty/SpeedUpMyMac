@@ -87,8 +87,8 @@ struct HealthView: View {
                 SectionTitle(title: title, symbol: symbol, trailing: nil)
                 if let fraction {
                     Text("\(Int((min(max(fraction, 0), 1) * 100).rounded()))%")
-                        .font(.system(.title3, design: .monospaced).weight(.bold).monospacedDigit())
-                        .foregroundStyle(fraction > 0.9 ? AnyShapeStyle(Theme.risky) : AnyShapeStyle(Theme.brand))
+                        .font(.system(.title3).weight(.bold).monospacedDigit())
+                        .foregroundStyle(fraction > 0.9 ? AnyShapeStyle(Theme.risky) : AnyShapeStyle(Theme.accentText))
                 }
             }
             if let fraction {
@@ -113,7 +113,7 @@ struct HealthView: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard()
+        .surface()
         .hoverLift(scale: 1.01)
         .reveal(delay: 0.08)
     }
@@ -172,7 +172,7 @@ struct FleetCard: View {
             HStack {
                 Image(systemName: snap.machine.model.lowercased().contains("book") ? "laptopcomputer" : "macmini")
                     .font(.system(size: 26, weight: .medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.ink)
                     .frame(width: 48, height: 48)
                     .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Module.fleet.gradient))
                     .shadow(color: Module.fleet.tint.1.opacity(0.5), radius: 8, y: 4)
@@ -203,7 +203,7 @@ struct FleetCard: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard()
+        .surface()
         .hoverLift()
     }
 }
@@ -232,7 +232,7 @@ struct HistoryView: View {
                 } label: {
                     HStack {
                         Image(systemName: historySymbol(entry.action)).font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Module.history.gradient).frame(width: 18)
+                            .foregroundStyle(.secondary).frame(width: 18)
                         Text(entry.action.capitalized).fontWeight(.medium).frame(width: 90, alignment: .leading)
                         Text(entry.detail).lineLimit(1).foregroundStyle(.secondary)
                         Spacer()
@@ -243,7 +243,7 @@ struct HistoryView: View {
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .glassCard(cornerRadius: 16)
+                .surface()
                 .reveal(index: index, step: 0.03)
             }
         }
@@ -393,7 +393,7 @@ struct MenuBarView: View {
             }
             if let smart = model.smart {
                 HStack(spacing: 4) {
-                    CountingBytes(bytes: smart.quickWinBytes).font(.system(.title3, design: .monospaced).weight(.bold)).foregroundStyle(Theme.brand)
+                    CountingBytes(bytes: smart.quickWinBytes).font(.system(.title3).weight(.semibold)).foregroundStyle(Theme.accentText)
                     Text("ready to clean").foregroundStyle(.secondary)
                 }
             }
@@ -419,8 +419,7 @@ struct MenuBarView: View {
         }
         .padding(16)
         .frame(width: 300)
-        .background(AuroraBackground(module: .smartScan, intensity: 0.8))
-        .buttonStyle(.glass)
+        .buttonStyle(.quiet)
         .task { if model.health == nil { await model.refreshHealth() } }
     }
 }

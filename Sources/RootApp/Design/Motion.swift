@@ -17,12 +17,10 @@ struct Reveal: ViewModifier {
         let still = reduceMotion || reduceEffects
         content
             .opacity(shown || still ? 1 : 0)
-            .offset(y: shown || still ? 0 : 16)
-            .scaleEffect(shown || still ? 1 : 0.985, anchor: .top)
-            .blur(radius: shown || still ? 0 : 6)
+            .offset(y: shown || still ? 0 : 8)
             .onAppear {
                 guard !shown else { return }
-                withAnimation(.spring(response: 0.6, dampingFraction: 0.86).delay(delay)) { shown = true }
+                withAnimation(.easeOut(duration: 0.35).delay(delay)) { shown = true }
             }
     }
 }
@@ -31,7 +29,7 @@ extension View {
     func reveal(delay: Double = 0) -> some View { modifier(Reveal(delay: delay)) }
 
     /// Staggered entrance for the n-th item of a list.
-    func reveal(index: Int, step: Double = 0.035) -> some View { modifier(Reveal(delay: min(Double(index) * step, 0.5))) }
+    func reveal(index: Int, step: Double = 0.02) -> some View { modifier(Reveal(delay: min(Double(index) * step, 0.25))) }
 }
 
 /// Blur in/out, for module switches and overlays.
@@ -42,10 +40,7 @@ struct BlurTransition: ViewModifier {
 
 extension AnyTransition {
     static var moduleSwap: AnyTransition {
-        .asymmetric(
-            insertion: .opacity.combined(with: .offset(y: 18)).combined(with: .scale(scale: 0.985))
-                .combined(with: .modifier(active: BlurTransition(radius: 14), identity: BlurTransition(radius: 0))),
-            removal: .opacity.combined(with: .modifier(active: BlurTransition(radius: 10), identity: BlurTransition(radius: 0))))
+        .asymmetric(insertion: .opacity.combined(with: .offset(y: 6)), removal: .opacity)
     }
 
     static var toast: AnyTransition {
@@ -64,20 +59,17 @@ struct HoverLift: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .scaleEffect(hovering ? scale : 1)
-            .shadow(color: .black.opacity(hovering ? 0.28 : 0), radius: hovering ? 22 : 0, y: hovering ? 12 : 0)
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(Theme.brand, lineWidth: 1)
-                    .opacity(hovering ? 0.55 : 0)
+                    .fill(Theme.rim.opacity(hovering ? 0.03 : 0))
                     .allowsHitTesting(false))
-            .animation(Theme.snappy, value: hovering)
+            .animation(.easeOut(duration: 0.15), value: hovering)
             .onHover { hovering = $0 }
     }
 }
 
 extension View {
-    func hoverLift(scale: CGFloat = 1.015, cornerRadius: CGFloat = 20) -> some View {
+    func hoverLift(scale: CGFloat = 1, cornerRadius: CGFloat = 12) -> some View {
         modifier(HoverLift(scale: scale, cornerRadius: cornerRadius))
     }
 
@@ -156,6 +148,7 @@ struct CountingText: View {
     var format: (Double) -> String
     @State private var shown: Double = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(reduceEffectsKey) private var reduceEffects = false
 
     var body: some View {
         Color.clear
@@ -166,7 +159,7 @@ struct CountingText: View {
     }
 
     private func animate(to target: Double) {
-        if reduceMotion { shown = target; return }
+        if reduceMotion || reduceEffects { shown = target; return }
         withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: duration)) { shown = target }
     }
 }
