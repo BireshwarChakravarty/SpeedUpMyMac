@@ -7,11 +7,13 @@ on:
 jobs:
   macos:
     name: macOS — build app, CLI and tests
-    runs-on: macos-26
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Toolchain
+      - name: Toolchain (newest installed Xcode)
         run: |
+          XCODE="$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)"
+          if [ -n "$XCODE" ]; then sudo xcode-select -s "$XCODE"; fi
           sw_vers
           xcodebuild -version
           swift --version

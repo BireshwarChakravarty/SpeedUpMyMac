@@ -161,7 +161,7 @@ Mole is the most useful reference because the whole implementation is readable s
 | Burnish module | Borrowed from | Works without admin? | With sudo toggle adds |
 |---|---|---|---|
 | **Smart Scan** (one button, health score) | CleanMyMac Smart Care, Mole status | ✅ | System caches/logs, snapshots |
-| **Cleanup** (50 curated targets) | Mole clean, CleanMyMac, BleachBit | ✅ user scope | `/Library/Caches`, `/Library/Logs`, `/private/var/log` archives, old installers in `/Library/Updates`, `/Users/Shared` junk |
+| **Cleanup** (50 curated targets) | Mole clean, CleanMyMac, BleachBit | ✅ user scope | `/Library/Caches`, `/Library/Logs`, rotated `/private/var/log` archives, `/cores` dumps, old "Install macOS" apps, GarageBand/Logic loops |
 | **Dev Purge** (artifacts + toolchain caches) | Mole purge, DevCleaner, npkill | ✅ | — |
 | **Uninstaller** + orphans + Trash Sentinel | Pearcleaner, AppCleaner, Mole | ✅ for user-owned apps | Root-owned apps, `/Library/LaunchDaemons`, helper tools, pkg receipts |
 | **Space Lens** (sunburst + list + large/old + duplicates) | DaisyDisk, GrandPerspective, Gemini | ✅ | Scan `/Library`, `/private/var` |

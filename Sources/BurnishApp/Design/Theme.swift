@@ -72,7 +72,7 @@ struct PolishButtonStyle: ButtonStyle {
             .foregroundStyle(.white)
             .padding(.horizontal, 22)
             .padding(.vertical, 10)
-            .background(Theme.polish.opacity(isEnabled ? 1 : 0.35), in: Capsule())
+            .background(Capsule().fill(Theme.polish).opacity(isEnabled ? 1 : 0.35))
             .overlay(Capsule().strokeBorder(.white.opacity(0.25), lineWidth: 1))
             .shadow(color: Theme.azure.opacity(isEnabled ? 0.35 : 0), radius: 10, y: 4)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
