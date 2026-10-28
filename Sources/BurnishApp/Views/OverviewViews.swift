@@ -270,7 +270,7 @@ struct SettingsView: View {
         .padding()
     }
 
-    private func binding<T>(_ key: WritableKeyPath<Settings, T>) -> Binding<T> {
+    private func binding<T>(_ key: WritableKeyPath<BurnishCore.Settings, T>) -> Binding<T> {
         Binding(get: { model.settings[keyPath: key] }, set: { value in
             model.settings[keyPath: key] = value
             model.settings.save()

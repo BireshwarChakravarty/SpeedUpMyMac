@@ -26,7 +26,7 @@ struct BurnishApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        Settings {
+        SwiftUI.Settings {
             SettingsView().environment(model).frame(width: 520)
         }
     }

@@ -77,7 +77,7 @@ struct Receipt: Identifiable {
 @MainActor
 @Observable
 final class AppModel {
-    var settings = Settings.load()
+    var settings = BurnishCore.Settings.load()
     var machine = MachineInfo.current()
     var selection: Module? = .smartScan
 
