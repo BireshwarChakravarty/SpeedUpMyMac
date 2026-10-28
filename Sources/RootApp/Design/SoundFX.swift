@@ -23,7 +23,9 @@ final class SoundFX {
     private let format = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2)!
     private var prepared = false
 
-    var enabled: Bool { UserDefaults.standard.object(forKey: Self.enabledKey) as? Bool ?? true }
+    var enabled: Bool {
+        AppModel.tourFolder == nil && (UserDefaults.standard.object(forKey: Self.enabledKey) as? Bool ?? true)
+    }
     var volume: Float { Float(UserDefaults.standard.object(forKey: Self.volumeKey) as? Double ?? 0.55) }
 
     func play(_ effect: Effect, haptic: NSHapticFeedbackManager.FeedbackPattern? = nil) {

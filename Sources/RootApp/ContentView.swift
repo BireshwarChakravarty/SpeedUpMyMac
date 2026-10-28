@@ -57,6 +57,7 @@ struct ContentView: View {
         .toggleStyle(.check)
         .sheet(item: $model.receipt) { receipt in ReceiptSheet(receipt: receipt) }
         .onChange(of: model.receipt?.id) { _, id in if id != nil { SoundFX.shared.play(.whoosh) } }
+        .task { if let folder = AppModel.tourFolder { await model.runTour(folder) } }
         .onChange(of: model.sentinelOffer?.app.path) { _, path in if path != nil { SoundFX.shared.play(.success, haptic: .generic) } }
     }
 
@@ -121,6 +122,10 @@ struct WindowConfigurator: NSViewRepresentable {
             guard let window = view.window else { return }
             window.isMovableByWindowBackground = true
             window.titlebarAppearsTransparent = true
+            if AppModel.tourFolder != nil {
+                window.setContentSize(NSSize(width: 1440, height: 900))
+                window.center()
+            }
         }
         return view
     }

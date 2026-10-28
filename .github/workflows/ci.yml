@@ -33,6 +33,42 @@ jobs:
         with:
           name: Root
           path: dist/Root.zip
+      - name: Screenshot tour
+        # Launches the real app, which runs a scan and steps through every page; each page is
+        # captured here. JPEGs are printed between @@SHOT/@@END markers so they can be read back
+        # from the job log, and uploaded as an artifact.
+        timeout-minutes: 12
+        continue-on-error: true
+        run: |
+          mkdir -p shots
+          ROOTAPP_TOUR="$PWD/shots" dist/Root.app/Contents/MacOS/Root > shots/app.log 2>&1 &
+          APP=$!
+          for _ in $(seq 1 1200); do
+            for ready in shots/*.ready; do
+              [ -e "$ready" ] || continue
+              base="${ready%.ready}"
+              screencapture -x "$base.png" || echo "screencapture failed for $base"
+              mv "$ready" "$base.done"
+            done
+            [ -e shots/finished ] && break
+            kill -0 $APP 2>/dev/null || { echo "app exited early"; cat shots/app.log; break; }
+            sleep 0.5
+          done
+          kill $APP 2>/dev/null || true
+          for png in shots/*.png; do
+            [ -e "$png" ] || continue
+            jpg="${png%.png}.jpg"
+            sips -Z 1600 -s format jpeg -s formatOptions 70 "$png" --out "$jpg" >/dev/null
+            echo "@@SHOT $(basename "${png%.png}")"
+            base64 -b 160 -i "$jpg"
+            echo "@@END"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Screenshots
+          path: shots/*.jpg
+          if-no-files-found: ignore
 
   linux:
     name: Linux — engine and CLI tests

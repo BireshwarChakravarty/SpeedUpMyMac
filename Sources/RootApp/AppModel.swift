@@ -450,6 +450,42 @@ final class AppModel {
 
     func loadHistory() { history = History.load() }
 
+    // MARK: Screenshot tour (CI only)
+
+    /// Set by CI (`ROOTAPP_TOUR=<folder>`) to screenshot every page of the real app; never in normal use.
+    static let tourFolder = ProcessInfo.processInfo.environment["ROOTAPP_TOUR"]
+
+    /// Shows each page in turn and waits for CI to capture it: a `.ready` file asks, a `.done` file answers.
+    func runTour(_ folder: String) async {
+        var shot = 0
+        func capture(_ name: String) async {
+            try? await Task.sleep(for: .seconds(2.5))
+            shot += 1
+            let base = (folder as NSString).appendingPathComponent(String(format: "%02d-%@", shot, name))
+            FileManager.default.createFile(atPath: base + ".ready", contents: nil)
+            for _ in 0..<150 where !FileManager.default.fileExists(atPath: base + ".done") {
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+        }
+        await capture("first-launch")
+        await loadApps()
+        await runSmartScan()
+        await capture("smart-scan-results")
+        for module in Module.allCases where module != .smartScan {
+            selection = module
+            await capture(module.rawValue)
+        }
+        selection = .smartScan
+        cleanNow()
+        await capture("receipt")
+        receipt = nil
+        celebrate(Celebration(bytes: smart?.quickWinBytes ?? 0, title: "Cleaned — clean to the root"))
+        try? await Task.sleep(for: .milliseconds(600))
+        await capture("celebration")
+        FileManager.default.createFile(atPath: (folder as NSString).appendingPathComponent("finished"), contents: nil)
+        NSApp.terminate(nil)
+    }
+
     func openFullDiskAccessSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
             NSWorkspace.shared.open(url)
