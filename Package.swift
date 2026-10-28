@@ -2,24 +2,24 @@
 import PackageDescription
 
 var products: [Product] = [
-    .library(name: "BurnishCore", targets: ["BurnishCore"]),
-    .executable(name: "burnish", targets: ["burnish"]),
+    .library(name: "RootCore", targets: ["RootCore"]),
+    .executable(name: "root", targets: ["root"]),
 ]
 
 var targets: [Target] = [
-    .target(name: "BurnishCore", path: "Sources/BurnishCore"),
-    .executableTarget(name: "burnish", dependencies: ["BurnishCore"], path: "Sources/burnish"),
-    .testTarget(name: "BurnishCoreTests", dependencies: ["BurnishCore"], path: "Tests/BurnishCoreTests"),
+    .target(name: "RootCore", path: "Sources/RootCore"),
+    .executableTarget(name: "root", dependencies: ["RootCore"], path: "Sources/root"),
+    .testTarget(name: "RootCoreTests", dependencies: ["RootCore"], path: "Tests/RootCoreTests"),
 ]
 
 // The SwiftUI app only builds on macOS; the engine and CLI also build on Linux so CI can test them.
 #if os(macOS)
-products.append(.executable(name: "BurnishApp", targets: ["BurnishApp"]))
-targets.append(.executableTarget(name: "BurnishApp", dependencies: ["BurnishCore"], path: "Sources/BurnishApp"))
+products.append(.executable(name: "RootApp", targets: ["RootApp"]))
+targets.append(.executableTarget(name: "RootApp", dependencies: ["RootCore"], path: "Sources/RootApp"))
 #endif
 
 let package = Package(
-    name: "Burnish",
+    name: "Root",
     platforms: [.macOS(.v14)],
     products: products,
     targets: targets

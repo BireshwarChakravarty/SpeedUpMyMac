@@ -1,16 +1,16 @@
-<p align="center"><img src="Assets/AppIcon-1024.png" width="160" alt="Burnish icon"></p>
+<p align="center"><img src="Assets/AppIcon-1024.png" width="160" alt="Root icon"></p>
 
-<h1 align="center">Burnish</h1>
-<p align="center"><b>Deep-clean every Mac you own.</b><br>
+<h1 align="center">Root</h1>
+<p align="center"><b>Clean every Mac down to the root.</b><br>
 Cleanup · Dev purge · Uninstaller · Space Lens · Speed · Maintenance · Startup audit · Tweaks · Health · Fleet</p>
 
 ---
 
-Burnish pulls the best parts of CleanMyMac, Mole, Pearcleaner, AppCleaner, OnyX, DaisyDisk, DevCleaner, App Tamer, KnockKnock, Sensei and RemoveMacAI into one free, native macOS app plus a CLI. Every deletion is itemised on a **receipt** before it happens, and every action is logged.
+Root pulls the best parts of CleanMyMac, Mole, Pearcleaner, AppCleaner, OnyX, DaisyDisk, DevCleaner, App Tamer, KnockKnock, Sensei and RemoveMacAI into one free, native macOS app plus a CLI. Every deletion is itemised on a **receipt** before it happens, and every action is logged.
 
-- **Sudo toggle.** Everything that can run as you does. Turning on Sudo mode adds system-level cleaning, maintenance and tweaks, and you authorize once per batch after seeing the exact script that will run as root. On a **standard (non-admin) account** the toggle is disabled and Burnish still cleans everything you own.
+- **Sudo toggle.** Everything that can run as you does. Turning on Sudo mode adds system-level cleaning, maintenance and tweaks, and you authorize once per batch after seeing the exact script that will run as root. On a **standard (non-admin) account** the toggle is disabled and Root still cleans everything you own.
 - **Works across all your Macs.** Each Mac publishes a small status file to a synced folder (iCloud Drive by default, or any Dropbox/Drive/SMB folder), and the **Fleet** view shows them side by side: chip, admin or standard account, free space, reclaimable space, health score and last clean.
-- **Honest.** Burnish doesn't "free RAM", repair permissions on modern macOS, or ask you to disable SIP. Maintenance tasks check for a real symptom before they recommend themselves.
+- **Honest.** Root doesn't "free RAM", repair permissions on modern macOS, or ask you to disable SIP. Maintenance tasks check for a real symptom before they recommend themselves.
 
 Research and design rationale: [`docs/RESEARCH.md`](docs/RESEARCH.md) · [`docs/DESIGN.md`](docs/DESIGN.md)
 
@@ -18,7 +18,7 @@ Research and design rationale: [`docs/RESEARCH.md`](docs/RESEARCH.md) · [`docs/
 
 | | Module | What it does | Inspired by |
 |---|---|---|---|
-| ✨ | **Smart Scan** | One button: junk, idle build folders, health, maintenance, startup audit → "Burnish now" | CleanMyMac Smart Care |
+| ✨ | **Smart Scan** | One button: junk, idle build folders, health, maintenance, startup audit → "Clean now" | CleanMyMac Smart Care |
 | 🧹 | **Cleanup** | 50 curated targets: app/browser/container caches, logs, crash reports, Xcode, Homebrew, npm/yarn/pnpm/pip/cargo/go, Mail downloads, iOS firmware, installers, Trash; system caches/logs with sudo | Mole, CleanMyMac, BleachBit |
 | 🔨 | **Dev Purge** | `node_modules`, `target`, `.build`, `Pods`, venvs, `.next`… in your project roots; skips git-tracked and recently active projects | Mole purge, npkill, DevCleaner |
 | 🗑 | **Uninstaller** | App + leftovers (strict / enhanced / deep matching, container metadata, launch agents unloaded first), orphaned files, Trash Sentinel | Pearcleaner, AppCleaner |
@@ -43,33 +43,33 @@ git clone https://github.com/bireshwarchakravarty/SpeedUpMyMac.git
 cd SpeedUpMyMac && scripts/build-app.sh --install
 ```
 
-This needs Xcode or the Command Line Tools (`xcode-select --install`). Then open **Burnish**, grant it **Full Disk Access** (System Settings → Privacy & Security → Full Disk Access) so it can see Mail, Safari, other apps' containers and the Trash, and optionally run `burnish touchid on` to use Touch ID for sudo.
+This needs Xcode or the Command Line Tools (`xcode-select --install`). Then open **Root**, grant it **Full Disk Access** (System Settings → Privacy & Security → Full Disk Access) so it can see Mail, Safari, other apps' containers and the Trash, and optionally run `root touchid on` to use Touch ID for sudo.
 
 ### On a Mac where you're *not* an admin (M3)
 
 You need neither admin rights nor a Developer ID:
 
 1. If the Command Line Tools are already installed there, run the same two commands. The app installs to `~/Applications` and the CLI to `~/.local/bin`.
-2. Otherwise build on your M4, copy `dist/Burnish.zip` over, and unpack it into your own Applications folder:
+2. Otherwise build on your M4, copy `dist/Root.zip` over, and unpack it into your own Applications folder:
 
 ```bash
-ditto -x -k ~/Downloads/Burnish.zip ~/Applications
+ditto -x -k ~/Downloads/Root.zip ~/Applications
 ```
 
 ```bash
-xattr -dr com.apple.quarantine ~/Applications/Burnish.app
+xattr -dr com.apple.quarantine ~/Applications/Root.app
 ```
 
 Removing the quarantine flag from your own copy needs no admin rights. Copying with `scp`/`rsync` doesn't add the flag in the first place.
 
-On the standard account the Sudo toggle shows as unavailable. Cleanup, Dev Purge, user-owned app uninstalls, orphans, Space Lens, process control, user-level maintenance, user tweaks, startup agents in your session, Health, Fleet and scheduled cleaning all still work. A managed work Mac may block Full Disk Access via MDM. Burnish then skips the protected folders and says so.
+On the standard account the Sudo toggle shows as unavailable. Cleanup, Dev Purge, user-owned app uninstalls, orphans, Space Lens, process control, user-level maintenance, user tweaks, startup agents in your session, Health, Fleet and scheduled cleaning all still work. A managed work Mac may block Full Disk Access via MDM. Root then skips the protected folders and says so.
 
 ### Fleet setup
 
-Each Mac publishes to `iCloud Drive/Burnish/machines/` automatically. On a Mac without your personal iCloud, point it at any synced folder:
+Each Mac publishes to `iCloud Drive/Root/machines/` automatically. On a Mac without your personal iCloud, point it at any synced folder:
 
 ```bash
-burnish fleet folder ~/Dropbox/Burnish
+root fleet folder ~/Dropbox/Root
 ```
 
 Put `shared-settings.json` (`{"ignorePaths": […], "purgeRoots": […]}`) in that folder to share an ignore list and project roots across every Mac.
@@ -77,42 +77,42 @@ Put `shared-settings.json` (`{"ignorePaths": […], "purgeRoots": […]}`) in th
 ## CLI
 
 ```bash
-burnish status
+root status
 ```
 
 ```bash
-burnish clean --dry-run
+root clean --dry-run
 ```
 
 ```bash
-burnish clean --sudo --include-review
+root clean --sudo --include-review
 ```
 
 ```bash
-burnish purge
+root purge
 ```
 
 ```bash
-burnish uninstall "Some App" --level deep
+root uninstall "Some App" --level deep
 ```
 
 ```bash
-burnish optimize --list
+root optimize --list
 ```
 
 ```bash
-burnish tweaks apply balanced
+root tweaks apply balanced
 ```
 
 ```bash
-burnish fleet
+root fleet
 ```
 
 ```bash
-burnish schedule weekly
+root schedule weekly
 ```
 
-`burnish help` lists everything. `-n/--dry-run` previews, `-y/--yes` skips prompts, `-j/--json` prints machine-readable output, and `-s/--sudo` includes system items. Burnish refuses to run *as* root and asks for admin rights only for the steps that need them.
+`root help` lists everything. `-n/--dry-run` previews, `-y/--yes` skips prompts, `-j/--json` prints machine-readable output, and `-s/--sudo` includes system items. Root refuses to run *as* root and asks for admin rights only for the steps that need them.
 
 ## Safety model
 
@@ -129,12 +129,12 @@ burnish schedule weekly
 swift build && swift test
 ```
 
-The engine (`BurnishCore`) and CLI build on Linux too, so the 48 tests also run there in CI. The SwiftUI app target builds on macOS only.
+The engine (`RootCore`) and CLI build on Linux too, so the 60 tests also run there in CI. The SwiftUI app target builds on macOS only.
 
 ```
-Sources/BurnishCore   engine: catalog, scanner, safety, cleaner, privilege, modules
-Sources/burnish       CLI
-Sources/BurnishApp    SwiftUI app (macOS 14+, Liquid Glass on macOS 26)
+Sources/RootCore   engine: catalog, scanner, safety, cleaner, privilege, modules
+Sources/root       CLI
+Sources/RootApp    SwiftUI app (macOS 14+, Liquid Glass on macOS 26)
 Assets/               icon SVG, layered Icon Composer sources, .icns
 scripts/              build-app.sh, build-icon.sh
 ```

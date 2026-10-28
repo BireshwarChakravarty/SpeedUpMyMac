@@ -1,6 +1,6 @@
-# Burnish: user guide
+# Root: user guide
 
-Burnish deep-cleans, speeds up and protects every Mac you own, from one app.
+Root deep-cleans, speeds up and protects every Mac you own, from one app.
 Nothing is ever removed without a **receipt**: a list of exactly what goes, where it goes, and the admin script if one is needed.
 
 ---
@@ -8,30 +8,30 @@ Nothing is ever removed without a **receipt**: a list of exactly what goes, wher
 ## 1. Install
 
 ### Download
-1. Open the repo's **Actions** tab on GitHub, open the latest green **CI** run, and download the **Burnish** artifact.
-2. Safari unzips it to a folder in **Downloads**. If you see another `Burnish.zip` inside, double-click that too, until **Burnish.app** appears.
+1. Open the repo's **Actions** tab on GitHub, open the latest green **CI** run, and download the **Root** artifact.
+2. Safari unzips it to a folder in **Downloads**. If you see another `Root.zip` inside, double-click that too, until **Root.app** appears.
 
 ### Put it in Applications
-- **On your M4 and M6 (admin):** drag **Burnish.app** into **Applications** in the Finder sidebar.
+- **On your M4 and M6 (admin):** drag **Root.app** into **Applications** in the Finder sidebar.
 - **On the M3 (no admin):** drag it into the **Applications** folder inside your home folder (`~/Applications`). Create that folder if it isn't there.
 
 ### First launch
 macOS blocks apps that aren't from a registered developer. Unblock it once:
 
-1. Double-click Burnish. When macOS says it can't be opened, click **Done**.
-2. Open **System Settings → Privacy & Security**, scroll down, click **Open Anyway** next to Burnish, and confirm.
+1. Double-click Root. When macOS says it can't be opened, click **Done**.
+2. Open **System Settings → Privacy & Security**, scroll down, click **Open Anyway** next to Root, and confirm.
 
 If there's no **Open Anyway** button, run this once in Terminal:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/Burnish.app
+xattr -dr com.apple.quarantine /Applications/Root.app
 ```
 
-On the M3, use `~/Applications/Burnish.app` instead.
+On the M3, use `~/Applications/Root.app` instead.
 
 ### Give it Full Disk Access
-Without it, Burnish can't see Mail, Safari, other apps' containers or the Trash.
-Go to **System Settings → Privacy & Security → Full Disk Access**, click **+** and add Burnish.
+Without it, Root can't see Mail, Safari, other apps' containers or the Trash.
+Go to **System Settings → Privacy & Security → Full Disk Access**, click **+** and add Root.
 The Smart Scan and Health pages also have a button that opens this setting.
 
 ---
@@ -42,13 +42,13 @@ The **Sudo** switch is at the top right of every page.
 
 | State | What happens |
 |---|---|
-| **Off** (grey lock) | Burnish cleans everything your account owns. System folders are listed but skipped. |
-| **On** (amber, open lock) | System-level items are included too. When a job needs them, Burnish shows the exact script, then macOS asks for your password **once for that batch**. |
+| **Off** (grey lock) | Root cleans everything your account owns. System folders are listed but skipped. |
+| **On** (amber, open lock) | System-level items are included too. When a job needs them, Root shows the exact script, then macOS asks for your password **once for that batch**. |
 
 - **Greyed out?** That account isn't an administrator on that Mac, which is expected on the M3. Point at the switch and it explains why.
 - **Check whether an account is an admin:** `id -Gn | grep -o admin` prints `admin` if it is.
 - **Use your fingerprint instead of typing the password:** go to **Tweaks**, then turn on **Touch ID for sudo**. Sudo mode must be on for this.
-- **From Terminal:** `burnish sudo on` turns it on permanently, and `--sudo` applies it to a single command.
+- **From Terminal:** `root sudo on` turns it on permanently, and `--sudo` applies it to a single command.
 
 ---
 
@@ -56,7 +56,7 @@ The **Sudo** switch is at the top right of every page.
 
 | Page | What it does |
 |---|---|
-| **Smart Scan** | Tap the orb. One scan covers junk, idle build folders, health, security, maintenance and startup items. **Burnish now** cleans only the safe items. |
+| **Smart Scan** | Tap the orb. One scan covers junk, idle build folders, health, security, maintenance and startup items. **Clean now** cleans only the safe items. |
 | **Cleanup** | 50 cleanup rules: caches, logs, browser junk, installers, Trash and more. Items rated *Safe* are pre-selected; *Review* and *Risky* items never are. |
 | **Dev Purge** | Removes `node_modules`, `target`, `.build`, Pods, venvs and similar folders from projects you haven't touched lately. Folders tracked by git are never touched. |
 | **Uninstaller** | Removes apps **completely**, with no traces left (see below). Also finds files left behind by apps you deleted long ago. |
@@ -75,7 +75,7 @@ Keyboard: **⌘R** runs Smart Scan, and **⌘1** to **⌘9** jump between pages.
 
 ## 4. Uninstaller: complete removal
 
-**Remove completely, leave no trace** is on by default. When you uninstall an app, Burnish does the following:
+**Remove completely, leave no trace** is on by default. When you uninstall an app, Root does the following:
 
 1. **Stops it first.** It quits the app, terminates its helper processes and unloads its background jobs, so nothing recreates files mid-removal.
 2. **Deletes every file it made**, permanently rather than into the Trash, including its data and settings:
@@ -100,7 +100,7 @@ Keyboard: **⌘R** runs Smart Scan, and **⌘1** to **⌘9** jump between pages.
 Some items need Sudo mode: system daemons, root-owned files and receipts. With Sudo on, all of them run in **one** password prompt.
 Turn complete removal off, on the Uninstaller page or in Settings, to send apps to the Trash and keep their personal data instead.
 
-The matching level picker controls how hard Burnish looks:
+The matching level picker controls how hard Root looks:
 
 - **Strict:** exact bundle ID or app name only.
 - **Enhanced** (default): adds partial matches.
@@ -118,7 +118,7 @@ Settings (**⌘,**) → **Look & Sound**:
 
 - **Sound effects** and **volume**. Every sound is synthesized inside the app. The speaker button in the top bar mutes them instantly.
 - **Always use the dark aurora theme.** Turn this off to follow your system appearance.
-- **Reduce visual effects** gives a static background with no particles. Burnish also respects macOS **Reduce Motion**.
+- **Reduce visual effects** gives a static background with no particles. Root also respects macOS **Reduce Motion**.
 
 On a Force Touch trackpad, toggles and switches also give haptic feedback.
 
@@ -126,27 +126,27 @@ On a Force Touch trackpad, toggles and switches also give haptic feedback.
 
 ## 6. Command line
 
-The CLI is bundled at `Burnish.app/Contents/Helpers/burnish`. `scripts/build-app.sh --install` puts it on your PATH.
+The CLI is bundled at `Root.app/Contents/Helpers/root`. `scripts/build-app.sh --install` puts it on your PATH.
 
 ```bash
-burnish scan                 # what's reclaimable
-burnish clean                # clean safe items (add --sudo for system items)
-burnish uninstall "Zoom"     # complete removal, no traces (--keep-data to keep its data)
-burnish purge                # dev build artifacts
-burnish status               # health score, disk, memory, security
-burnish doctor               # permissions and tools check
-burnish fleet                # all your Macs
-burnish schedule weekly      # unattended safe clean, never uses sudo
+root scan                 # what's reclaimable
+root clean                # clean safe items (add --sudo for system items)
+root uninstall "Zoom"     # complete removal, no traces (--keep-data to keep its data)
+root purge                # dev build artifacts
+root status               # health score, disk, memory, security
+root doctor               # permissions and tools check
+root fleet                # all your Macs
+root schedule weekly      # unattended safe clean, never uses sudo
 ```
 
 Flags: `-n` / `--dry-run` previews without removing, `-y` / `--yes` skips the confirmation, and `-j` / `--json` prints machine-readable output.
 
 ---
 
-## 7. Safety rules Burnish never breaks
+## 7. Safety rules Root never breaks
 
 - No removal happens without a receipt you confirm.
 - Protected places are never touched: system folders, Keychains, Mail, Messages, Photos, iCloud Drive, `~/.ssh` and more. Your own **Never touch** list in Settings adds to these.
 - Symlink tricks are caught: every path is resolved and re-checked just before removal.
 - Root runs only a script built from quoted arguments, and you can read that script in the receipt first.
-- On a standard account (the M3), Burnish never asks for admin rights; it cleans what you own.
+- On a standard account (the M3), Root never asks for admin rights; it cleans what you own.

@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>Burnish</string>
+    <string>Root</string>
     <key>CFBundleDisplayName</key>
-    <string>Burnish</string>
+    <string>Root</string>
     <key>CFBundleIdentifier</key>
-    <string>io.burnish.Burnish</string>
+    <string>io.rootapp.Root</string>
     <key>CFBundleExecutable</key>
-    <string>Burnish</string>
+    <string>Root</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundlePackageType</key>
@@ -27,8 +27,8 @@
     <key>NSSupportsAutomaticTermination</key>
     <false/>
     <key>NSAppleEventsUsageDescription</key>
-    <string>Burnish asks apps to quit before uninstalling them, and uses an administrator prompt for system-level cleaning when Sudo mode is on.</string>
+    <string>Root asks apps to quit before uninstalling them, and uses an administrator prompt for system-level cleaning when Sudo mode is on.</string>
     <key>NSHumanReadableCopyright</key>
-    <string>Burnish — deep-clean every Mac you own.</string>
+    <string>Root — deep-clean every Mac you own.</string>
 </dict>
 </plist>

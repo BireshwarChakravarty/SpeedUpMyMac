@@ -1,6 +1,6 @@
 # Research: how the Mac cleaner apps actually work
 
-This is the research behind **Burnish**. I went through the cleaners, uninstallers, disk visualizers, maintenance tools, monitors and security auditors that people actually use in 2026. For each one I wrote down what it does, how it does it under the hood, and what Burnish takes from it. I also list the things Burnish should *not* copy, because some popular "speed up" features are placebo or risky.
+This is the research behind **Root**. I went through the cleaners, uninstallers, disk visualizers, maintenance tools, monitors and security auditors that people actually use in 2026. For each one I wrote down what it does, how it does it under the hood, and what Root takes from it. I also list the things Root should *not* copy, because some popular "speed up" features are placebo or risky.
 
 Research date: October 2026. Target OS: macOS 26 Tahoe on Apple silicon (M3 / M4 / M6). Older releases back to macOS 14 Sonoma still work.
 
@@ -32,7 +32,7 @@ Research date: October 2026. Target OS: macOS 26 Tahoe on Apple silicon (M3 / M4
 | **BuhoCleaner, CCleaner Mac, PowerMyMac, MacKeeper** | All-in-one clones | Paid | Nothing unique | Same path lists; MacKeeper has a bad reputation. Ignore. |
 | **DiskCleaner Pro** | Cleaner | Paid | "No silent deletes", checkbox review | Pitches itself against CleanMyMac's background deletion |
 
-Roundups this year mostly agree: CleanMyMac is still the default all-in-one, but you get the same cleanup for free with **Pearcleaner/AppCleaner + OnyX + DaisyDisk/GrandPerspective**. Mole has become the go-to free CLI. The two main complaints about CleanMyMac are the subscription and that it removes things in the background without showing exactly what went. Burnish fixes both: it's free and open, and every deletion is itemised, previewed and logged.
+Roundups this year mostly agree: CleanMyMac is still the default all-in-one, but you get the same cleanup for free with **Pearcleaner/AppCleaner + OnyX + DaisyDisk/GrandPerspective**. Mole has become the go-to free CLI. The two main complaints about CleanMyMac are the subscription and that it removes things in the background without showing exactly what went. Root fixes both: it's free and open, and every deletion is itemised, previewed and logged.
 
 ---
 
@@ -42,7 +42,7 @@ Roundups this year mostly agree: CleanMyMac is still the default all-in-one, but
 - **Modules (2025–26 redesign):** Smart Care (one button that runs clean, protect and speed together), Cleanup, Protection, Performance, Applications, My Clutter (large, old and duplicate files). v5.5 (Apr 2026) added a pinnable **My Tools** hub. v5.2.6 (Oct 2025) added **Cloud Cleanup**, which runs Space Lens and Large Files over iCloud Drive, Google Drive and OneDrive. v5.3 (Dec 2025) added Dropbox and OneDrive.
 - **How:** a curated, signed database of junk paths plus heuristics. A privileged helper handles system paths. Malware detection uses the proprietary Moonlock engine. Space Lens is a bubble/treemap of directory sizes.
 - **Take:** the *Smart Scan* one-button flow; one score summarising "how healthy is this Mac"; a pinnable tool hub; large/old/duplicate finder; a "maintenance" task list.
-- **Don't take:** silent background deletion, the subscription, and malware signatures (no way to maintain them). Burnish uses Apple's own XProtect status plus a KnockKnock-style signing audit instead.
+- **Don't take:** silent background deletion, the subscription, and malware signatures (no way to maintain them). Root uses Apple's own XProtect status plus a KnockKnock-style signing audit instead.
 
 ### 2.2 Mole (`tw93/Mole`)
 Mole is the most useful reference because the whole implementation is readable shell.
@@ -74,23 +74,23 @@ Mole is the most useful reference because the whole implementation is readable s
   - *Enhanced:* contains-match, the last two bundle-ID components joined (`knollsoftrectangle`), and the app name stripped of version numbers (`Bartender 6` → `bartender`)
   - *Deep:* adds company component and Team ID, plus Spotlight over many metadata attributes
   - Sandboxed containers are matched by reading `.com.apple.containermanagerd.metadata.plist` → `MCMMetadataIdentifier`. Helper suffixes (`.helper`, `.agent`, `.launcher`, `.updater`…) are stripped to find the base bundle ID.
-- **Privilege:** an `SMAppService.daemon` helper over XPC (Developer-ID signed). Note: its helper takes a free-form shell command string as root, which is a design Burnish should *not* copy.
+- **Privilege:** an `SMAppService.daemon` helper over XPC (Developer-ID signed). Note: its helper takes a free-form shell command string as root, which is a design Root should *not* copy.
 - **Sentinel:** a tiny separate process. It runs an FSEvents stream on `~/.Trash`, and when a `.app` lands there it opens the main app via a URL scheme to offer leftover cleanup.
 - **Take:** the leftover root list, the 3-level sensitivity matcher, container metadata matching, orphan finder, Trash sentinel and pkg receipts.
-- **Don't take:** language pruning or lipo *inside* signed bundles. Modifying a sealed bundle breaks its code signature, which can trip Gatekeeper or the app's own updater. Burnish reports it as possible savings but doesn't do it by default.
+- **Don't take:** language pruning or lipo *inside* signed bundles. Modifying a sealed bundle breaks its code signature, which can trip Gatekeeper or the app's own updater. Root reports it as possible savings but doesn't do it by default.
 
 ### 2.4 AppCleaner (FreeMacSoft)
 - The simplest model: drag an app in and it lists `~/Library/*/<bundle-id>*` and `*<App Name>*`. It's the "strict" level above. **Take:** drag-and-drop onto the window or Dock icon.
 
 ### 2.5 OnyX (Titanium Software)
 - One build per macOS version (OnyX 5 for Tahoe). It verifies the system volume, cleans caches and logs, and rebuilds Launch Services, the CoreDuet DB and the XPC cache. It also exposes hidden Finder/Dock/Safari parameters. It needs Full Disk Access.
-- Periodic scripts were **removed in macOS 15** (`/etc/periodic` is gone and `periodic` is no longer shipped). OnyX and Maintenance dropped that action, so Burnish hides it on 15+.
+- Periodic scripts were **removed in macOS 15** (`/etc/periodic` is gone and `periodic` is no longer shipped). OnyX and Maintenance dropped that action, so Root hides it on 15+.
 - **Take:** the maintenance catalogue (Launch Services rebuild, Spotlight reindex, font cache reset, QuickLook reset, DNS flush, Dock/Finder restart) and a hidden-preferences panel.
 
 ### 2.6 Sensei (Cindori)
 - Dashboard of CPU/GPU/RAM/network/battery/40+ temperature sensors/fans. Battery health (cycle count, design vs. current capacity), SMART, disk benchmark, Trim toggle, startup optimizer, cleaner, uninstaller.
 - **How:** IOKit (`AppleSmartBattery` registry entry: `CycleCount`, `AppleRawMaxCapacity`, `DesignCapacity`), SMC keys for sensors, `diskutil info` for SMART.
-- **Take:** the health dashboard (battery, SMART, thermal state, memory pressure, swap). Trim is always on for Apple SSDs, so Burnish just displays it.
+- **Take:** the health dashboard (battery, SMART, thermal state, memory pressure, swap). Trim is always on for Apple SSDs, so Root just displays it.
 
 ### 2.7 DaisyDisk / GrandPerspective / OmniDiskSweeper
 - DaisyDisk: a parallel, low-level scan; a **sunburst** map; drag items to a "collector" before deleting. It also shows **purgeable space** (mostly APFS local snapshots) separately, because no scan can see inside it, and it can force-reclaim it.
@@ -122,12 +122,12 @@ Mole is the most useful reference because the whole implementation is readable s
 - **Take:** a lightweight `MenuBarExtra` showing memory pressure, free disk and a one-click quick clean.
 
 ### 2.12 RemoveMacAI / TinkerTool / "debloat" scripts
-- macOS 26 has a **Signed System Volume** with SIP. You **cannot delete system apps or truly disable Siri/Spotlight daemons** without turning SIP off, and Burnish will never ask you to. Eclectic Light (Jan 2026) confirms that switching off all Spotlight settings doesn't stop indexing.
+- macOS 26 has a **Signed System Volume** with SIP. You **cannot delete system apps or truly disable Siri/Spotlight daemons** without turning SIP off, and Root will never ask you to. Eclectic Light (Jan 2026) confirms that switching off all Spotlight settings doesn't stop indexing.
 - What *is* possible, and reversible: `defaults` toggles for analytics, personalized ads, Siri suggestions, Spotlight web results, the crash-reporter dialog, `.DS_Store` on network and USB volumes, Photos auto-open, the Time Machine new-disk prompt, animation speeds and Dock delays. Removing *deletable* Apple extras (GarageBand + `/Library/Application Support/GarageBand` + `/Library/Audio/Apple Loops`, iMovie, Keynote/Pages/Numbers) often frees 2–10 GB.
 - **Take:** reversible tweaks. Every change records its previous value to a restore file, as RemoveMacAI does. Presets: *Balanced*, *Privacy*, *Snappy*.
 
 ### 2.13 Time Machine snapshots & "System Data"
-- The biggest mystery blob in Settings → Storage is usually **local APFS snapshots**. List them with `tmutil listlocalsnapshots /`. `tmutil thinlocalsnapshots / <bytes> <urgency 1-4>` asks macOS to reclaim space. `tmutil deletelocalsnapshots <date>` deletes one (needs admin). Only do this if you have a real backup, because snapshots *are* recovery points. Mole removed auto-deletion for this reason. Burnish shows them and offers *thin* with an explicit confirmation.
+- The biggest mystery blob in Settings → Storage is usually **local APFS snapshots**. List them with `tmutil listlocalsnapshots /`. `tmutil thinlocalsnapshots / <bytes> <urgency 1-4>` asks macOS to reclaim space. `tmutil deletelocalsnapshots <date>` deletes one (needs admin). Only do this if you have a real backup, because snapshots *are* recovery points. Mole removed auto-deletion for this reason. Root shows them and offers *thin* with an explicit confirmation.
 
 ---
 
@@ -144,9 +144,9 @@ Mole is the most useful reference because the whole implementation is readable s
 2. **Running it on a standard account.** Gatekeeper only checks files that carry the `com.apple.quarantine` attribute. **An app you build yourself on the Mac never gets that attribute**, so a source build into `~/Applications` runs with no admin and no Developer ID. That's the install path for the M3.
 3. **Privilege escalation without a Developer ID.** `SMAppService.daemon` and `SMJobBless` helpers need a Developer-ID-signed, notarized bundle. Unsigned helpers show as "unidentified developer" and won't run on Sequoia/Tahoe. For a personal tool, the practical, transparent route is:
    - **App:** collect every privileged step into one generated shell script, show it to you, and run it with a *single* authorization prompt via `do shell script … with administrator privileges`. Apple DTS calls this "not a valid alternative" for *shipping* software, but it's fine for a personal tool. A `PrivilegedHelper` protocol keeps the door open to swap in an `SMAppService` helper if you ever sign it.
-   - **CLI:** plain `sudo`, and Touch ID works if `/etc/pam.d/sudo_local` enables `pam_tid.so` (survives updates since Sonoma). Burnish offers that as a one-time admin tweak.
-4. **Full Disk Access.** Mail, Safari, Messages, `~/Library/Containers/*` of other apps, and `~/.Trash` from a terminal all need FDA. Burnish probes for it by trying to read `~/Library/Safari` and links to *System Settings → Privacy & Security → Full Disk Access* when it's missing. A standard user *can* grant FDA to apps for their own account on recent macOS, though some managed (MDM) machines lock it.
-5. **Things that don't speed up a modern Mac** (so Burnish doesn't pretend they do):
+   - **CLI:** plain `sudo`, and Touch ID works if `/etc/pam.d/sudo_local` enables `pam_tid.so` (survives updates since Sonoma). Root offers that as a one-time admin tweak.
+4. **Full Disk Access.** Mail, Safari, Messages, `~/Library/Containers/*` of other apps, and `~/.Trash` from a terminal all need FDA. Root probes for it by trying to read `~/Library/Safari` and links to *System Settings → Privacy & Security → Full Disk Access* when it's missing. A standard user *can* grant FDA to apps for their own account on recent macOS, though some managed (MDM) machines lock it.
+5. **Things that don't speed up a modern Mac** (so Root doesn't pretend they do):
    - `purge` to "free RAM": the memory compressor manages this. It's offered only as a diagnostic.
    - Repairing disk permissions: gone since El Capitan, apart from the user-home reset that Mole runs only when ownership is wrong.
    - Running periodic scripts: removed in macOS 15.
@@ -156,9 +156,9 @@ Mole is the most useful reference because the whole implementation is readable s
 
 ---
 
-## 4. Feature matrix: what Burnish combines
+## 4. Feature matrix: what Root combines
 
-| Burnish module | Borrowed from | Works without admin? | With sudo toggle adds |
+| Root module | Borrowed from | Works without admin? | With sudo toggle adds |
 |---|---|---|---|
 | **Smart Scan** (one button, health score) | CleanMyMac Smart Care, Mole status | ✅ | System caches/logs, snapshots |
 | **Cleanup** (50 curated targets) | Mole clean, CleanMyMac, BleachBit | ✅ user scope | `/Library/Caches`, `/Library/Logs`, rotated `/private/var/log` archives, `/cores` dumps, old "Install macOS" apps, GarageBand/Logic loops |
@@ -173,7 +173,7 @@ Mole is the most useful reference because the whole implementation is readable s
 | **Fleet** (all your Macs side by side) | *new*: nobody does this | ✅ | — |
 | **History & Undo** | Mole op log, RemoveMacAI restore | ✅ | — |
 
-The **Fleet** module is the gap in the market. None of these tools know you own more than one Mac. Burnish writes a small JSON snapshot per Mac (chip, macOS, admin or not, free space, reclaimable, last clean, health score) to a shared folder: iCloud Drive by default, or any folder or synced drive you pick for the M3, where personal iCloud may not be signed in. Every Mac then shows the whole fleet. Shared settings (ignore list, tweak preset, schedule) sync the same way, with per-machine overrides.
+The **Fleet** module is the gap in the market. None of these tools know you own more than one Mac. Root writes a small JSON snapshot per Mac (chip, macOS, admin or not, free space, reclaimable, last clean, health score) to a shared folder: iCloud Drive by default, or any folder or synced drive you pick for the M3, where personal iCloud may not be signed in. Every Mac then shows the whole fleet. Shared settings (ignore list, tweak preset, schedule) sync the same way, with per-machine overrides.
 
 ---
 

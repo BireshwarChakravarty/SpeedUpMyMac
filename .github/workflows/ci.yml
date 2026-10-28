@@ -25,14 +25,14 @@ jobs:
         run: scripts/build-app.sh
       - name: CLI smoke test
         run: |
-          dist/Burnish.app/Contents/Helpers/burnish --version
-          dist/Burnish.app/Contents/Helpers/burnish doctor
-          dist/Burnish.app/Contents/Helpers/burnish scan
-          dist/Burnish.app/Contents/Helpers/burnish optimize --list
+          dist/Root.app/Contents/Helpers/root --version
+          dist/Root.app/Contents/Helpers/root doctor
+          dist/Root.app/Contents/Helpers/root scan
+          dist/Root.app/Contents/Helpers/root optimize --list
       - uses: actions/upload-artifact@v4
         with:
-          name: Burnish
-          path: dist/Burnish.zip
+          name: Root
+          path: dist/Root.zip
 
   linux:
     name: Linux — engine and CLI tests

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="lime" gradientUnits="userSpaceOnUse" x1="212" y1="250" x2="704" y2="770"><stop offset="0" stop-color="#ECFCCB"/><stop offset="0.45" stop-color="#A3E635"/><stop offset="1" stop-color="#4D7C0F"/></linearGradient>
+  </defs>
+  <g fill="none" stroke="url(#lime)" stroke-width="76" stroke-linecap="round">
+    <path d="M400 250 L340 770"/><path d="M600 250 L540 770"/><path d="M236 420 L704 420"/><path d="M212 610 L680 610"/>
+  </g>
+</svg>
