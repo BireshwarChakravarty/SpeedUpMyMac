@@ -266,7 +266,7 @@ struct TweaksView: View {
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                         }
-                        .toggleStyle(GlowSwitchStyle(tint: Theme.sudoGradient))
+                        .toggleStyle(GlowSwitchStyle())
                         .disabled(!model.sudo)
                     }
                 }
