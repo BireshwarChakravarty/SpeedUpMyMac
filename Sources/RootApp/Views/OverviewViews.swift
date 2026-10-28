@@ -26,7 +26,7 @@ struct HealthView: View {
                 }
                 .card(padding: 22)
 
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 16)], spacing: 16) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 16, alignment: .top)], spacing: 16) {
                     metric("Storage", "internaldrive", [
                         ("Available", Format.bytes(h.disk.availableBytes)),
                         ("Of which purgeable", Format.bytes(h.disk.purgeableBytes)),
@@ -138,7 +138,7 @@ struct FleetView: View {
                 EmptyState(symbol: "macbook.and.iphone", title: "Add your other Macs",
                            message: "Install Root on each Mac and point it at the same synced folder (iCloud Drive by default). On a work Mac without your personal iCloud, pick any folder that syncs — Dropbox, Google Drive, OneDrive or a network share.").card()
             }
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 16)], spacing: 16) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 16, alignment: .top)], spacing: 16) {
                 ForEach(Array(model.fleet.enumerated()), id: \.element.id) { index, snap in
                     FleetCard(snap: snap, isThisMac: snap.machine.machineID == model.machine.machineID)
                         .reveal(index: index, step: 0.08)

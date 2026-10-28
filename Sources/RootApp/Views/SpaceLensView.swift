@@ -88,6 +88,7 @@ struct SpaceLensView: View {
             .frame(maxWidth: .infinity)
             .card()
 
+            if tree != nil {
             VStack(alignment: .leading, spacing: 6) {
                 if let node = focus ?? tree {
                     Text(Paths.abbreviate(node.path)).font(.headline).lineLimit(1).truncationMode(.middle)
@@ -133,8 +134,9 @@ struct SpaceLensView: View {
             }
             .frame(width: 380)
             .card()
+            }
         }
-        .padding(.horizontal, 22).padding(.bottom, 22)
+        .padding(.horizontal, 32).padding(.bottom, 22)
     }
 
     private func sweepIn() {

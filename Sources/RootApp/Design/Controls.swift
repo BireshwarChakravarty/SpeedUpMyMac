@@ -26,6 +26,8 @@ private struct PrimaryButtonBody: View {
         let small = controlSize == .small || controlSize == .mini
         configuration.label
             .font(.system(size: small ? 12 : 13, weight: .semibold))
+            .lineLimit(1)
+            .fixedSize()
             .foregroundStyle(text)
             .padding(.horizontal, small ? 12 : 18)
             .frame(height: small ? 26 : 32)
@@ -55,6 +57,8 @@ private struct QuietButtonBody: View {
         let small = controlSize == .small || controlSize == .mini
         configuration.label
             .font(.system(size: small ? 12 : 13, weight: .medium))
+            .lineLimit(1)
+            .fixedSize()
             .padding(.horizontal, small ? 10 : 14)
             .frame(height: small ? 26 : 32)
             .background(Capsule().fill(Theme.rim.opacity(configuration.isPressed ? 0.12 : hovering ? 0.08 : 0.04)))
@@ -139,7 +143,12 @@ struct GlowSwitchStyle: ToggleStyle {
     var tint: LinearGradient = Theme.brand
 
     func makeBody(configuration: Configuration) -> some View {
-        Toggle(configuration).toggleStyle(.switch).tint(Theme.leaf)
+        // Label on the left, switch pinned to the trailing edge, like System Settings.
+        HStack(alignment: .center, spacing: 12) {
+            configuration.label
+            Spacer(minLength: 12)
+            Toggle("", isOn: configuration.$isOn).labelsHidden().toggleStyle(.switch).tint(Theme.leaf)
+        }
     }
 }
 
@@ -171,6 +180,7 @@ struct PillPicker<Value: Hashable>: View {
         .pickerStyle(.segmented)
         .labelsHidden()
         .fixedSize()
+        .tint(Color(light: 0x8E8E93, dark: 0x636366)) // neutral selection: white text stays readable
     }
 }
 
