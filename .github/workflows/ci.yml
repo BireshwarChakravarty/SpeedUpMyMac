@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  macos:
+    name: macOS — build app, CLI and tests
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+      - name: Build (debug, all products incl. SwiftUI app)
+        run: swift build
+      - name: Test
+        run: swift test
+      - name: Package app bundle
+        run: scripts/build-app.sh
+      - name: CLI smoke test
+        run: |
+          dist/Burnish.app/Contents/Helpers/burnish --version
+          dist/Burnish.app/Contents/Helpers/burnish doctor
+          dist/Burnish.app/Contents/Helpers/burnish scan
+          dist/Burnish.app/Contents/Helpers/burnish optimize --list
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Burnish
+          path: dist/Burnish.zip
+
+  linux:
+    name: Linux — engine and CLI tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.2"
+      - run: swift build
+      - run: swift test

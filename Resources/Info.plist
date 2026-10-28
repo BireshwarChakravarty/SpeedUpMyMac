@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>Burnish</string>
+    <key>CFBundleDisplayName</key>
+    <string>Burnish</string>
+    <key>CFBundleIdentifier</key>
+    <string>io.burnish.Burnish</string>
+    <key>CFBundleExecutable</key>
+    <string>Burnish</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>__VERSION__</string>
+    <key>CFBundleVersion</key>
+    <string>__BUILD__</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSSupportsAutomaticTermination</key>
+    <false/>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Burnish asks apps to quit before uninstalling them, and uses an administrator prompt for system-level cleaning when Sudo mode is on.</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>Burnish — deep-clean every Mac you own.</string>
+</dict>
+</plist>

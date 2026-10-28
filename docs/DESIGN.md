@@ -70,15 +70,17 @@ Burnish targets **macOS 26 Tahoe's Liquid Glass** language, so it looks native o
 
 ## Icon
 
-File: `Assets/AppIcon.svg`. The layered sources for Icon Composer are in `Assets/IconLayers/`.
+![Burnish icon](../Assets/AppIcon-1024.png)
 
-- **Shape:** the standard macOS squircle (1024 canvas, 824 body, 100 px margin, corner radius ≈ 185).
-- **Background layer:** deep graphite-titanium, a radial gradient `#26324A → #0B0F17` with a faint brushed-metal linear sheen, to read as anodized aluminium.
-- **Swirl layer** (the hero): a thick crescent sweep, the stroke of a polishing cloth across metal, filled with the `polish` gradient (mint → azure → violet). It's set as **Liquid Glass** in Icon Composer (translucency 40%, specular on), so Tahoe refracts it.
-- **Glint layer:** a four-point sparkle at the top-right end of the sweep, in white with soft bloom. It's the "shine" the app produces.
-- It reads at 16 px as a bright crescent plus a dot on dark. Tinted and clear modes on Tahoe keep the swirl as the luminance silhouette.
+File: `Assets/AppIcon.svg`. The layered sources for Icon Composer are in `Assets/IconLayers/` (background, swoosh, glint).
 
-`scripts/build-icon.sh` renders the SVG to every `.iconset` size and builds `AppIcon.icns` with `iconutil` on macOS. A pre-built `Assets/AppIcon.icns` is committed, so the app builds without that step.
+- **Shape:** the standard macOS rounded square (1024 canvas, 824 body, 100 px margin, corner radius ≈ 186), with a soft drop shadow.
+- **Background layer:** deep graphite-titanium, a radial gradient `#2E3D5C → #080B12`. Horizontal brushed-metal grain and a faint diagonal reflection band make it read as anodized aluminium, the thing being burnished.
+- **Swoosh layer** (the hero): a tapered polishing stroke, pointed at both ends and thick in the middle, sweeping from lower-left up to the top-right. It's filled with the `polish` gradient (mint `#2FD4B5` → azure `#2F8CFF` → violet `#8A6CFF`), with a soft glow and a top specular. In Icon Composer, set it to **Liquid Glass** (translucency ~40%, specular on) so Tahoe refracts it.
+- **Glint layer:** a large four-point sparkle where the stroke ends, plus a small secondary one, both white with bloom. That's the shine the polish leaves behind.
+- **Why not a broom or trash can:** every competitor uses one. A swipe plus a sparkle says "polish", reads at 16 px as a bright curve and a dot on dark, and keeps its silhouette in Tahoe's tinted and clear icon modes.
+
+`scripts/build-icon.sh` regenerates `AppIcon.icns` from the SVG on macOS (Quick Look → sips → iconutil). A pre-built `Assets/AppIcon.icns` and `.iconset` are committed, so the app builds without that step.
 
 ## Module map
 
