@@ -314,6 +314,119 @@ final class UninstallerTests: SandboxedTestCase {
     }
 }
 
+final class CompleteUninstallTests: SandboxedTestCase {
+    func app(at path: String, _ name: String, _ id: String) -> InstalledApp {
+        InstalledApp(path: path, name: name, bundleID: id, version: "1", bytes: 0, lastUsed: nil, teamID: nil,
+                     embeddedBundleIDs: [], userRemovable: true, isAppleApp: false, isAppStore: false)
+    }
+
+    func testCrashReportsAreMatchedByExecutableName() {
+        let m = Uninstaller.crashReportMatcher(for: app(at: "/Applications/Zed.app", "Zed", "dev.zed.Zed"))
+        XCTAssertTrue(m("Zed-2026-01-02-030405.ips"))
+        XCTAssertTrue(m("zed_2026-01-02-030405_mac.diag"))
+        XCTAssertFalse(m("Zedge-2026-01-02.ips"))
+        XCTAssertFalse(m("Safari-2026-01-02.ips"))
+    }
+
+    func testCommandLineLinksIntoTheBundleAreFound() throws {
+        let bundle = makeDir("Applications/Code.app/Contents/Resources/bin")
+        FileManager.default.createFile(atPath: bundle + "/code", contents: Data())
+        let appPath = (home as NSString).appendingPathComponent("Applications/Code.app")
+        _ = makeDir("bin")
+        try FileManager.default.createSymbolicLink(atPath: home + "/bin/code", withDestinationPath: bundle + "/code")
+        try FileManager.default.createSymbolicLink(atPath: home + "/bin/other", withDestinationPath: "/usr/bin/true")
+        XCTAssertEqual(Uninstaller.commandLineLinks(into: appPath), [home + "/bin/code"])
+        let found = Uninstaller.leftovers(for: app(at: appPath, "Visual Studio Code", "com.microsoft.VSCode"))
+        XCTAssertTrue(found.contains { $0.path == home + "/bin/code" && $0.kind == "Command-line Link" })
+    }
+
+    func testDotFoldersOnlyAtDeepLevel() {
+        makeFile(".zoomus/config")
+        makeFile(".unrelated/config")
+        let zoom = app(at: "/Applications/zoom.us.app", "zoom.us", "us.zoom.xos")
+        XCTAssertFalse(Uninstaller.leftovers(for: zoom, level: .enhanced).contains { $0.kind == "Dotfolder" })
+        let deep = Uninstaller.leftovers(for: zoom, level: .deep).filter { $0.kind == "Dotfolder" }.map(\.path)
+        XCTAssertEqual(deep, [home + "/.zoomus"])
+    }
+
+    func testPreferenceDomainsIncludeByHost() {
+        let plain = makeFile("Library/Preferences/com.vendor.App.plist")
+        let host = makeFile("Library/Preferences/ByHost/com.vendor.App.0A1B2C3D-0000-1111-2222-333344445555.plist")
+        let leftovers = [plain, host].map { Leftover(path: $0, bytes: 1, kind: "Preferences", system: false, isUserData: false) }
+        XCTAssertEqual(Uninstaller.preferenceDomains(in: leftovers), ["com.vendor.App", "host:com.vendor.App"])
+    }
+
+    func testProcessesInsideTheBundle() {
+        let ps = """
+          101   501 /Applications/Foo.app/Contents/MacOS/Foo -psn_0
+          102   501 /Applications/Foo.app/Contents/Frameworks/Foo Helper.app/Contents/MacOS/Foo Helper --type=gpu
+          103     0 /Library/PrivilegedHelperTools/com.foo.helper
+          104   501 /Applications/Foobar.app/Contents/MacOS/Foobar
+        """
+        let found = Uninstaller.parseProcesses(ps, inside: "/Applications/Foo.app")
+        XCTAssertEqual(found.map(\.pid), [101, 102])
+    }
+
+    func testLaunchdLabelsAreMatchedByBundleID() {
+        let list = "PID\tStatus\tLabel\n-\t0\tcom.vendor.App.helper\n42\t0\tcom.vendor.Apple\n-\t0\tcom.vendor.App\n"
+        let labels = Uninstaller.loadedLabels(list)
+        XCTAssertEqual(labels.filter { Uninstaller.ownsLabel($0, ids: ["com.vendor.App"]) }, ["com.vendor.App.helper", "com.vendor.App"])
+    }
+
+    func testCompleteRemovalNeverUsesTheTrash() {
+        let a = app(at: "/Applications/Foo.app", "Foo", "com.foo")
+        let leftovers = [Leftover(path: "/x/Application Support/Foo", bytes: 1, kind: "Application Support", system: false, isUserData: true)]
+        XCTAssertTrue(Uninstaller.requests(app: a, leftovers: leftovers, sudo: false, complete: true).allSatisfy { !$0.preferTrash })
+        XCTAssertTrue(Uninstaller.requests(app: a, leftovers: leftovers, sudo: false).allSatisfy { $0.preferTrash })
+    }
+
+    func testRemainingReportsSurvivors() {
+        let appPath = makeDir("Applications/Foo.app/Contents")
+            .replacingOccurrences(of: "/Contents", with: "")
+        makeFile("Library/Caches/com.foo.Foo/cache.db")
+        let foo = app(at: appPath, "Foo", "com.foo.Foo")
+        let left = Uninstaller.remaining(after: foo, level: .enhanced)
+        XCTAssertEqual(left.first?.kind, "Application")
+        XCTAssertTrue(left.contains { $0.kind == "Cache" })
+        try? FileManager.default.removeItem(atPath: appPath)
+        try? FileManager.default.removeItem(atPath: home + "/Library/Caches/com.foo.Foo")
+        XCTAssertTrue(Uninstaller.remaining(after: foo, level: .enhanced).isEmpty)
+    }
+
+    func testUninstallRemovesEverythingAndRunsRootTracesOnce() {
+        let appPath = makeDir("Applications/Foo.app/Contents").replacingOccurrences(of: "/Contents", with: "")
+        let cache = makeFile("Library/Caches/com.foo.Foo/cache.db")
+        let data = makeFile("Library/Application Support/Foo/library.db")
+        let foo = app(at: appPath, "Foo", "com.foo.Foo")
+        let leftovers = Uninstaller.leftovers(for: foo)
+        XCTAssertEqual(Set(leftovers.map(\.path)), [home + "/Library/Caches/com.foo.Foo", home + "/Library/Application Support/Foo"])
+        let receipts = UninstallTrace(kind: .receipts, title: "Forget", detail: "", items: ["com.foo.pkg"], needsAdmin: true)
+        let runner = RecordingRunner()
+        let report = Uninstaller.uninstall(foo, leftovers: leftovers, traces: [receipts], complete: true,
+                                           settings: Settings(), sudo: true, runner: runner)
+        XCTAssertTrue(report.failures.isEmpty, "\(report.failures)")
+        XCTAssertTrue(report.removed.allSatisfy { $0.method == .delete })
+        for path in [appPath, cache, data] { XCTAssertFalse(Paths.lexists(path), path) }
+        XCTAssertEqual(runner.scripts.count, 1)
+        var expected = PrivilegedScript()
+        expected.add("/usr/sbin/pkgutil", ["--forget", "com.foo.pkg"])
+        XCTAssertEqual(runner.scripts[0], expected)
+        XCTAssertTrue(Uninstaller.remaining(after: foo, level: .enhanced).isEmpty)
+    }
+
+    func testDockTilesAreMatchedByURL() {
+        let entry: [String: Any] = ["tile-data": ["file-data": ["_CFURLString": "file:///Applications/Foo%20Bar.app/", "_CFURLStringType": 15]]]
+        XCTAssertTrue(Uninstaller.dockEntry(entry, points: "/Applications/Foo Bar.app"))
+        XCTAssertFalse(Uninstaller.dockEntry(entry, points: "/Applications/Foo.app"))
+    }
+
+    func testCompleteUninstallIsTheDefaultAndDecodesTolerantly() throws {
+        XCTAssertTrue(Settings().uninstallCompletely)
+        let old = try JSONDecoder.burnish.decode(Settings.self, from: Data("{\"adminMode\": true}".utf8))
+        XCTAssertTrue(old.uninstallCompletely)
+    }
+}
+
 final class OrphanTests: SandboxedTestCase {
     func testFindsLeftoversOfUninstalledAppsOnly() {
         makeFile("Library/Application Support/com.gone.app/data", bytes: 2048)

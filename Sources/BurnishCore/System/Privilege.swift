@@ -119,3 +119,20 @@ public final class RecordingRunner: PrivilegeRunner, @unchecked Sendable {
         return ShellResult(status: 0, stdout: "", stderr: "")
     }
 }
+
+/// Runs a prefix (e.g. `launchctl bootout` for daemons) in the same authorization as the main script.
+public struct PrependingRunner: PrivilegeRunner {
+    public var prefix: PrivilegedScript
+    public var base: PrivilegeRunner
+
+    public init(prefix: PrivilegedScript, base: PrivilegeRunner) {
+        self.prefix = prefix
+        self.base = base
+    }
+
+    public func run(_ script: PrivilegedScript, reason: String) throws -> ShellResult {
+        var combined = prefix
+        for line in script.lines { combined.addTrusted(line) }
+        return try base.run(combined, reason: reason)
+    }
+}

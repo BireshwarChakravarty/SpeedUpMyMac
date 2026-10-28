@@ -151,6 +151,19 @@ public enum Uninstaller {
         ("~/Library/Caches/com.crashlytics", "Crash SDK Cache", false),
         ("~/Library/Caches/org.sparkle-project.Sparkle", "Updater Cache", false),
         ("~/Library/Caches/SentryCrash", "Crash SDK Cache", false),
+        ("~/Library/Caches/com.apple.nsurlsessiond/Downloads", "Download Cache", false),
+        ("~/Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.ApplicationRecentDocuments",
+         "Recent Documents List", false),
+        ("~/Library/Application Support/FileProvider", "File Provider Data", true),
+        ("~/Library/Screen Savers", "Screen Saver", false),
+        ("~/Library/QuickLook", "Quick Look Plug-in", false),
+        ("~/Library/Spotlight", "Spotlight Importer", false),
+        ("~/Library/ColorPickers", "Color Picker", false),
+        ("~/Library/Contextual Menu Items", "Contextual Menu Item", false),
+        ("~/Library/Address Book Plug-Ins", "Contacts Plug-in", false),
+        ("~/Library/Audio/Plug-Ins/Components", "Audio Unit", false),
+        ("~/Library/Audio/Plug-Ins/VST", "VST Plug-in", false),
+        ("~/Library/Audio/Plug-Ins/VST3", "VST3 Plug-in", false),
     ]
 
     static let systemRoots: [(String, String)] = [
@@ -167,9 +180,38 @@ public enum Uninstaller {
         ("/Library/PreferencePanes", "Preference Pane"),
         ("/Library/Audio/Plug-Ins/Components", "Audio Unit"),
         ("/Library/Audio/Plug-Ins/HAL", "Audio Driver"),
-        ("/private/var/db/receipts", "Install Receipt"),
+        ("/Library/Audio/Plug-Ins/VST", "VST Plug-in"),
+        ("/Library/Audio/Plug-Ins/VST3", "VST3 Plug-in"),
+        ("/Library/Application Support/CrashReporter", "Crash Reporter"),
+        ("/Library/Screen Savers", "Screen Saver"),
+        ("/Library/QuickLook", "Quick Look Plug-in"),
+        ("/Library/Spotlight", "Spotlight Importer"),
+        ("/Library/Frameworks", "Framework"),
+        ("/Library/Services", "Service"),
+        ("/Library/ColorPickers", "Color Picker"),
+        ("/Library/Contextual Menu Items", "Contextual Menu Item"),
+        ("/Library/Filesystems", "File System"),
+        ("/Library/Security/SecurityAgentPlugins", "Security Plug-in"),
         ("/Users/Shared", "Shared Data"),
+        // Install receipts live in /private/var/db/receipts, which Safety never touches:
+        // they're forgotten with `pkgutil --forget` instead (see UninstallTraces).
     ]
+
+    /// Folders where installers drop command-line links into an app bundle.
+    static let linkFolders = ["/usr/local/bin", "/opt/homebrew/bin", "~/.local/bin", "~/bin"]
+
+    /// Per-user cache and temp folders under /var/folders (`getconf DARWIN_USER_CACHE_DIR`).
+    static let darwinUserFolders: [(String, String)] = {
+        #if os(macOS)
+        return [("DARWIN_USER_CACHE_DIR", "Hidden Cache"), ("DARWIN_USER_TEMP_DIR", "Hidden Temp Files")].compactMap { key, kind in
+            guard let r = Shell.runTool("getconf", [key], timeout: 5), r.succeeded else { return nil }
+            let dir = r.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+            return dir.isEmpty ? nil : (dir, kind)
+        }
+        #else
+        return []
+        #endif
+    }()
 
     /// Name fragments that must never be matched on their own (too generic).
     static let stopWords: Set<String> = ["app", "apple", "com", "org", "net", "io", "mac", "macos", "helper", "agent",
@@ -229,12 +271,28 @@ public enum Uninstaller {
             if otherNames.contains(normalizeName(raw)) && !raw.contains(ownID) { return }
             found[path] = Leftover(path: path, bytes: 0, kind: kind, system: system, isUserData: userData)
         }
+        let crash = crashReportMatcher(for: app)
         for (root, kind, userData) in userRoots {
             let dir = Paths.expand(root)
+            let isCrashFolder = root.hasSuffix("DiagnosticReports")
             for child in (try? FileManager.default.contentsOfDirectory(atPath: dir)) ?? [] {
                 let path = (dir as NSString).appendingPathComponent(child)
-                if match(child) { consider(path, kind: kind, system: false, userData: userData) }
+                if match(child) || (isCrashFolder && crash(child)) { consider(path, kind: kind, system: false, userData: userData) }
             }
+        }
+        for (dir, kind) in darwinUserFolders {
+            for child in (try? FileManager.default.contentsOfDirectory(atPath: dir)) ?? [] where match(child) {
+                consider((dir as NSString).appendingPathComponent(child), kind: kind, system: false, userData: false)
+            }
+        }
+        for link in commandLineLinks(into: app.path) {
+            consider(link, kind: "Command-line Link", system: !isUserRemovable(link), userData: false)
+        }
+        if level == .deep {
+            for dot in dotFolders(for: app) { consider(dot, kind: "Dotfolder", system: false, userData: true) }
+        }
+        for file in packageFiles(for: app, match: match) {
+            consider(file, kind: "Installed by Package", system: !isUserRemovable(file), userData: false)
         }
         // UUID-named containers: read the owner's bundle ID from the container metadata.
         let containers = Paths.expand("~/Library/Containers")
@@ -246,9 +304,12 @@ public enum Uninstaller {
             }
         }
         for (root, kind) in systemRoots {
+            let isCrashFolder = root.hasSuffix("DiagnosticReports")
             for child in (try? FileManager.default.contentsOfDirectory(atPath: root)) ?? [] {
                 let path = (root as NSString).appendingPathComponent(child)
-                if match(child) { consider(path, kind: kind, system: !isUserRemovable(path), userData: false) }
+                if match(child) || (isCrashFolder && crash(child)) {
+                    consider(path, kind: kind, system: !isUserRemovable(path), userData: false)
+                }
             }
         }
         var list = Array(found.values)
@@ -257,6 +318,87 @@ public enum Uninstaller {
             DispatchQueue.concurrentPerform(iterations: buffer.count) { i in base[i].bytes = FileSizer.measure(base[i].path).bytes }
         }
         return list.sorted { $0.bytes > $1.bytes }
+    }
+
+    /// Crash reports are named after the executable: `AppName-2026-01-02-030405.ips`, `AppName_2026-….diag`.
+    static func crashReportMatcher(for app: InstalledApp) -> (String) -> Bool {
+        let names = Set([app.name, ((app.path as NSString).lastPathComponent as NSString).deletingPathExtension, stripVersion(app.name)]
+            .map { $0.lowercased() }.filter { $0.count >= 3 && !stopWords.contains($0) })
+        return { file in
+            let lower = file.lowercased()
+            return names.contains { lower.hasPrefix($0 + "-") || lower.hasPrefix($0 + "_") || lower.hasPrefix($0 + ".") }
+        }
+    }
+
+    /// Symlinks (e.g. `/usr/local/bin/code`) that point into the app bundle and would dangle once it's gone.
+    static func commandLineLinks(into appPath: String) -> [String] {
+        var links: [String] = []
+        for folder in linkFolders.map(Paths.expand) {
+            for child in (try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? [] {
+                let path = (folder as NSString).appendingPathComponent(child)
+                guard let target = try? FileManager.default.destinationOfSymbolicLink(atPath: path) else { continue }
+                let absolute = target.hasPrefix("/") ? target : (folder as NSString).appendingPathComponent(target)
+                if Paths.isInside(Paths.normalize(absolute), appPath) { links.append(path) }
+            }
+        }
+        return links
+    }
+
+    /// `~/.appname` folders. Deep level only: dotfolders often hold config you may want to keep.
+    static func dotFolders(for app: InstalledApp) -> [String] {
+        let names = Set([app.name, ((app.path as NSString).lastPathComponent as NSString).deletingPathExtension, stripVersion(app.name)]
+            .map(normalizeName).filter { $0.count >= 4 && !stopWords.contains($0) })
+        let id = app.bundleID.lowercased()
+        let home = Paths.home
+        return ((try? FileManager.default.contentsOfDirectory(atPath: home)) ?? []).filter { child in
+            guard child.hasPrefix("."), child.count > 1 else { return false }
+            let bare = String(child.dropFirst())
+            return names.contains(normalizeName(bare)) || bare.lowercased() == id
+        }
+        .map { (home as NSString).appendingPathComponent($0) }
+    }
+
+    /// Installer packages whose ID belongs to the app (`pkgutil --pkgs`).
+    public static func packageIDs(for app: InstalledApp, level: MatchLevel = .enhanced) -> [String] {
+        #if os(macOS)
+        guard let r = Shell.runTool("pkgutil", ["--pkgs"], timeout: 20), r.succeeded else { return [] }
+        let match = matcher(for: app, level: level == .deep ? .enhanced : level)
+        return r.stdout.split(separator: "\n").map(String.init).filter { !$0.hasPrefix("com.apple.") && match($0) }
+        #else
+        return []
+        #endif
+    }
+
+    /// Files a matching installer package put outside the bundle. For each file we keep the highest
+    /// folder whose own name matches the app, so `/Library/Vendor/App/…` goes as one item; files in
+    /// shared folders are kept only when their own name matches.
+    static func packageFiles(for app: InstalledApp, match: (String) -> Bool) -> [String] {
+        #if os(macOS)
+        var out = Set<String>()
+        for pkg in packageIDs(for: app) {
+            let info = Shell.runTool("pkgutil", ["--pkg-info", pkg], timeout: 20)?.stdout ?? ""
+            let volume = info.split(separator: "\n").first { $0.hasPrefix("volume: ") }.map { String($0.dropFirst(8)) } ?? "/"
+            let location = info.split(separator: "\n").first { $0.hasPrefix("location: ") }.map { String($0.dropFirst(10)) } ?? ""
+            guard let files = Shell.runTool("pkgutil", ["--only-files", "--files", pkg], timeout: 30), files.succeeded else { continue }
+            for rel in files.stdout.split(separator: "\n").prefix(20_000) {
+                let absolute = Paths.normalize("/" + [volume, location, String(rel)].joined(separator: "/"))
+                guard !Paths.isInside(absolute, app.path) else { continue }
+                if let top = highestMatchingAncestor(absolute, match: match), Paths.lexists(top) { out.insert(top) }
+            }
+        }
+        return out.sorted()
+        #else
+        return []
+        #endif
+    }
+
+    static func highestMatchingAncestor(_ path: String, match: (String) -> Bool) -> String? {
+        var current = "/"
+        for component in path.split(separator: "/").map(String.init) {
+            current = (current as NSString).appendingPathComponent(component)
+            if match(component) && Safety.isAllowed(current) { return current }
+        }
+        return nil
     }
 
     /// The signing team (e.g. "UBF8T346G9"), used only at the deep level.
@@ -311,29 +453,25 @@ public enum Uninstaller {
 
     // MARK: Removing
 
-    /// Removal requests for an uninstall: the bundle goes to the Trash, leftovers as selected.
-    public static func requests(app: InstalledApp, leftovers: [Leftover], sudo: Bool) -> [RemovalRequest] {
+    /// Removal requests for an uninstall. `complete` deletes everything outright (no Trash), so nothing
+    /// of the app survives; otherwise the bundle and personal data go to the Trash and caches are deleted.
+    public static func requests(app: InstalledApp, leftovers: [Leftover], sudo: Bool, complete: Bool = false) -> [RemovalRequest] {
         var requests = [RemovalRequest(item: ScanItem(path: app.path, bytes: app.bytes, isDirectory: true),
-                                       scope: app.userRemovable ? .user : .system, preferTrash: true)]
+                                       scope: app.userRemovable ? .user : .system, preferTrash: !complete)]
         for l in leftovers {
             requests.append(RemovalRequest(item: ScanItem(path: l.path, bytes: l.bytes), scope: l.system ? .system : .user,
-                                           preferTrash: !l.kind.contains("Cache") && !l.kind.contains("Log")))
+                                           preferTrash: !complete && !l.kind.contains("Cache") && !l.kind.contains("Log")))
         }
         return requests
     }
 
-    /// Commands to unload launchd jobs before their plists are removed.
-    public static func unloadScript(for leftovers: [Leftover]) -> (user: [[String]], root: PrivilegedScript) {
-        var user: [[String]] = []
-        var root = PrivilegedScript()
-        let uid = getuid()
-        for l in leftovers where l.path.hasSuffix(".plist") {
-            if l.kind == "Launch Agent" && !l.system {
-                user.append(["/bin/launchctl", "bootout", "gui/\(uid)", l.path])
-            } else if l.kind == "Launch Daemon" || (l.kind == "Launch Agent" && l.system) {
-                root.add("/bin/launchctl", ["bootout", l.kind == "Launch Daemon" ? "system" : "gui/\(uid)", l.path])
-            }
+    /// What is still on disk after an uninstall: the bundle (if it survived) plus anything the matcher finds.
+    public static func remaining(after app: InstalledApp, level: MatchLevel, otherApps: [InstalledApp] = []) -> [Leftover] {
+        var left = leftovers(for: app, level: level, otherApps: otherApps)
+        if Paths.lexists(app.path) {
+            left.insert(Leftover(path: app.path, bytes: FileSizer.measure(app.path).bytes, kind: "Application",
+                                 system: !isUserRemovable(app.path), isUserData: false), at: 0)
         }
-        return (user, root)
+        return left
     }
 }

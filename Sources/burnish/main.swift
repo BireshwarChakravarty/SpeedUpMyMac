@@ -127,7 +127,7 @@ func cmdHelp() {
       clean                   Clean safe items; --include-review / --include-risky to widen, --only id,id
       purge                   Remove idle build artifacts (node_modules, target, .build, Pods, venv…)
       apps                    List installed apps with size and last use
-      uninstall <app>         Remove an app and its leftovers (--level strict|enhanced|deep, --with-data)
+      uninstall <app>         Remove an app completely, no traces (--level strict|enhanced|deep, --keep-data)
       orphans                 Find leftovers of apps that are no longer installed
       large [path]            Large files (--min-mb 500, --older-days 180)
       dupes [path]            Duplicate files (--min-mb 1)
@@ -280,32 +280,41 @@ func cmdUninstall() {
     guard app.canUninstall else { fail("\(app.name) is part of macOS and can't be removed") }
     let level = args.value("--level").flatMap(MatchLevel.init(rawValue:)) ?? settings.leftoverLevel
     let leftovers = Uninstaller.leftovers(for: app, level: level, otherApps: apps)
-    let withData = args.has("--with-data")
-    let chosen = leftovers.filter { withData || !$0.isUserData }
+    // Complete removal is the default: personal data included, deleted outright, traces cleared.
+    let complete = !args.has("--keep-data") && (settings.uninstallCompletely || args.has("--with-data"))
+    let chosen = leftovers.filter { complete || !$0.isUserData }
+    let traces = complete ? Uninstaller.traces(for: app, leftovers: chosen, level: level) : []
     print(bold("\(app.name) \(app.version)") + dim("  \(app.bundleID)  \(Paths.abbreviate(app.path))"))
-    print("  \(lpad(Format.bytes(app.bytes), 8))  app bundle \(dim("→ Trash"))")
+    print("  \(lpad(Format.bytes(app.bytes), 8))  app bundle \(dim(complete ? "→ deleted" : "→ Trash"))")
     for l in leftovers {
         let selected = chosen.contains(l)
         let mark = selected ? green("✓") : dim("·")
-        let note = l.isUserData && !withData ? dim("  personal data — kept (use --with-data)") : ""
+        let note = l.isUserData && !complete ? dim("  personal data — kept (--keep-data)") : ""
         print("  \(mark) \(lpad(Format.bytes(l.bytes), 8))  \(pad(l.kind, 20)) \(Paths.abbreviate(l.path))\(l.system ? amber(" [sudo]") : "")\(note)")
     }
+    for t in traces {
+        print("  \(green("✓")) \(lpad("", 8))  \(pad("Trace", 20)) \(t.title)\(t.needsAdmin ? amber(" [sudo]") : "")  \(dim(t.detail))")
+    }
     let useSudo = sudo
-    let requests = Uninstaller.requests(app: app, leftovers: chosen, sudo: useSudo)
-    if requests.contains(where: { $0.scope == .system }) && !useSudo {
+    let requests = Uninstaller.requests(app: app, leftovers: chosen, sudo: useSudo, complete: complete)
+    if (requests.contains(where: { $0.scope == .system }) || traces.contains(where: \.needsAdmin)) && !useSudo {
         print(amber(machine.isAdmin ? "Some items need --sudo; they will be skipped." : "Some items are system-level and need an admin account."))
     }
     let dry = args.has("--dry-run")
-    guard dry || confirm("Uninstall \(app.name)?", yes: args.has("--yes")) else { print("Cancelled."); return }
-    if !dry {
-        // Quit the app and unload its agents first so nothing is recreated mid-removal.
-        Shell.run("/usr/bin/osascript", ["-e", "tell application id \"\(app.bundleID)\" to quit"], timeout: 10)
-        let unload = Uninstaller.unloadScript(for: chosen)
-        for cmd in unload.user { Shell.run(cmd[0], Array(cmd.dropFirst())) }
-        if useSudo && !unload.root.isEmpty { _ = try? runner.run(unload.root, reason: "unload \(app.name) services") }
-    }
-    let report = Cleaner(settings: settings, sudo: useSudo, runner: runner, dryRun: dry).remove(requests, reason: "uninstall \(app.name)")
+    let question = complete ? "Remove \(app.name) completely? This deletes it and its data permanently." : "Uninstall \(app.name)?"
+    guard dry || confirm(question, yes: args.has("--yes")) else { print("Cancelled."); return }
+    let report = Uninstaller.uninstall(app, leftovers: chosen, traces: traces, complete: complete, settings: settings,
+                                       sudo: useSudo, runner: runner, dryRun: dry)
     printReport(report, action: "uninstall")
+    if !dry {
+        let left = Uninstaller.remaining(after: app, level: level, otherApps: apps).filter { complete || !$0.isUserData }
+        if left.isEmpty {
+            print(green("Verified: no trace of \(app.name) left."))
+        } else {
+            print(amber("\(left.count) item(s) remain:"))
+            for l in left.prefix(10) { print("    \(Paths.abbreviate(l.path))\(l.system && !useSudo ? amber(" [needs --sudo]") : "")") }
+        }
+    }
 }
 
 func cmdOrphans() {

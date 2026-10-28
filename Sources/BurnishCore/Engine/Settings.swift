@@ -26,6 +26,9 @@ public struct Settings: Codable, Equatable, Sendable {
     public var largeFileMinMB = 500
     public var oldFileDays = 180
     public var leftoverLevel: MatchLevel = .enhanced
+    /// Uninstall leaves nothing behind: personal data included, deleted outright rather than trashed,
+    /// plus running helpers, launchd jobs, cached preferences, privacy grants, Dock tile and receipts.
+    public var uninstallCompletely = true
     /// Folder that holds fleet snapshots and shared settings. nil = iCloud Drive/Burnish, else local.
     public var fleetFolder: String?
     public var schedule: Schedule = .off
@@ -49,6 +52,7 @@ public struct Settings: Codable, Equatable, Sendable {
         largeFileMinMB = try c.decodeIfPresent(Int.self, forKey: .largeFileMinMB) ?? d.largeFileMinMB
         oldFileDays = try c.decodeIfPresent(Int.self, forKey: .oldFileDays) ?? d.oldFileDays
         leftoverLevel = try c.decodeIfPresent(MatchLevel.self, forKey: .leftoverLevel) ?? d.leftoverLevel
+        uninstallCompletely = try c.decodeIfPresent(Bool.self, forKey: .uninstallCompletely) ?? d.uninstallCompletely
         fleetFolder = try c.decodeIfPresent(String.self, forKey: .fleetFolder)
         schedule = try c.decodeIfPresent(Schedule.self, forKey: .schedule) ?? d.schedule
         trashSentinel = try c.decodeIfPresent(Bool.self, forKey: .trashSentinel) ?? d.trashSentinel
