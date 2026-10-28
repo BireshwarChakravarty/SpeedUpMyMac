@@ -14,7 +14,7 @@ struct CleanupView: View {
                 HStack {
                     Button("Scan") { Task { await model.runCleanupScan() } }.disabled(model.busy != nil)
                     Button("Review & clean") { model.confirmCleanup() }
-                        .buttonStyle(.polish)
+                        .buttonStyle(.tinted(.cleanup))
                         .disabled(model.busy != nil || selectedBytes == 0)
                 }
             }
@@ -26,8 +26,12 @@ struct CleanupView: View {
                     let results = scan.results.filter { $0.target.category == category }
                     if !results.isEmpty {
                         VStack(alignment: .leading, spacing: 4) {
-                            Label(category.rawValue, systemImage: category.symbol).font(.headline).padding(.bottom, 4)
-                            ForEach(results) { result in TargetRow(result: result) }
+                            SectionTitle(title: category.rawValue, symbol: category.symbol,
+                                         trailing: Format.bytes(results.reduce(0) { $0 + $1.bytes }))
+                                .padding(.bottom, 4)
+                            ForEach(Array(results.enumerated()), id: \.element.id) { index, result in
+                                TargetRow(result: result).reveal(index: index, step: 0.03)
+                            }
                         }
                         .card()
                     }
@@ -71,10 +75,11 @@ struct TargetRow: View {
                 Spacer()
                 SizeText(bytes: result.bytes)
                 if !result.items.isEmpty {
-                    Button { withAnimation { expanded.toggle() } } label: {
-                        Image(systemName: "chevron.right").rotationEffect(.degrees(expanded ? 90 : 0))
+                    IconButton(symbol: "chevron.right", help: expanded ? "Hide files" : "Show files") {
+                        SoundFX.shared.play(.tap)
+                        withAnimation(Theme.spring) { expanded.toggle() }
                     }
-                    .buttonStyle(.borderless)
+                    .rotationEffect(.degrees(expanded ? 90 : 0))
                 }
             }
             if expanded {
@@ -88,16 +93,17 @@ struct TargetRow: View {
                                 .labelsHidden().controlSize(.small)
                             PathText(path: item.path)
                             Spacer()
-                            Button { model.reveal(item.path) } label: { Image(systemName: "magnifyingglass") }
-                                .buttonStyle(.borderless).help("Show in Finder")
+                            IconButton(symbol: "magnifyingglass", help: "Show in Finder") { model.reveal(item.path) }
                             Text(Format.bytes(item.bytes)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                         }
                     }
                     if result.items.count > 200 { Text("… and \(result.items.count - 200) more").font(.caption).foregroundStyle(.secondary) }
                 }
                 .padding(.leading, 34)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .padding(.vertical, 4)
+        .rowHover()
     }
 }

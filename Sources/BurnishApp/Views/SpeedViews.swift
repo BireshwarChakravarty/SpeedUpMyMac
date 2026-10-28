@@ -9,6 +9,8 @@ struct ProcessesView: View {
     @State private var byMemory = false
     @State private var mineOnly = true
 
+    private var maxMemory: Int64 { rows.map(\.memoryBytes).max() ?? 1 }
+
     private var shown: [ProcessInfoRow] {
         let list = rows.filter { !mineOnly || $0.isMine }
         return Array((byMemory ? list.sorted { $0.memoryBytes > $1.memoryBytes } : list.sorted { $0.cpu > $1.cpu }).prefix(40))
@@ -18,12 +20,8 @@ struct ProcessesView: View {
         ModuleScroll {
             HeroHeader(title: "Processes", value: "\(rows.filter { $0.cpu > 50 }.count) busy",
                        caption: "Quit, pause (SIGSTOP) or push a hog onto the efficiency cores", symbol: "cpu") {
-                VStack(alignment: .trailing) {
-                    Picker("", selection: $byMemory) {
-                        Text("CPU").tag(false)
-                        Text("Memory").tag(true)
-                    }
-                    .pickerStyle(.segmented).labelsHidden().frame(width: 160)
+                VStack(alignment: .trailing, spacing: 10) {
+                    PillPicker(selection: $byMemory, options: [(false, "CPU", "cpu"), (true, "Memory", "memorychip")])
                     Toggle("My processes only", isOn: $mineOnly)
                 }
             }
@@ -31,9 +29,13 @@ struct ProcessesView: View {
                 ForEach(shown) { p in
                     HStack(spacing: 10) {
                         Text(p.name).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
-                        if p.isPaused { Text("paused").font(.caption).foregroundStyle(Theme.review) }
+                        if p.isPaused { Chip(text: "paused", color: Theme.review, symbol: "pause.fill") }
+                        GrowingBar(fraction: byMemory ? Double(p.memoryBytes) / Double(max(maxMemory, 1)) : min(p.cpu / 100, 1),
+                                   fill: Module.processes.gradient, height: 5)
+                            .frame(width: 90)
                         Text(String(format: "%.1f%%", p.cpu)).monospacedDigit().frame(width: 64, alignment: .trailing)
                             .foregroundStyle(p.cpu > 80 ? Theme.risky : .primary)
+                            .contentTransition(.numericText())
                         SizeText(bytes: p.memoryBytes).frame(width: 80, alignment: .trailing)
                         Menu {
                             Button("Quit") { act(.quit, p) }
@@ -47,8 +49,10 @@ struct ProcessesView: View {
                             .disabled(!p.isMine)
                     }
                     .padding(.vertical, 3)
+                    .rowHover()
                 }
             }
+            .animation(Theme.spring, value: shown.map(\.id))
             .card()
             Text("Pausing freezes a process until you resume it — handy for a runaway background app. Other users' and system processes are read-only.")
                 .font(.caption).foregroundStyle(.secondary)
@@ -64,6 +68,7 @@ struct ProcessesView: View {
 
     private func act(_ action: Processes.Action, _ p: ProcessInfoRow) {
         let ok = Processes.perform(action, on: p)
+        if ok { SoundFX.shared.play(action == .quit || action == .forceQuit ? .vanish : .success) }
         model.report(ok ? "\(p.name): done" : "Couldn't change \(p.name)", error: !ok)
         rows = Processes.list()
     }
@@ -83,7 +88,7 @@ struct MaintenanceView: View {
                        caption: "Each task checks for a real symptom first — no ritual cache rebuilding", symbol: "wrench.and.screwdriver") {
                 HStack {
                     Button("Re-check") { Task { await probe() } }
-                    Button("Run \(chosen.count)") { Task { await runChosen() } }.buttonStyle(.polish).disabled(chosen.isEmpty || model.busy != nil)
+                    Button("Run \(chosen.count)") { Task { await runChosen() } }.buttonStyle(.tinted(.maintenance)).disabled(chosen.isEmpty || model.busy != nil)
                 }
             }
             VStack(spacing: 4) {
@@ -94,15 +99,13 @@ struct MaintenanceView: View {
                                                  set: { on in if on { chosen.insert(task) } else { chosen.remove(task) } }))
                             .labelsHidden()
                             .disabled(!(probe?.isRunnable ?? false) || (task.needsAdmin && !model.sudo))
-                        Image(systemName: task.symbol).frame(width: 22).foregroundStyle(Theme.azure)
+                        Image(systemName: task.symbol).font(.system(size: 14, weight: .semibold)).frame(width: 22)
+                            .foregroundStyle(Module.maintenance.gradient)
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 6) {
                                 Text(task.title).fontWeight(.medium)
                                 if task.needsAdmin { SudoBadge() }
-                                if probe?.isRecommended == true {
-                                    Text("Recommended").font(.caption2.weight(.semibold)).foregroundStyle(Theme.safe)
-                                        .padding(.horizontal, 7).padding(.vertical, 2).background(Theme.safe.opacity(0.14), in: Capsule())
-                                }
+                                if probe?.isRecommended == true { Chip(text: "Recommended", color: Theme.safe, symbol: "star.fill") }
                             }
                             Text(task.detail).font(.caption).foregroundStyle(.secondary)
                             if let probe { Text(probe.reason).font(.caption).foregroundStyle(probe.isRecommended ? Theme.safe : .secondary) }
@@ -110,10 +113,13 @@ struct MaintenanceView: View {
                         Spacer()
                         if let outcome = outcomes.first(where: { $0.task == task }) {
                             Image(systemName: outcome.succeeded ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                                .font(.title3)
                                 .foregroundStyle(outcome.succeeded ? Theme.safe : Theme.risky).help(outcome.output)
+                                .transition(.scale.combined(with: .opacity))
                         }
                     }
                     .padding(.vertical, 5)
+                    .rowHover()
                 }
             }
             .card()
@@ -135,6 +141,9 @@ struct MaintenanceView: View {
         outcomes = await model.run("Running maintenance…") { Maintenance.run(tasks, sudo: sudo, runner: runner) }
         History.append(HistoryEntry(action: "optimize", detail: tasks.map(\.title).joined(separator: ", ")))
         model.report("Ran \(outcomes.filter(\.succeeded).count) of \(tasks.count) task(s)", error: outcomes.contains { !$0.succeeded })
+        if !outcomes.contains(where: { !$0.succeeded }) {
+            model.celebrate(Celebration(bytes: 0, title: "Maintenance done", detail: "\(tasks.count) task(s) ran cleanly", symbol: "wrench.and.screwdriver.fill"))
+        }
         await probe()
     }
 }
@@ -157,7 +166,7 @@ struct StartupView: View {
                 if !list.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Text(domain.rawValue + "s").font(.headline)
+                            SectionTitle(title: domain.rawValue + "s", symbol: "power", trailing: "\(list.count)")
                             if domain.needsAdmin { SudoBadge() }
                         }
                         ForEach(list) { item in row(item) }
@@ -175,18 +184,23 @@ struct StartupView: View {
     private func row(_ item: StartupItem) -> some View {
         HStack(spacing: 10) {
             Toggle("", isOn: Binding(get: { !item.disabled }, set: { on in toggle(item, on) }))
-                .labelsHidden().toggleStyle(.switch).controlSize(.small)
+                .labelsHidden().toggleStyle(GlowSwitchStyle(tint: Module.startup.gradient))
+                .frame(width: 54)
                 .disabled(item.domain.needsAdmin && !model.sudo)
             VStack(alignment: .leading, spacing: 1) {
                 Text(item.label).fontWeight(.medium).lineLimit(1)
                 if let program = item.program { PathText(path: program) }
             }
             Spacer()
-            Text(item.signer ?? item.signing.rawValue).font(.caption)
-                .foregroundStyle(item.signing.suspicious ? Theme.risky : .secondary)
-            Button { model.reveal(item.plistPath) } label: { Image(systemName: "magnifyingglass") }.buttonStyle(.borderless)
+            if item.signing.suspicious {
+                Chip(text: item.signer ?? item.signing.rawValue, color: Theme.risky, symbol: "exclamationmark.triangle.fill")
+            } else {
+                Text(item.signer ?? item.signing.rawValue).font(.caption).foregroundStyle(.secondary)
+            }
+            IconButton(symbol: "magnifyingglass", help: "Show in Finder") { model.reveal(item.plistPath) }
         }
         .padding(.vertical, 3)
+        .rowHover()
     }
 
     private func load() async {
@@ -225,11 +239,10 @@ struct TweaksView: View {
                     Button("Revert all") { revert(Tweaks.all) }
                 }
             }
-            Label("macOS 26 seals the system volume, so system apps and Siri/Spotlight daemons can't be deleted without disabling SIP. Burnish won't ask you to. These are the changes that are safe and reversible.",
-                  systemImage: "info.circle").font(.callout).foregroundStyle(.secondary)
+            InfoNote(text: "macOS 26 seals the system volume, so system apps and Siri/Spotlight daemons can't be deleted without disabling SIP. Burnish won't ask you to. These are the changes that are safe and reversible.")
             ForEach(TweakGroup.allCases, id: \.self) { group in
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(group.rawValue).font(.headline)
+                    SectionTitle(title: group.rawValue, symbol: "slider.horizontal.3", trailing: nil)
                     ForEach(Tweaks.all.filter { $0.group == group }) { tweak in
                         Toggle(isOn: Binding(get: { applied.contains(tweak.id) }, set: { on in on ? apply([tweak]) : revert([tweak]) })) {
                             VStack(alignment: .leading, spacing: 1) {
@@ -240,8 +253,10 @@ struct TweaksView: View {
                                 Text(tweak.detail).font(.caption).foregroundStyle(.secondary)
                             }
                         }
-                        .toggleStyle(.switch)
+                        .toggleStyle(GlowSwitchStyle(tint: Module.tweaks.gradient))
                         .disabled(tweak.needsAdmin && !model.sudo)
+                        .padding(.vertical, 2)
+                        .rowHover()
                     }
                     if group == .system {
                         Toggle(isOn: Binding(get: { touchID }, set: { on in setTouchID(on) })) {
@@ -251,7 +266,7 @@ struct TweaksView: View {
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                         }
-                        .toggleStyle(.switch)
+                        .toggleStyle(GlowSwitchStyle(tint: Theme.sudoGradient))
                         .disabled(!model.sudo)
                     }
                 }

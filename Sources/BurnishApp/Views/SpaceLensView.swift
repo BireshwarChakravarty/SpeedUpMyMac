@@ -14,26 +14,28 @@ struct SpaceLensView: View {
     @State private var olderOnly = false
     @State private var dupes: [DuplicateGroup] = []
     @State private var dupeKeep: [String: String] = [:]
+    @State private var sweep: Double = 0
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Picker("", selection: $mode) {
-                    Text("Disk map").tag(0)
-                    Text("Large & old").tag(1)
-                    Text("Duplicates").tag(2)
-                }
-                .pickerStyle(.segmented).labelsHidden().frame(width: 360)
+                PillPicker(selection: $mode, options: [(0, "Disk map", "circle.circle"), (1, "Large & old", "doc.badge.clock"),
+                                                       (2, "Duplicates", "doc.on.doc")])
                 Spacer()
                 Text(Paths.abbreviate(root)).font(Theme.mono).foregroundStyle(.secondary)
                 Button("Choose folder…") { chooseRoot() }
             }
-            .padding(.horizontal, 22).padding(.vertical, 12)
-            switch mode {
-            case 0: mapPane
-            case 1: largePane
-            default: dupesPane
+            .padding(.horizontal, 26).padding(.bottom, 12)
+            Group {
+                switch mode {
+                case 0: mapPane
+                case 1: largePane
+                default: dupesPane
+                }
             }
+            .id(mode)
+            .transition(.moduleSwap)
+            .animation(Theme.spring, value: mode)
         }
         .navigationTitle("Space Lens")
     }
@@ -55,19 +57,24 @@ struct SpaceLensView: View {
         HStack(alignment: .top, spacing: 16) {
             VStack {
                 if let node = focus ?? tree {
-                    Sunburst(root: node, hovered: $hovered) { tapped in
-                        if tapped.isDirectory && !tapped.children.isEmpty {
-                            trail.append(focus ?? tree!)
-                            focus = tapped
+                    Color.clear.modifier(Tween(value: sweep) { progress in
+                        Sunburst(root: node, hovered: $hovered, progress: progress) { tapped in
+                            if tapped.isDirectory && !tapped.children.isEmpty {
+                                SoundFX.shared.play(.whoosh)
+                                trail.append(focus ?? tree!)
+                                focus = tapped
+                            }
                         }
-                    }
+                    })
                     .frame(minWidth: 380, minHeight: 380)
+                    .onAppear { sweepIn() }
+                    .onChange(of: ObjectIdentifier(node)) { sweepIn() }
                     .overlay {
                         VStack(spacing: 2) {
                             Text((hovered ?? node).name).font(.headline).lineLimit(1).frame(maxWidth: 150)
                             Text(Format.bytes((hovered ?? node).bytes)).font(Theme.heroSmall)
                             if !trail.isEmpty && hovered == nil {
-                                Button("Back") { focus = trail.popLast() }.buttonStyle(.borderless)
+                                Button("Back") { SoundFX.shared.play(.whoosh); focus = trail.popLast() }.controlSize(.small)
                             }
                         }
                         .allowsHitTesting(hovered == nil)
@@ -93,12 +100,16 @@ struct SpaceLensView: View {
                                     Spacer()
                                     SizeText(bytes: child.bytes)
                                     if !child.isAggregate {
-                                        Button { collector[child.path] = child.bytes } label: { Image(systemName: "plus.circle") }
-                                            .buttonStyle(.borderless).help("Add to collector")
-                                            .disabled(!Safety.isAllowed(child.path))
+                                        IconButton(symbol: collector[child.path] == nil ? "plus.circle" : "checkmark.circle.fill",
+                                                   help: "Add to collector") {
+                                            SoundFX.shared.play(.check)
+                                            withAnimation(Theme.snappy) { collector[child.path] = child.bytes }
+                                        }
+                                        .disabled(!Safety.isAllowed(child.path))
                                     }
                                 }
                                 .padding(.vertical, 3)
+                                .rowHover()
                                 .contentShape(Rectangle())
                                 .onTapGesture(count: 2) {
                                     if child.isDirectory && !child.children.isEmpty { trail.append(node); focus = child }
@@ -124,6 +135,11 @@ struct SpaceLensView: View {
             .card()
         }
         .padding(.horizontal, 22).padding(.bottom, 22)
+    }
+
+    private func sweepIn() {
+        sweep = 0
+        withAnimation(.timingCurve(0.2, 0.9, 0.25, 1, duration: 0.9)) { sweep = 1 }
     }
 
     private func scanTree() {
@@ -162,13 +178,13 @@ struct SpaceLensView: View {
                             Spacer()
                             if let a = f.accessed { Text("opened \(Format.relative(a))").font(.caption).foregroundStyle(.secondary) }
                             SizeText(bytes: f.bytes).frame(width: 80, alignment: .trailing)
-                            Button { model.reveal(f.path) } label: { Image(systemName: "magnifyingglass") }.buttonStyle(.borderless)
-                            Button { model.confirmRemoval(title: "Move \((f.path as NSString).lastPathComponent) to Trash", items: [(path: f.path, bytes: f.bytes)]) } label: {
-                                Image(systemName: "trash")
+                            IconButton(symbol: "magnifyingglass", help: "Show in Finder") { model.reveal(f.path) }
+                            IconButton(symbol: "trash", help: "Move to Trash") {
+                                model.confirmRemoval(title: "Move \((f.path as NSString).lastPathComponent) to Trash", items: [(path: f.path, bytes: f.bytes)])
                             }
-                            .buttonStyle(.borderless)
                         }
                         .padding(.vertical, 3)
+                        .rowHover()
                     }
                 }
                 .card()
@@ -223,6 +239,8 @@ struct SpaceLensView: View {
 struct Sunburst: View {
     var root: DiskNode
     @Binding var hovered: DiskNode?
+    /// 0…1 while the rings sweep in.
+    var progress: Double = 1
     var onTap: (DiskNode) -> Void
 
     struct Segment {
@@ -268,16 +286,27 @@ struct Sunburst: View {
             let segs = segments
             Canvas { context, _ in
                 for s in segs {
-                    let (inner, outer) = ringRadii(s.depth, in: size)
-                    var path = Path()
-                    path.addArc(center: center, radius: outer, startAngle: .radians(s.start - .pi / 2),
-                                endAngle: .radians(s.end - .pi / 2), clockwise: false)
-                    path.addArc(center: center, radius: inner, startAngle: .radians(s.end - .pi / 2),
-                                endAngle: .radians(s.start - .pi / 2), clockwise: true)
-                    path.closeSubpath()
+                    // Outer rings start a little later, so the chart unfolds from the centre.
+                    let local = min(max((progress - Double(s.depth - 1) * 0.12) / 0.76, 0), 1)
+                    guard local > 0 else { continue }
+                    var (inner, outer) = ringRadii(s.depth, in: size)
                     let isHovered = hovered.map { $0 === s.node } ?? false
-                    context.fill(path, with: .color(color(s).opacity(isHovered ? 1 : (s.node.isAggregate ? 0.35 : 0.85))))
-                    context.stroke(path, with: .color(.black.opacity(0.15)), lineWidth: 0.5)
+                    if isHovered { outer += 6; inner -= 1 }
+                    let start = s.start * local, end = s.end * local
+                    var path = Path()
+                    path.addArc(center: center, radius: outer, startAngle: .radians(start - .pi / 2),
+                                endAngle: .radians(end - .pi / 2), clockwise: false)
+                    path.addArc(center: center, radius: inner, startAngle: .radians(end - .pi / 2),
+                                endAngle: .radians(start - .pi / 2), clockwise: true)
+                    path.closeSubpath()
+                    if isHovered {
+                        var glow = context
+                        glow.addFilter(.shadow(color: color(s).opacity(0.9), radius: 10))
+                        glow.fill(path, with: .color(color(s)))
+                    } else {
+                        context.fill(path, with: .color(color(s).opacity((s.node.isAggregate ? 0.35 : 0.85) * local)))
+                    }
+                    context.stroke(path, with: .color(.black.opacity(0.25)), lineWidth: 0.75)
                 }
             }
             .contentShape(Rectangle())

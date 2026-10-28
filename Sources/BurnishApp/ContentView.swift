@@ -3,46 +3,61 @@ import BurnishCore
 
 struct ContentView: View {
     @Environment(AppModel.self) private var model
+    @AppStorage(SoundFX.enabledKey) private var soundOn = true
 
     var body: some View {
         @Bindable var model = model
-        NavigationSplitView {
-            List(selection: $model.selection) {
-                ForEach(Module.groups.indices, id: \.self) { index in
-                    if let title = Module.groups[index].0 {
-                        Section(title) { rows(Module.groups[index].1) }
-                    } else {
-                        rows(Module.groups[index].1)
+        let module = model.selection ?? .smartScan
+        ZStack {
+            AuroraBackground(module: module)
+            HStack(spacing: 0) {
+                Sidebar()
+                    .frame(width: 236)
+                    .padding(.leading, 10).padding(.vertical, 10)
+                VStack(spacing: 0) {
+                    TopBar(module: module, soundOn: $soundOn)
+                    ZStack {
+                        detail(for: module)
+                            .id(module)
+                            .transition(.moduleSwap)
                     }
-                }
-            }
-            .navigationSplitViewColumnWidth(min: 200, ideal: 220)
-            .safeAreaInset(edge: .bottom) { MachineFooter().padding(12) }
-        } detail: {
-            ZStack(alignment: .bottom) {
-                detail(for: model.selection ?? .smartScan)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                VStack(spacing: 8) {
-                    if let offer = model.sentinelOffer { SentinelBanner(app: offer.app, leftovers: offer.leftovers) }
-                    if let busy = model.busy { BusyOverlay(message: busy) }
-                    if let status = model.status { StatusBanner(text: status, isError: model.statusIsError) }
+                    .animation(Theme.spring, value: module)
                 }
-                .padding(18)
-                .animation(.spring(duration: 0.3), value: model.busy)
-                .animation(.spring(duration: 0.3), value: model.status)
+            }
+            VStack(spacing: 10) {
+                Spacer()
+                if let offer = model.sentinelOffer {
+                    SentinelBanner(app: offer.app, leftovers: offer.leftovers).transition(.toast)
+                }
+                if let busy = model.busy, model.scanProgress == nil || module != .smartScan {
+                    BusyOverlay(message: busy, progress: model.scanProgress).transition(.toast)
+                }
+                if let status = model.status {
+                    StatusBanner(text: status, isError: model.statusIsError).transition(.toast)
+                }
+            }
+            .padding(.bottom, 22)
+            .padding(.leading, 246)
+            .animation(.spring(response: 0.45, dampingFraction: 0.75), value: model.busy)
+            .animation(.spring(response: 0.45, dampingFraction: 0.75), value: model.status)
+            .animation(.spring(response: 0.45, dampingFraction: 0.75), value: model.sentinelOffer?.app.path)
+
+            if let celebration = model.celebration {
+                CelebrationOverlay(celebration: celebration) {
+                    withAnimation(.easeOut(duration: 0.35)) { model.celebration = nil }
+                }
+                .id(celebration.id)
+                .transition(.opacity)
+                .zIndex(10)
             }
         }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) { SudoToggle() }
-        }
+        .background(WindowConfigurator())
+        .buttonStyle(.glass)
+        .toggleStyle(.check)
         .sheet(item: $model.receipt) { receipt in ReceiptSheet(receipt: receipt) }
-    }
-
-    @ViewBuilder
-    private func rows(_ modules: [Module]) -> some View {
-        ForEach(modules) { module in
-            Label(module.title, systemImage: module.symbol).tag(module)
-        }
+        .onChange(of: model.receipt?.id) { _, id in if id != nil { SoundFX.shared.play(.whoosh) } }
+        .onChange(of: model.sentinelOffer?.app.path) { _, path in if path != nil { SoundFX.shared.play(.success, haptic: .generic) } }
     }
 
     @ViewBuilder
@@ -64,39 +79,53 @@ struct ContentView: View {
     }
 }
 
-/// The Sudo capsule in the toolbar. Disabled, with an explanation, on standard accounts.
-struct SudoToggle: View {
-    @Environment(AppModel.self) private var model
+/// Module title on the left; Sudo and sound on the right. Doubles as the window's drag handle.
+struct TopBar: View {
+    var module: Module
+    @Binding var soundOn: Bool
 
     var body: some View {
-        Toggle(isOn: model.sudoBinding) {
-            Label("Sudo", systemImage: model.sudo ? "lock.open.fill" : "lock.shield")
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(module.title)
+                    .font(Theme.title)
+                    .contentTransition(.opacity)
+                Text(module.subtitle).font(.callout).foregroundStyle(.secondary)
+            }
+            .id(module)
+            .transition(.opacity.combined(with: .offset(x: -8)))
+            .animation(Theme.spring, value: module)
+            Spacer()
+            Button {
+                soundOn.toggle()
+                if soundOn { SoundFX.shared.play(.toggleOn) }
+            } label: {
+                Image(systemName: soundOn ? "speaker.wave.2.fill" : "speaker.slash.fill")
+                    .contentTransition(.symbolEffect(.replace))
+                    .frame(width: 16)
+            }
+            .help(soundOn ? "Sound effects on" : "Sound effects off")
+            SudoSwitch()
         }
-        .toggleStyle(.button)
-        .tint(Theme.sudo)
-        .disabled(!model.machine.isAdmin)
-        .help(model.machine.isAdmin
-              ? "Sudo mode: include system-level items. You'll authorize once per batch, and see the exact script first."
-              : "\(model.machine.userName) is a standard account on this Mac, so Burnish cleans everything you own but can't touch system folders.")
+        .padding(.horizontal, 26)
+        .padding(.top, 18)
+        .padding(.bottom, 12)
     }
 }
 
-struct MachineFooter: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "laptopcomputer").foregroundStyle(Theme.polish)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(model.machine.name).font(.caption.weight(.semibold)).lineLimit(1)
-                Text("\(model.machine.chip) · \(model.machine.isAdmin ? "Admin" : "Standard")")
-                    .font(.caption2).foregroundStyle(.secondary)
-            }
-            Spacer()
+/// Lets the whole window background drag the window, now that the title bar is hidden.
+struct WindowConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            guard let window = view.window else { return }
+            window.isMovableByWindowBackground = true
+            window.titlebarAppearsTransparent = true
         }
-        .padding(10)
-        .glassCard(cornerRadius: 12)
+        return view
     }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
 }
 
 /// Offer shown when an app is dragged to the Trash.
@@ -106,9 +135,13 @@ struct SentinelBanner: View {
     var leftovers: [Leftover]
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "trash.circle.fill").font(.title2).foregroundStyle(Theme.polish)
-            VStack(alignment: .leading) {
+        HStack(spacing: 14) {
+            Image(nsImage: NSWorkspace.shared.icon(forFile: app.path)).resizable().frame(width: 40, height: 40)
+                .overlay(alignment: .bottomTrailing) {
+                    Image(systemName: "trash.circle.fill").font(.system(size: 18)).foregroundStyle(.white, Theme.danger)
+                        .offset(x: 4, y: 4)
+                }
+            VStack(alignment: .leading, spacing: 2) {
                 Text("You trashed \(app.name)").font(.headline)
                 Text("It left \(leftovers.count) file(s) behind · \(Format.bytes(leftovers.reduce(0) { $0 + $1.bytes }))")
                     .font(.caption).foregroundStyle(.secondary)
@@ -122,8 +155,8 @@ struct SentinelBanner: View {
             .buttonStyle(.polish)
         }
         .padding(14)
-        .frame(maxWidth: 640)
-        .glassCard(cornerRadius: 16)
+        .frame(maxWidth: 660)
+        .glassCard(cornerRadius: 20)
     }
 }
 
@@ -134,33 +167,51 @@ struct ReceiptSheet: View {
     var receipt: Receipt
     @State private var showScript = false
 
+    private var isUninstall: Bool { receipt.confirmTitle == "Remove Completely" }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                VStack(alignment: .leading) {
-                    Text(receipt.title).font(.title2.weight(.bold))
-                    Text("\(receipt.lines.count) item(s) · \(Format.bytes(receipt.total))").foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("RECEIPT").font(.caption.weight(.bold)).tracking(2).foregroundStyle(.secondary)
+                    Text(receipt.title).font(Theme.title)
+                    Text("\(receipt.lines.count) item(s)").foregroundStyle(.secondary)
                 }
                 Spacer()
-                Text(Format.bytes(receipt.total)).font(Theme.heroSmall).foregroundStyle(Theme.polish)
+                CountingBytes(bytes: receipt.total, duration: 0.9)
+                    .font(Theme.heroSmall)
+                    .foregroundStyle(Theme.polish)
             }
             if let note = receipt.note {
-                Label(note, systemImage: "info.circle").font(.callout).foregroundStyle(.secondary)
+                InfoNote(text: note, symbol: isUninstall ? "exclamationmark.shield" : "info.circle")
             }
-            List(receipt.lines) { line in
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(line.title).lineLimit(1)
-                        if line.path.hasPrefix("/") { PathText(path: line.path) }
+            ScrollView {
+                LazyVStack(spacing: 2) {
+                    ForEach(Array(receipt.lines.enumerated()), id: \.element.id) { index, line in
+                        HStack(spacing: 10) {
+                            Image(systemName: icon(for: line))
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(line.destination.contains("admin") ? Theme.sudo : Theme.azure)
+                                .frame(width: 18)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(line.title).lineLimit(1)
+                                if line.path.hasPrefix("/") { PathText(path: line.path) }
+                            }
+                            Spacer()
+                            Chip(text: line.destination, color: line.destination.contains("admin") ? Theme.sudo
+                                 : line.destination == "Delete" ? Theme.risky : .secondary, symbol: nil)
+                            if line.bytes > 0 { SizeText(bytes: line.bytes).frame(width: 80, alignment: .trailing) }
+                            else { Spacer().frame(width: 80) }
+                        }
+                        .padding(.vertical, 5)
+                        .rowHover()
+                        .reveal(index: index, step: 0.02)
                     }
-                    Spacer()
-                    Text(line.destination).font(.caption)
-                        .foregroundStyle(line.destination.contains("admin") ? Theme.sudo : .secondary)
-                    SizeText(bytes: line.bytes).frame(width: 80, alignment: .trailing)
                 }
+                .padding(.horizontal, 10)
             }
-            .listStyle(.inset)
             .frame(minHeight: 220)
+            .glassCard(cornerRadius: 16)
             if let script = receipt.script {
                 DisclosureGroup(isExpanded: $showScript) {
                     ScrollView {
@@ -168,15 +219,15 @@ struct ReceiptSheet: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .frame(height: 140)
-                    .padding(8)
-                    .background(.black.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+                    .padding(10)
+                    .background(.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 10))
                 } label: {
                     Label("Script that will run as administrator (\(script.lines.count) line\(script.lines.count == 1 ? "" : "s"))",
                           systemImage: "lock.shield").foregroundStyle(Theme.sudo)
                 }
             }
             HStack {
-                Text("Removals are logged in History.").font(.caption).foregroundStyle(.secondary)
+                Label("Removals are logged in History.", systemImage: "clock.arrow.circlepath").font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
                 Button(receipt.confirmTitle) {
@@ -184,11 +235,19 @@ struct ReceiptSheet: View {
                     dismiss()
                     Task { await action() }
                 }
-                .buttonStyle(.polish)
+                .buttonStyle(isUninstall ? PolishButtonStyle.danger : PolishButtonStyle.polish)
                 .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(22)
-        .frame(width: 640, height: 560)
+        .padding(24)
+        .frame(width: 680, height: 600)
+        .background(AuroraBackground(module: model.selection ?? .smartScan, intensity: 0.6))
+        .buttonStyle(.glass)
+    }
+
+    private func icon(for line: ReceiptLine) -> String {
+        if line.path.hasPrefix("trace:") { return "wand.and.stars" }
+        if line.title.hasSuffix(".app") { return "app.dashed" }
+        return line.destination.contains("Trash") ? "trash" : "flame"
     }
 }

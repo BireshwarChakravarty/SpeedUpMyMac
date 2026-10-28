@@ -61,6 +61,21 @@ struct ReceiptLine: Identifiable, Hashable {
     var destination: String
 }
 
+/// The full-window moment after a clean or uninstall.
+struct Celebration: Identifiable, Equatable {
+    let id = UUID()
+    var bytes: Int64
+    var title: String
+    var detail: String?
+    var symbol: String = "sparkles"
+}
+
+/// What a post-uninstall rescan found.
+struct UninstallVerdict: Equatable {
+    var app: String
+    var remaining: [Leftover]
+}
+
 /// The confirmation sheet: exactly what goes, where it goes, and the root script if any.
 struct Receipt: Identifiable {
     let id = UUID()
@@ -86,6 +101,9 @@ final class AppModel {
     var status: String?
     var statusIsError = false
     var receipt: Receipt?
+    var celebration: Celebration?
+    var scanProgress: Double?
+    var scanStage = ""
 
     // Module data.
     var smart: SmartScanResult?
@@ -100,6 +118,7 @@ final class AppModel {
     var fleet: [FleetSnapshot] = []
     var history: [HistoryEntry] = []
     var sentinelOffer: (app: InstalledApp, leftovers: [Leftover])?
+    var verdict: UninstallVerdict?
 
     let sentinel = TrashSentinel()
 
@@ -135,17 +154,25 @@ final class AppModel {
     func report(_ text: String, error: Bool = false) {
         status = text
         statusIsError = error
+        if error { SoundFX.shared.play(.error, haptic: .generic) }
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(6))
             if self.status == text { self.status = nil }
         }
     }
 
-    func summarize(_ r: CleanReport, verb: String = "Freed") {
+    func summarize(_ r: CleanReport, verb: String = "Freed", celebrate title: String? = nil) {
         var text = "\(verb) \(Format.bytes(r.freedBytes)) · \(r.removed.count) item(s)"
         if !r.needsSudo.isEmpty { text += " · \(r.needsSudo.count) need Sudo mode" }
         if !r.failures.isEmpty { text += " · \(r.failures.count) failed" }
-        report(text, error: r.removed.isEmpty && !r.failures.isEmpty)
+        let failed = r.removed.isEmpty && !r.failures.isEmpty
+        report(text, error: failed)
+        if !failed && !r.removed.isEmpty { celebrate(Celebration(bytes: r.freedBytes, title: title ?? "\(verb) and polished")) }
+    }
+
+    func celebrate(_ c: Celebration) {
+        celebration = c
+        SoundFX.shared.play(.clean, haptic: .levelChange)
     }
 
     func destination(scope: Scope, trash: Bool) -> String {
@@ -156,13 +183,34 @@ final class AppModel {
 
     func runSmartScan() async {
         let settings = self.settings, sudo = self.sudo
-        let result = await run("Scanning your Mac…") { SmartScan.run(settings: settings, sudo: sudo) }
-        smart = result
+        let steps = Double(CleanupCatalog.all.count + 5)
+        scanProgress = 0
+        scanStage = "Warming up…"
+        SoundFX.shared.play(.scanStart, haptic: .generic)
+        let relay = ScanRelay()
+        let pump = Task { @MainActor in
+            while !Task.isCancelled {
+                if let next = relay.take() {
+                    self.scanStage = next.0
+                    self.scanProgress = min(Double(next.1) / steps, 0.99)
+                    self.busy = next.0
+                    SoundFX.shared.play(.tick)
+                }
+                try? await Task.sleep(for: .milliseconds(60))
+            }
+        }
+        let result = await run("Scanning your Mac…") { SmartScan.run(settings: settings, sudo: sudo) { relay.post($0) } }
+        pump.cancel()
+        withAnimation(Theme.spring) {
+            scanProgress = nil
+            smart = result
+        }
         scan = result.cleanup
         artifacts = result.artifacts
         health = result.health
         resetCleanupSelection()
         selectedArtifacts = Set(result.artifacts.filter { !$0.recentlyActive }.map(\.path))
+        SoundFX.shared.play(.scanDone, haptic: .levelChange)
         await publishFleet()
     }
 
@@ -187,7 +235,7 @@ final class AppModel {
                 History.append(HistoryEntry(action: "smart", detail: "Burnish now", report: r))
                 return r
             }
-            summarize(result)
+            summarize(result, celebrate: "Burnished")
             await runSmartScan()
         }
     }
@@ -271,29 +319,67 @@ final class AppModel {
         return await run("Finding \(app.name)'s files…") { Uninstaller.leftovers(for: app, level: level, otherApps: others) }
     }
 
-    func confirmUninstall(_ app: InstalledApp, leftovers: [Leftover]) {
+    func traces(for app: InstalledApp, leftovers: [Leftover]) async -> [UninstallTrace] {
+        let level = settings.leftoverLevel
+        return await Task.detached { Uninstaller.traces(for: app, leftovers: leftovers, level: level) }.value
+    }
+
+    func confirmUninstall(_ app: InstalledApp, leftovers: [Leftover], traces: [UninstallTrace]) {
+        let complete = settings.uninstallCompletely
+        let gone = complete ? "Delete" : "Move to Trash"
         var lines = [ReceiptLine(path: app.path, title: "\(app.name).app", bytes: app.bytes,
-                                 destination: app.userRemovable ? "Move to Trash" : "Delete as admin")]
+                                 destination: app.userRemovable ? gone : "Delete as admin")]
         lines += leftovers.map { ReceiptLine(path: $0.path, title: $0.kind, bytes: $0.bytes,
-                                             destination: $0.system ? "Delete as admin" : "Move to Trash") }
-        let requests = Uninstaller.requests(app: app, leftovers: leftovers, sudo: sudo)
-        let preview = Cleaner(settings: settings, sudo: sudo, runner: nil).privilegedPreview(requests)
-        let note = requests.contains { $0.scope == .system } && !sudo
-            ? (machine.isAdmin ? "Some items need Sudo mode and will be skipped." : "Some items are system-level; this account can't remove them.") : nil
-        receipt = Receipt(title: "Uninstall \(app.name)", lines: lines, script: preview.isEmpty ? nil : preview,
-                          confirmTitle: "Uninstall", note: note) { [self] in
-            let settings = self.settings, sudo = self.sudo, runner = self.runner
-            let result = await run("Uninstalling \(app.name)…") { () -> CleanReport in
-                Shell.run("/usr/bin/osascript", ["-e", "tell application id \"\(app.bundleID)\" to quit"], timeout: 10)
-                let unload = Uninstaller.unloadScript(for: leftovers)
-                for cmd in unload.user { Shell.run(cmd[0], Array(cmd.dropFirst())) }
-                // Daemons are unloaded in the same authorization prompt as the removal.
-                let r = Cleaner(settings: settings, sudo: sudo, runner: sudo && !unload.root.isEmpty ? PrependingRunner(prefix: unload.root, base: runner) : runner)
-                    .remove(requests, reason: "uninstall \(app.name)")
-                History.append(HistoryEntry(action: "uninstall", detail: app.name, report: r))
-                return r
+                                             destination: $0.system ? "Delete as admin" : (complete || $0.kind.contains("Cache") ? "Delete" : "Move to Trash")) }
+        lines += traces.map { ReceiptLine(path: "trace:\($0.kind.rawValue)", title: $0.title, bytes: 0,
+                                          destination: $0.needsAdmin ? "Clear as admin" : "Clear") }
+        let requests = Uninstaller.requests(app: app, leftovers: leftovers, sudo: sudo, complete: complete)
+        var preview = Cleaner(settings: settings, sudo: sudo, runner: nil).privilegedPreview(requests)
+        if sudo {
+            // Show the trace commands too: they run in the same prompt.
+            var tracesPreview = PrivilegedScript()
+            for t in traces where t.needsAdmin {
+                for item in t.items {
+                    switch t.kind {
+                    case .launchJobs where item.hasPrefix("system/"): tracesPreview.add("/bin/launchctl", ["bootout", item])
+                    case .receipts: tracesPreview.add("/usr/sbin/pkgutil", ["--forget", item])
+                    case .processes: tracesPreview.add("/bin/kill", ["-9", String(item.split(separator: ":").first ?? "")])
+                    default: break
+                    }
+                }
             }
-            summarize(result, verb: "Removed")
+            for line in preview.lines { tracesPreview.addTrusted(line) }
+            preview = tracesPreview
+        }
+        let needsAdmin = requests.contains { $0.scope == .system } || traces.contains(where: \.needsAdmin)
+        var note: String? = complete
+            ? "Complete removal: everything below is deleted permanently, including \(app.name)'s data and settings."
+            : nil
+        if needsAdmin && !sudo {
+            let skip = machine.isAdmin ? "Some items need Sudo mode and will be skipped." : "Some items are system-level; this account can't remove them."
+            note = [note, skip].compactMap { $0 }.joined(separator: " ")
+        }
+        receipt = Receipt(title: complete ? "Remove \(app.name) completely" : "Uninstall \(app.name)", lines: lines,
+                          script: preview.isEmpty ? nil : preview,
+                          confirmTitle: complete ? "Remove Completely" : "Uninstall", note: note) { [self] in
+            let settings = self.settings, sudo = self.sudo, runner = self.runner, others = self.apps
+            let level = settings.leftoverLevel
+            let (result, left) = await run("Removing \(app.name)…") { () -> (CleanReport, [Leftover]) in
+                let r = Uninstaller.uninstall(app, leftovers: leftovers, traces: traces, complete: complete,
+                                              settings: settings, sudo: sudo, runner: runner)
+                History.append(HistoryEntry(action: "uninstall", detail: app.name, report: r))
+                let left = Uninstaller.remaining(after: app, level: level, otherApps: others).filter { complete || !$0.isUserData }
+                return (r, left)
+            }
+            verdict = UninstallVerdict(app: app.name, remaining: left)
+            if left.isEmpty && !result.removed.isEmpty {
+                status = nil
+                SoundFX.shared.play(.vanish)
+                celebrate(Celebration(bytes: result.freedBytes, title: "\(app.name) is gone", detail: "Verified — no trace left on this Mac",
+                                      symbol: "checkmark.seal.fill"))
+            } else {
+                summarize(result, verb: "Removed")
+            }
             await loadApps()
         }
     }
@@ -374,14 +460,20 @@ final class AppModel {
     }
 }
 
-/// Runs a prefix (e.g. `launchctl bootout` for daemons) in the same authorization as the main script.
-struct PrependingRunner: PrivilegeRunner {
-    var prefix: PrivilegedScript
-    var base: PrivilegeRunner
+/// Hands scan progress from the worker thread to the UI without flooding the main actor.
+final class ScanRelay: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stage: String?
+    private var count = 0
 
-    func run(_ script: PrivilegedScript, reason: String) throws -> ShellResult {
-        var combined = prefix
-        for line in script.lines { combined.addTrusted(line) }
-        return try base.run(combined, reason: reason)
+    func post(_ s: String) {
+        lock.lock(); stage = s; count += 1; lock.unlock()
+    }
+
+    func take() -> (String, Int)? {
+        lock.lock(); defer { lock.unlock() }
+        guard let s = stage else { return nil }
+        stage = nil
+        return (s, count)
     }
 }

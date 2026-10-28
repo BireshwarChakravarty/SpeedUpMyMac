@@ -19,7 +19,10 @@ struct HealthView: View {
                         ForEach(h.notes, id: \.self) { Label($0, systemImage: "exclamationmark.circle").foregroundStyle(Theme.review) }
                     }
                     Spacer()
-                    Button("Refresh") { Task { await model.refreshHealth() } }
+                    Button("Refresh") {
+                        SoundFX.shared.play(.whoosh)
+                        Task { await model.refreshHealth() }
+                    }
                 }
                 .card(padding: 22)
 
@@ -61,7 +64,8 @@ struct HealthView: View {
                 }
                 if !h.security.fullDiskAccess {
                     HStack {
-                        Label("Without Full Disk Access, Mail, Safari, other apps' containers and the Trash can't be scanned.", systemImage: "hand.raised")
+                        Label("Without Full Disk Access, Mail, Safari, other apps' containers and the Trash can't be scanned.", systemImage: "hand.raised.fill")
+                            .foregroundStyle(Theme.review)
                         Spacer()
                         Button("Open Settings") { model.openFullDiskAccessSettings() }.buttonStyle(.polish)
                     }
@@ -78,22 +82,40 @@ struct HealthView: View {
     private func onOff(_ v: Bool?) -> String { v.map { $0 ? "On" : "Off" } ?? "Unknown" }
 
     private func metric(_ title: String, _ symbol: String, _ rows: [(String, String)], fraction: Double?) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(title, systemImage: symbol).font(.headline)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                SectionTitle(title: title, symbol: symbol, trailing: nil)
+                if let fraction {
+                    Text("\(Int((min(max(fraction, 0), 1) * 100).rounded()))%")
+                        .font(.system(.title3, design: .rounded).weight(.bold).monospacedDigit())
+                        .foregroundStyle(fraction > 0.9 ? AnyShapeStyle(Theme.risky) : AnyShapeStyle(Theme.polish))
+                }
+            }
             if let fraction {
-                ProgressView(value: min(max(fraction, 0), 1)).tint(fraction > 0.9 ? Theme.risky : Theme.azure)
+                GrowingBar(fraction: fraction, fill: fraction > 0.9 ? Theme.danger : Module.health.gradient, delay: 0.2, height: 7)
             }
             ForEach(rows, id: \.0) { row in
                 HStack {
                     Text(row.0).foregroundStyle(.secondary)
                     Spacer()
-                    Text(row.1).monospacedDigit()
-                        .foregroundStyle(row.1 == "Off" || row.1 == "Missing" ? Theme.risky : .primary)
+                    if row.1 == "On" || row.1 == "Granted" {
+                        Label(row.1, systemImage: "checkmark.circle.fill").foregroundStyle(Theme.safe)
+                    } else if row.1 == "Off" || row.1 == "Missing" {
+                        Label(row.1, systemImage: "xmark.circle.fill").foregroundStyle(Theme.risky)
+                    } else {
+                        Text(row.1).monospacedDigit()
+                    }
                 }
                 .font(.callout)
+                .padding(.vertical, 1)
+                .rowHover()
             }
         }
-        .card()
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassCard()
+        .hoverLift(scale: 1.01)
+        .reveal(delay: 0.08)
     }
 }
 
@@ -117,7 +139,10 @@ struct FleetView: View {
                            message: "Install Burnish on each Mac and point it at the same synced folder (iCloud Drive by default). On a work Mac without your personal iCloud, pick any folder that syncs — Dropbox, Google Drive, OneDrive or a network share.").card()
             }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 16)], spacing: 16) {
-                ForEach(model.fleet) { snap in FleetCard(snap: snap, isThisMac: snap.machine.machineID == model.machine.machineID) }
+                ForEach(Array(model.fleet.enumerated()), id: \.element.id) { index, snap in
+                    FleetCard(snap: snap, isThisMac: snap.machine.machineID == model.machine.machineID)
+                        .reveal(index: index, step: 0.08)
+                }
             }
         }
         .navigationTitle("Fleet")
@@ -145,11 +170,16 @@ struct FleetCard: View {
         let used = snap.diskTotal > 0 ? 1 - Double(snap.diskAvailable) / Double(snap.diskTotal) : 0
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Image(systemName: "laptopcomputer").font(.title).foregroundStyle(Theme.polish)
+                Image(systemName: snap.machine.model.lowercased().contains("book") ? "laptopcomputer" : "macmini")
+                    .font(.system(size: 26, weight: .medium))
+                    .foregroundStyle(.white)
+                    .frame(width: 48, height: 48)
+                    .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Module.fleet.gradient))
+                    .shadow(color: Module.fleet.tint.1.opacity(0.5), radius: 8, y: 4)
                 VStack(alignment: .leading) {
                     HStack(spacing: 6) {
                         Text(snap.machine.name).font(.headline)
-                        if isThisMac { Text("This Mac").font(.caption2).padding(.horizontal, 6).padding(.vertical, 1).background(.quaternary, in: Capsule()) }
+                        if isThisMac { Chip(text: "This Mac", color: Theme.azure, symbol: "location.fill") }
                     }
                     Text("\(snap.machine.chip) · macOS \(snap.machine.osVersion)").font(.caption).foregroundStyle(.secondary)
                 }
@@ -157,14 +187,12 @@ struct FleetCard: View {
                 if let score = snap.healthScore { ScoreRing(score: score, size: 54) }
             }
             HStack(spacing: 6) {
-                Text(snap.machine.isAdmin ? "Admin" : "Standard")
-                    .font(.caption2.weight(.semibold)).padding(.horizontal, 7).padding(.vertical, 2)
-                    .foregroundStyle(snap.machine.isAdmin ? Theme.safe : Theme.review)
-                    .background((snap.machine.isAdmin ? Theme.safe : Theme.review).opacity(0.14), in: Capsule())
+                Chip(text: snap.machine.isAdmin ? "Admin" : "Standard", color: snap.machine.isAdmin ? Theme.safe : Theme.review,
+                     symbol: snap.machine.isAdmin ? "person.badge.key.fill" : "person.fill")
                 if snap.sudoEnabled { SudoBadge() }
-                if snap.isStale { Text("stale").font(.caption2).foregroundStyle(.secondary) }
+                if snap.isStale { Chip(text: "stale", color: .secondary, symbol: "clock") }
             }
-            ProgressView(value: used).tint(used > 0.9 ? Theme.risky : Theme.azure)
+            GrowingBar(fraction: used, fill: used > 0.9 ? Theme.danger : Module.fleet.gradient, delay: 0.2, height: 7)
             HStack {
                 Text("\(Format.bytes(snap.diskAvailable)) free of \(Format.bytes(snap.diskTotal))").font(.caption)
                 Spacer()
@@ -173,7 +201,10 @@ struct FleetCard: View {
             Text("Updated \(Format.relative(snap.updatedAt))\(snap.lastClean.map { " · cleaned " + Format.relative($0) } ?? "") · freed \(Format.bytes(snap.totalFreed)) all-time")
                 .font(.caption2).foregroundStyle(.secondary)
         }
-        .card()
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassCard()
+        .hoverLift()
     }
 }
 
@@ -191,7 +222,7 @@ struct HistoryView: View {
             if model.history.isEmpty {
                 EmptyState(symbol: "clock", title: "Nothing yet", message: "Cleanups, uninstalls, purges and tweaks appear here.").card()
             }
-            ForEach(model.history) { entry in
+            ForEach(Array(model.history.enumerated()), id: \.element.id) { index, entry in
                 DisclosureGroup {
                     VStack(alignment: .leading, spacing: 2) {
                         ForEach(entry.paths.prefix(100), id: \.self) { PathText(path: $0) }
@@ -200,6 +231,8 @@ struct HistoryView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 } label: {
                     HStack {
+                        Image(systemName: historySymbol(entry.action)).font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Module.history.gradient).frame(width: 18)
                         Text(entry.action.capitalized).fontWeight(.medium).frame(width: 90, alignment: .leading)
                         Text(entry.detail).lineLimit(1).foregroundStyle(.secondary)
                         Spacer()
@@ -208,11 +241,27 @@ struct HistoryView: View {
                         Text(Format.relative(entry.date)).font(.caption).foregroundStyle(.secondary).frame(width: 80, alignment: .trailing)
                     }
                 }
-                .card(padding: 12)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .glassCard(cornerRadius: 16)
+                .reveal(index: index, step: 0.03)
             }
         }
         .navigationTitle("History")
         .onAppear { model.loadHistory() }
+    }
+
+    private func historySymbol(_ action: String) -> String {
+        switch action {
+        case "uninstall": return "xmark.app"
+        case "purge": return "hammer"
+        case "orphans": return "questionmark.folder"
+        case "optimize": return "wrench.and.screwdriver"
+        case "smart": return "sparkles"
+        case "autoclean": return "calendar.badge.clock"
+        case "files": return "doc"
+        default: return "trash.slash"
+        }
     }
 }
 
@@ -222,9 +271,29 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @State private var newRoot = ""
     @State private var newIgnore = ""
+    @AppStorage(SoundFX.enabledKey) private var soundOn = true
+    @AppStorage(SoundFX.volumeKey) private var volume: Double = 0.55
+    @AppStorage(reduceEffectsKey) private var reduceEffects = false
+    @AppStorage(alwaysDarkKey) private var alwaysDark = true
 
     var body: some View {
         Form {
+            Section("Look & Sound") {
+                Toggle("Sound effects", isOn: $soundOn)
+                HStack {
+                    Image(systemName: "speaker.fill").foregroundStyle(.secondary)
+                    Slider(value: $volume, in: 0...1) { editing in if !editing { SoundFX.shared.play(.success) } }
+                    Image(systemName: "speaker.wave.3.fill").foregroundStyle(.secondary)
+                }
+                .disabled(!soundOn)
+                Toggle("Always use the dark aurora theme", isOn: $alwaysDark)
+                Toggle("Reduce visual effects (static background, no particles)", isOn: $reduceEffects)
+            }
+            Section("Uninstaller") {
+                Toggle("Remove apps completely — leave no trace", isOn: binding(\.uninstallCompletely))
+                Text("Deletes the app, its data and settings outright, and clears its background jobs, privacy permissions, Login Items, Dock tile and installer receipts. Turn off to send apps to the Trash and keep their personal data.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("Safety") {
                 Toggle("Always use the Trash (even for caches)", isOn: binding(\.alwaysUseTrash))
                 Toggle("Watch the Trash for uninstalled apps", isOn: Binding(get: { model.settings.trashSentinel }, set: { on in
@@ -323,7 +392,10 @@ struct MenuBarView: View {
                 }
             }
             if let smart = model.smart {
-                Text("\(Format.bytes(smart.quickWinBytes)) ready to clean").foregroundStyle(Theme.azure)
+                HStack(spacing: 4) {
+                    CountingBytes(bytes: smart.quickWinBytes).font(.system(.title3, design: .rounded).weight(.bold)).foregroundStyle(Theme.polish)
+                    Text("ready to clean").foregroundStyle(.secondary)
+                }
             }
             HStack {
                 Button("Smart Scan") { Task { await model.runSmartScan() } }.disabled(model.busy != nil)
@@ -347,6 +419,8 @@ struct MenuBarView: View {
         }
         .padding(16)
         .frame(width: 300)
+        .background(AuroraBackground(module: .smartScan, intensity: 0.8))
+        .buttonStyle(.glass)
         .task { if model.health == nil { await model.refreshHealth() } }
     }
 }

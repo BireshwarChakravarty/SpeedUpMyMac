@@ -15,17 +15,16 @@ struct DevPurgeView: View {
                        symbol: "hammer") {
                 HStack {
                     Button("Scan") { Task { await model.runPurgeScan() } }.disabled(model.busy != nil)
-                    Button("Purge") { model.confirmPurge() }.buttonStyle(.polish).disabled(selectedBytes == 0 || model.busy != nil)
+                    Button("Purge") { model.confirmPurge() }.buttonStyle(.tinted(.devPurge)).disabled(selectedBytes == 0 || model.busy != nil)
                 }
             }
-            Label("Projects touched in the last \(model.settings.purgeMinAgeDays) days are listed but not selected. Git-tracked folders are never touched. Toolchain caches (Homebrew, npm, Xcode…) live in Cleanup → Developer.",
-                  systemImage: "info.circle").font(.callout).foregroundStyle(.secondary)
+            InfoNote(text: "Projects touched in the last \(model.settings.purgeMinAgeDays) days are listed but not selected. Git-tracked folders are never touched. Toolchain caches (Homebrew, npm, Xcode…) live in Cleanup → Developer.")
             if model.artifacts.isEmpty {
                 EmptyState(symbol: "shippingbox", title: "No build artifacts found",
                            message: "Add the folders where you keep code in Settings → Dev Purge roots.").card()
             } else {
                 VStack(spacing: 2) {
-                    ForEach(model.artifacts) { artifact in
+                    ForEach(Array(model.artifacts.enumerated()), id: \.element.id) { index, artifact in
                         HStack(spacing: 10) {
                             Toggle("", isOn: Binding(get: { model.selectedArtifacts.contains(artifact.path) },
                                                      set: { on in
@@ -35,7 +34,7 @@ struct DevPurgeView: View {
                                 HStack(spacing: 6) {
                                     Text((artifact.project as NSString).lastPathComponent).fontWeight(.medium)
                                     Text(artifact.kind).font(.caption).foregroundStyle(.secondary)
-                                    if artifact.recentlyActive { RiskBadge(risk: .review) }
+                                    if artifact.recentlyActive { Chip(text: "active", color: Theme.review, symbol: "bolt.fill") }
                                 }
                                 PathText(path: artifact.path)
                             }
@@ -46,6 +45,8 @@ struct DevPurgeView: View {
                             SizeText(bytes: artifact.bytes).frame(width: 80, alignment: .trailing)
                         }
                         .padding(.vertical, 5)
+                        .rowHover()
+                        .reveal(index: index)
                     }
                 }
                 .card()
