@@ -1,6 +1,6 @@
 # Project status: where Root stands
 
-_Last updated: 28 Oct 2026, at commit `8a0b5e5` on branch `claude/clever-johnson-pnrg7t`._
+_Last updated: 29 Oct 2026, after the macOS 27 support commit `47fc41f` on branch `claude/clever-johnson-pnrg7t`._
 
 ## What Root is
 Root is a native macOS cleaner. It was previously named Burnish. It has:
@@ -45,7 +45,7 @@ macOS 27.2 shipped on 26 Oct 2026 (build 26B123). Changes Root adapts to, all ke
 - **SDK.** CI builds on GitHub's `xcode-27` image (macOS 27, Xcode 27.2) and on `macos-latest` (macOS 26). Root's menus are text-only, so SwiftUI 27 hiding menu-item icons changes nothing.
 
 ## Latest build
-The latest green run is https://github.com/BireshwarChakravarty/SpeedUpMyMac/actions/runs/40753939240, and its **Root** artifact is the version to install.
+The latest green run is https://github.com/BireshwarChakravarty/SpeedUpMyMac/actions/runs/40828527911. Its **Root** artifact was built with Xcode 27.2 (Swift 6.4.2) on macOS 27.0.1, where all 65 tests passed and the screenshot tour ran. **Root-built-on-macOS-26** is the Tahoe-SDK build.
 
 ## How to see the real UI (from a cloud session)
 1. Push. The `Screenshot tour` step runs at the end of the macOS job.
