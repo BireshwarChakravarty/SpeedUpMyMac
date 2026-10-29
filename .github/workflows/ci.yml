@@ -3,6 +3,8 @@ name: CI
 on:
   push:
   pull_request:
+  # "Run workflow" on the Actions tab: e.g. a fresh signed build after adding the signing secrets.
+  workflow_dispatch:
 
 jobs:
   macos:
