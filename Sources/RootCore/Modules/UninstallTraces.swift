@@ -71,8 +71,12 @@ public extension Uninstaller {
         traces.append(UninstallTrace(kind: .privacy, title: "Reset privacy permissions",
                                      detail: "Camera, microphone, screen recording, accessibility and other grants for \(ids.count) bundle ID\(ids.count == 1 ? "" : "s")",
                                      items: ids, needsAdmin: false))
-        traces.append(UninstallTrace(kind: .loginItem, title: "Remove from Login Items",
-                                     detail: "If it's listed in System Settings → General → Login Items", items: [app.name], needsAdmin: false))
+        // Removing a Login Item goes through System Events, which costs an "allow Root to control"
+        // prompt. Only do it when the app really is in the list.
+        if loginItemListed(app) {
+            traces.append(UninstallTrace(kind: .loginItem, title: "Remove from Login Items",
+                                         detail: "It's listed in System Settings → General → Login Items", items: [app.name], needsAdmin: false))
+        }
         if dockContains(app.path) {
             traces.append(UninstallTrace(kind: .dock, title: "Remove from the Dock", detail: "Restarts the Dock", items: [app.path], needsAdmin: false))
         }
@@ -152,6 +156,18 @@ public extension Uninstaller {
         guard sudo else { return script }
         for trace in traces where trace.kind == .gatekeeper { script.add("/usr/sbin/spctl", trace.items) }
         return script
+    }
+
+    /// Asks a running app to quit (set by the GUI; the CLI relies on SIGTERM in `clearTraces`).
+    nonisolated(unsafe) static var politeQuit: ((InstalledApp) -> Void)?
+
+    /// Whether the app appears in the legacy Login Items store. Read as raw bytes (the file is a
+    /// keyed archive of bookmarks) so checking never needs System Events.
+    static func loginItemListed(_ app: InstalledApp) -> Bool {
+        let store = Paths.expand("~/Library/Application Support/com.apple.backgroundtaskmanagementagent/backgrounditems.btm")
+        guard let data = FileManager.default.contents(atPath: store) else { return false }
+        let needles = [app.path, app.bundleID, (app.path as NSString).lastPathComponent].compactMap { $0.data(using: .utf8) }
+        return needles.contains { data.range(of: $0) != nil }
     }
 
     // MARK: Discovery
@@ -288,13 +304,10 @@ public extension Uninstaller {
         var root = PrivilegedScript()
         let after = dryRun ? PrivilegedScript() : afterRemoval(traces, sudo: sudo)
         if !dryRun {
-            #if os(macOS)
             // Ask nicely first (unsaved documents); `clearTraces` terminates whatever is left.
-            if !runningProcesses(inside: app.path).isEmpty {
-                Shell.run("/usr/bin/osascript", ["-e", "on run argv", "-e", "tell application id (item 1 of argv) to quit", "-e", "end run",
-                                                 app.bundleID], timeout: 10)
-            }
-            #endif
+            // The app passes a hook that quits through NSRunningApplication, which needs no
+            // Automation permission; an AppleScript "tell … to quit" would prompt for every app.
+            if !runningProcesses(inside: app.path).isEmpty { politeQuit?(app) }
             root = clearTraces(traces, sudo: sudo)
         }
         let requests = self.requests(app: app, leftovers: leftovers, sudo: sudo, complete: complete)

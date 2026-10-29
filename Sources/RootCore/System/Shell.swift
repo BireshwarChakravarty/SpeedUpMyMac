@@ -6,6 +6,12 @@ public struct ShellResult: Sendable {
     public var stdout: String
     public var stderr: String
     public var succeeded: Bool { status == 0 }
+
+    public init(status: Int32, stdout: String, stderr: String) {
+        self.status = status
+        self.stdout = stdout
+        self.stderr = stderr
+    }
 }
 
 /// Thin wrapper around `Process`. Commands are always passed as argv arrays, never through a shell,

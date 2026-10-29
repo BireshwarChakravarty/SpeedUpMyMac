@@ -45,11 +45,20 @@ The **Sudo** switch is at the top right of every page.
 | State | What happens |
 |---|---|
 | **Off** (grey lock) | Root cleans everything your account owns. System folders are listed but skipped. |
-| **On** (amber, open lock) | System-level items are included too. When a job needs them, Root shows the exact script, then macOS asks for your password **once for that batch**. |
+| **On** (amber, open lock) | System-level items are included too. When a job needs them, Root shows the exact script, then macOS asks for your password. After that, Root doesn't ask again for **about five minutes**, so a clean, a maintenance run and an uninstall in a row need one password. |
 
 - **Greyed out?** That account isn't an administrator on that Mac, which is expected on the M3. Point at the switch and it explains why.
 - **Check whether an account is an admin:** `id -Gn | grep -o admin` prints `admin` if it is.
-- **Use your fingerprint instead of typing the password:** go to **Tweaks**, then turn on **Touch ID for sudo**. Sudo mode must be on for this.
+- **Use your fingerprint instead of typing the password:** go to **Tweaks**, then turn on **Touch ID for sudo**. Sudo mode must be on for this. That applies to the `root` command in Terminal; the app uses macOS's own administrator dialog.
+
+### Fewer permission prompts
+Root is built not to interrupt you:
+- **Admin password:** once, then nothing for about five minutes (see above).
+- **Desktop, Documents and Downloads:** without Full Disk Access, scans skip these instead of making macOS ask, and say so. Choosing one of them yourself in Space Lens is still allowed.
+- **Quitting an app before uninstalling it** uses the same mechanism as the Dock's Quit, so macOS never asks "allow Root to control…".
+- **Login Items** are only touched when the app is actually listed there.
+
+Grant **Full Disk Access** once (Smart Scan shows a card for it) and the folder questions stop for good.
 - **From Terminal:** `root sudo on` turns it on permanently, and `--sudo` applies it to a single command.
 
 ---

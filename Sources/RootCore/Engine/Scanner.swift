@@ -25,10 +25,12 @@ public struct Scanner {
                      progress: ((CleanupTarget) -> Void)? = nil) -> ScanReport {
         var claimed = ClaimSet()
         var results: [TargetResult] = []
-        let containersReadable = !OSFeatures.containersProtected || Scanner.fullDiskAccess()
+        let fullDiskAccess = Scanner.fullDiskAccess()
+        let containersReadable = !OSFeatures.containersProtected || fullDiskAccess
         for target in targets where !settings.disabledTargets.contains(target.id) {
             progress?(target)
-            if let result = scanTarget(target, claimed: &claimed, containersReadable: containersReadable) { results.append(result) }
+            if let result = scanTarget(target, claimed: &claimed, containersReadable: containersReadable,
+                                       promptingFoldersOK: fullDiskAccess) { results.append(result) }
         }
         return ScanReport(date: now, results: results, sudo: sudo)
     }
@@ -38,10 +40,18 @@ public struct Scanner {
 
     public static let needsFullDiskAccess = "Needs Full Disk Access: macOS 27 protects other apps' containers"
 
-    func scanTarget(_ target: CleanupTarget, claimed: inout ClaimSet, containersReadable: Bool = true) -> TargetResult? {
+    public static let needsFolderAccess = "Needs Full Disk Access, so macOS doesn't stop to ask about this folder"
+
+    func scanTarget(_ target: CleanupTarget, claimed: inout ClaimSet, containersReadable: Bool = true,
+                    promptingFoldersOK: Bool = true) -> TargetResult? {
         var skipped: String?
         if target.scope == .system && !sudo { skipped = "Needs Sudo mode" }
         if !containersReadable && Scanner.touchesAppContainers(target) { skipped = Scanner.needsFullDiskAccess }
+        // Without Full Disk Access, reading Downloads/Documents/Desktop pops a dialog mid-scan.
+        // Skip instead (without touching the folder at all) and say why.
+        if !promptingFoldersOK && Scanner.paths(of: target).contains(where: OSFeatures.isInPromptingFolder) {
+            return TargetResult(target: target, items: [], skippedReason: Scanner.needsFolderAccess)
+        }
         let blockers = target.skipWhileRunning.filter { running.contains($0) }
         if !blockers.isEmpty { skipped = "Quit \(blockers.joined(separator: ", ")) first" }
 
@@ -94,15 +104,17 @@ public struct Scanner {
     }
 
     /// Depth-limited file search by name glob. Does not descend into packages' hidden dirs or symlinks.
-    static func touchesAppContainers(_ target: CleanupTarget) -> Bool {
-        let paths: [String]
+    static func paths(of target: CleanupTarget) -> [String] {
         switch target.kind {
-        case .contents(let dirs): paths = dirs
-        case .paths(let globs): paths = globs
-        case .files(let root, _, _): paths = [root]
-        case .command(_, _, let estimate): paths = estimate
+        case .contents(let dirs): return dirs
+        case .paths(let globs): return globs
+        case .files(let root, _, _): return [root]
+        case .command(_, _, let estimate): return estimate
         }
-        return paths.contains { OSFeatures.isInsideAppContainer($0) }
+    }
+
+    static func touchesAppContainers(_ target: CleanupTarget) -> Bool {
+        paths(of: target).contains { OSFeatures.isInsideAppContainer($0) }
     }
 
     public static func findFiles(in root: String, patterns: [String], maxDepth: Int) -> [String] {

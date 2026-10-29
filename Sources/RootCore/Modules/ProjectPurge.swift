@@ -57,7 +57,8 @@ public struct ProjectPurge {
     public func scan(progress: ((String) -> Void)? = nil) -> [ProjectArtifact] {
         var hits: [(path: String, project: String, kind: String)] = []
         var seen = Set<String>()
-        for root in roots { walk(root, depth: 0, hits: &hits, seen: &seen, progress: progress) }
+        let blocked = Set(ProjectPurge.rootsNeedingAccess(roots))
+        for root in roots where !blocked.contains(root) { walk(root, depth: 0, hits: &hits, seen: &seen, progress: progress) }
 
         var artifacts = [ProjectArtifact?](repeating: nil, count: hits.count)
         let cutoff = now.addingTimeInterval(-Double(minAgeDays) * 86_400)
@@ -76,6 +77,13 @@ public struct ProjectPurge {
             }
         }
         return artifacts.compactMap { $0 }.sorted { $0.bytes > $1.bytes }
+    }
+
+    /// Project roots inside Desktop/Documents/Downloads, which macOS would stop and ask about
+    /// without Full Disk Access. They're skipped (not touched) until Root has it.
+    public static func rootsNeedingAccess(_ roots: [String]) -> [String] {
+        guard roots.contains(where: OSFeatures.isInPromptingFolder), !Scanner.fullDiskAccess() else { return [] }
+        return roots.filter(OSFeatures.isInPromptingFolder)
     }
 
     private func walk(_ dir: String, depth: Int, hits: inout [(path: String, project: String, kind: String)],

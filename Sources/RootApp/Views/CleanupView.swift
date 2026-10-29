@@ -22,10 +22,10 @@ struct CleanupView: View {
                 if scan.results.isEmpty {
                     EmptyState(symbol: "checkmark.circle", title: "Spotless", message: "Nothing worth cleaning was found.")
                 }
-                if scan.results.contains(where: { $0.skippedReason == Scanner.needsFullDiskAccess }) {
+                if scan.results.contains(where: { $0.skippedReason == Scanner.needsFullDiskAccess || $0.skippedReason == Scanner.needsFolderAccess }) {
                     HStack(spacing: 12) {
                         Image(systemName: "hand.raised").foregroundStyle(Theme.review)
-                        Text("macOS 27 keeps other apps' containers private. Give Root Full Disk Access to clean their caches and logs too.")
+                        Text("Some items were skipped so macOS wouldn't interrupt you with permission prompts. Give Root Full Disk Access once to include Downloads and other apps' caches.")
                             .font(.system(size: 12)).foregroundStyle(.secondary)
                         Spacer()
                         Button("Open Settings") { model.openFullDiskAccessSettings() }.controlSize(.small)

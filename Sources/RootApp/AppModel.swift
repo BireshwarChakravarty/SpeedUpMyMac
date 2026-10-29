@@ -127,6 +127,14 @@ final class AppModel {
             Task { @MainActor in self?.offerLeftoverCleanup(forTrashed: path) }
         }
         if settings.trashSentinel { sentinel.start() }
+        // Quit apps before uninstalling them without Apple Events (which would ask for Automation
+        // permission once per app).
+        Uninstaller.politeQuit = { app in
+            let running = NSRunningApplication.runningApplications(withBundleIdentifier: app.bundleID)
+            running.forEach { $0.terminate() }
+            let deadline = Date().addingTimeInterval(4)
+            while Date() < deadline, running.contains(where: { !$0.isTerminated }) { usleep(100_000) }
+        }
         Scheduler.migrateLegacy(settings.schedule, cliPath: Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/root").path)
     }
 
@@ -142,7 +150,8 @@ final class AppModel {
         })
     }
 
-    var runner: PrivilegeRunner { Privilege.appleScriptRunner() }
+    /// One admin session for the whole app, so a password covers the next few minutes of work.
+    var runner: PrivilegeRunner { AdminSession.shared }
 
     // MARK: Helpers
 
@@ -436,6 +445,14 @@ final class AppModel {
 
     func refreshHealth() async {
         health = await run("Checking health…") { Health.report() }
+    }
+
+    /// Cheap re-check after you come back from System Settings, without a full health report.
+    func recheckFullDiskAccess() {
+        let granted = Health.hasFullDiskAccess()
+        guard health != nil, health?.security.fullDiskAccess != granted else { return }
+        health?.security.fullDiskAccess = granted
+        if granted { report("Full Disk Access granted: macOS won't need to ask about your folders") }
     }
 
     func publishFleet() async {

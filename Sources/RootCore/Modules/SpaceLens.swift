@@ -39,10 +39,23 @@ public enum SpaceLens {
     public static func scan(_ root: String, depth: Int = 4, keepChildren: Int = 40,
                             progress: ((String) -> Void)? = nil) -> DiskNode {
         let path = Paths.normalize(root)
-        return build(path, name: (path as NSString).lastPathComponent, depth: depth, keep: keepChildren, progress: progress)
+        return build(path, name: (path as NSString).lastPathComponent, depth: depth, keep: keepChildren,
+                     avoid: foldersToAvoid(under: path), progress: progress)
     }
 
-    private static func build(_ path: String, name: String, depth: Int, keep: Int, progress: ((String) -> Void)?) -> DiskNode {
+    /// Desktop, Documents and Downloads would each pop a permission prompt mid-scan without Full
+    /// Disk Access, so a scan of a folder above them leaves them out. Pick one of them directly
+    /// (or grant Full Disk Access) to include it.
+    public static func foldersToAvoid(under root: String) -> Set<String> {
+        let expanded = Paths.expand(root)
+        guard !OSFeatures.isInPromptingFolder(expanded) else { return [] }
+        let inside = OSFeatures.promptingFolders.filter { Paths.isInside($0, expanded) }
+        guard !inside.isEmpty, !Scanner.fullDiskAccess() else { return [] }
+        return Set(inside)
+    }
+
+    private static func build(_ path: String, name: String, depth: Int, keep: Int, avoid: Set<String>,
+                              progress: ((String) -> Void)?) -> DiskNode {
         // App bundles and other leaves are measured whole.
         guard Paths.isDirectory(path), !path.hasSuffix(".app") else {
             let m = FileSizer.measure(path)
@@ -59,8 +72,8 @@ public enum SpaceLens {
             let base = buffer.baseAddress!
             DispatchQueue.concurrentPerform(iterations: names.count) { i in
                 let child = (path as NSString).appendingPathComponent(names[i])
-                if Paths.isSymlink(child) { return }
-                base[i] = build(child, name: names[i], depth: depth - 1, keep: keep, progress: nil)
+                if Paths.isSymlink(child) || avoid.contains(child) { return }
+                base[i] = build(child, name: names[i], depth: depth - 1, keep: keep, avoid: avoid, progress: nil)
             }
         }
         var list = children.compactMap { $0 }.filter { $0.bytes > 0 }.sorted { $0.bytes > $1.bytes }
@@ -81,13 +94,15 @@ public enum SpaceLens {
                                       .contentModificationDateKey, .contentAccessDateKey, .isPackageKey]
         let cutoff = olderThanDays.map { Date().addingTimeInterval(-Double($0) * 86_400) }
         var found: [LargeFile] = []
+        let avoid = SpaceLens.foldersToAvoid(under: root)
         guard let e = FileManager.default.enumerator(at: URL(fileURLWithPath: Paths.expand(root)), includingPropertiesForKeys: keys,
                                                      options: [], errorHandler: { _, _ in true }) else { return [] }
         for case let url as URL in e {
             guard let v = try? url.resourceValues(forKeys: Set(keys)) else { continue }
             if v.isDirectory == true {
                 let name = url.lastPathComponent
-                if v.isPackage == true || name == ".Trash" || name == "Library" && url.deletingLastPathComponent().path == Paths.home {
+                if v.isPackage == true || name == ".Trash" || name == "Library" && url.deletingLastPathComponent().path == Paths.home
+                    || avoid.contains(url.path) {
                     e.skipDescendants()
                 }
                 continue
@@ -118,12 +133,13 @@ public enum Duplicates {
     public static func find(in root: String, minBytes: Int64 = 1_000_000) -> [DuplicateGroup] {
         var bySize: [Int64: [String]] = [:]
         let keys: [URLResourceKey] = [.fileSizeKey, .isRegularFileKey, .isPackageKey, .isDirectoryKey]
+        let avoid = SpaceLens.foldersToAvoid(under: root)
         guard let e = FileManager.default.enumerator(at: URL(fileURLWithPath: Paths.expand(root)), includingPropertiesForKeys: keys,
                                                      options: [.skipsHiddenFiles], errorHandler: { _, _ in true }) else { return [] }
         for case let url as URL in e {
             guard let v = try? url.resourceValues(forKeys: Set(keys)) else { continue }
             if v.isDirectory == true {
-                if v.isPackage == true || url.lastPathComponent == "Library" { e.skipDescendants() }
+                if v.isPackage == true || url.lastPathComponent == "Library" || avoid.contains(url.path) { e.skipDescendants() }
                 continue
             }
             guard v.isRegularFile == true, let size = v.fileSize, Int64(size) >= minBytes else { continue }

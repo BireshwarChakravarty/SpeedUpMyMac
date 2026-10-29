@@ -43,6 +43,16 @@ public enum OSFeatures {
         return words.contains("purge") ? ["purge"] : nil
     }
 
+    /// Folders macOS guards with a one-off "would like to access" prompt for each app (unless the
+    /// app has Full Disk Access). Automatic scans stay out of them without it, so a scan never
+    /// surprises you with a permission dialog.
+    public static var promptingFolders: [String] { ["~/Desktop", "~/Documents", "~/Downloads"].map(Paths.expand) }
+
+    public static func isInPromptingFolder(_ path: String) -> Bool {
+        let expanded = Paths.expand(path)
+        return promptingFolders.contains { Paths.isInside(expanded, $0) || expanded == $0 }
+    }
+
     /// Paths inside other apps' sandboxes, which macOS 27 shields without Full Disk Access.
     public static func isInsideAppContainer(_ path: String) -> Bool {
         path.contains("/Library/Containers/") || path.contains("/Library/Group Containers/")

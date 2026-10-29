@@ -492,6 +492,43 @@ final class MacOS27Tests: SandboxedTestCase {
         XCTAssertTrue(Uninstaller.afterRemoval(traces, sudo: false).isEmpty)
     }
 
+    func testPromptingFoldersAreSkippedWithoutFullDiskAccess() {
+        makeFile("Downloads/Installer.dmg", bytes: 8192)
+        let target = CleanupTarget(id: "dl", title: "Installers", detail: "", category: .installers,
+                                   kind: .files(root: "~/Downloads", patterns: ["*.dmg"], maxDepth: 2))
+        Scanner.fullDiskAccess = { false }
+        let blocked = Scanner(settings: Settings(), sudo: false).scan([target]).results.first
+        XCTAssertEqual(blocked?.skippedReason, Scanner.needsFolderAccess)
+        XCTAssertEqual(blocked?.items.count, 0)
+        Scanner.fullDiskAccess = { true }
+        XCTAssertEqual(Scanner(settings: Settings(), sudo: false).scan([target]).results.first?.items.count, 1)
+    }
+
+    func testProjectRootsAndSpaceLensStayOutOfPromptingFolders() {
+        _ = makeDir("Documents/GitHub")
+        _ = makeDir("Downloads")
+        Scanner.fullDiskAccess = { false }
+        XCTAssertEqual(ProjectPurge.rootsNeedingAccess(["~/Code", "~/Documents/GitHub"]), ["~/Documents/GitHub"])
+        XCTAssertTrue(SpaceLens.foldersToAvoid(under: home).contains(home + "/Downloads"))
+        XCTAssertTrue(SpaceLens.foldersToAvoid(under: home + "/Downloads").isEmpty, "a folder you pick yourself is fine")
+        Scanner.fullDiskAccess = { true }
+        XCTAssertTrue(ProjectPurge.rootsNeedingAccess(["~/Documents/GitHub"]).isEmpty)
+        XCTAssertTrue(SpaceLens.foldersToAvoid(under: home).isEmpty)
+    }
+
+    func testLoginItemsAreOnlyTouchedWhenListed() {
+        let app = InstalledApp(path: "/Applications/Foo.app", name: "Foo", bundleID: "com.foo.Foo", version: "1", bytes: 0,
+                               lastUsed: nil, teamID: nil, embeddedBundleIDs: [], userRemovable: true, isAppleApp: false, isAppStore: false)
+        XCTAssertFalse(Uninstaller.loginItemListed(app))
+        let store = makeFile("Library/Application Support/com.apple.backgroundtaskmanagementagent/backgrounditems.btm", bytes: 0)
+        FileManager.default.createFile(atPath: store, contents: Data("bplist00…file:///Applications/Foo.app/…".utf8))
+        XCTAssertTrue(Uninstaller.loginItemListed(app))
+        XCTAssertFalse(Uninstaller.traces(for: InstalledApp(path: "/Applications/Bar.app", name: "Bar", bundleID: "com.bar", version: "1",
+                                                            bytes: 0, lastUsed: nil, teamID: nil, embeddedBundleIDs: [], userRemovable: true,
+                                                            isAppleApp: false, isAppStore: false), leftovers: [])
+            .contains { $0.kind == .loginItem })
+    }
+
     #if os(macOS)
     func testQuarantineFlagIsDetectedAndCleared() {
         let plist = makeFile("Library/LaunchAgents/com.vendor.agent.plist")

@@ -18,6 +18,18 @@ struct DevPurgeView: View {
                     Button("Purge") { model.confirmPurge() }.buttonStyle(.tinted(.devPurge)).disabled(selectedBytes == 0 || model.busy != nil)
                 }
             }
+            let waiting = ProjectPurge.rootsNeedingAccess(model.settings.purgeRoots).filter { Paths.lexists(Paths.expand($0)) }
+            if !waiting.isEmpty {
+                HStack(spacing: 12) {
+                    Image(systemName: "hand.raised").foregroundStyle(Theme.review)
+                    Text("Skipped \(waiting.map(Paths.abbreviate).joined(separator: ", ")) so macOS doesn't stop to ask. Give Root Full Disk Access to include it.")
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Open Settings") { model.openFullDiskAccessSettings() }.controlSize(.small)
+                }
+                .padding(12)
+                .surface()
+            }
             InfoNote(text: "Projects touched in the last \(model.settings.purgeMinAgeDays) days are listed but not selected. Git-tracked folders are never touched. Toolchain caches (Homebrew, npm, Xcode…) live in Cleanup → Developer.")
             if model.artifacts.isEmpty {
                 EmptyState(symbol: "shippingbox", title: "No build artifacts found",

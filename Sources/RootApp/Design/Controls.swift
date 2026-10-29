@@ -216,7 +216,7 @@ struct SudoSwitch: View {
         .animation(Theme.snappy, value: on)
         .disabled(!model.machine.isAdmin)
         .help(model.machine.isAdmin
-              ? "Sudo mode: include system-level items. macOS asks for your password once per batch, after you've seen the exact script."
+              ? "Sudo mode: include system-level items. macOS asks for your password once, then not again for the next few minutes."
               : "\(model.machine.userName) is a standard account on this Mac, so Root cleans everything you own but can't touch system folders.")
     }
 }

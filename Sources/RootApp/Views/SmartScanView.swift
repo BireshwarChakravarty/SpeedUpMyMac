@@ -10,6 +10,7 @@ struct SmartScanView: View {
 
     var body: some View {
         ModuleScroll {
+            if model.health?.security.fullDiskAccess == false { FullDiskAccessCard() }
             hero
             if let smart = model.smart, phase != .scanning {
                 summary(smart)
@@ -171,5 +172,29 @@ struct SmartScanView: View {
     private func go(_ module: Module) {
         SoundFX.shared.play(.select)
         withAnimation(Theme.spring) { model.selection = module }
+    }
+}
+
+/// Asks once for Full Disk Access, the one permission that stops macOS asking about each folder.
+struct FullDiskAccessCard: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            Image(systemName: "hand.raised.fill").font(.system(size: 18)).foregroundStyle(Theme.review)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Give Root Full Disk Access once").font(.system(size: 13, weight: .semibold))
+                Text("Then macOS stops asking about Desktop, Documents and Downloads, and Root can see Mail, Safari and other apps' caches. Until then, Root skips those places instead of interrupting you.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 12)
+            Button("Open Settings") { model.openFullDiskAccessSettings() }.buttonStyle(.brand)
+        }
+        .padding(16)
+        .surface()
+        .reveal()
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            model.recheckFullDiskAccess()
+        }
     }
 }
