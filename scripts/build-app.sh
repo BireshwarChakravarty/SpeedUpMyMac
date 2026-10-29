@@ -51,7 +51,7 @@ fi
 codesign "${SIGN_ARGS[@]}" --sign "$IDENTITY" --identifier io.rootapp.root-cli "$APP/Contents/Helpers/root"
 codesign "${SIGN_ARGS[@]}" --sign "$IDENTITY" "$APP"
 codesign --verify --strict "$APP"
-echo "    designated requirement: $(codesign -d -r- "$APP" 2>&1 | sed -n 's/^designated => //p')"
+echo "    designated requirement: $(codesign -d -r- "$APP" 2>&1 | sed -n 's/.*designated => //p')"
 
 echo "==> Zipping for your other Macs"
 rm -f "$DIST/Root.zip"
