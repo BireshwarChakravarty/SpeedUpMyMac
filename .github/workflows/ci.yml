@@ -8,6 +8,10 @@ jobs:
   macos:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
+    env:
+      # Root's signing certificate (scripts/make-signing-identity.sh). Absent → ad-hoc signing.
+      ROOT_SIGNING_P12: ${{ secrets.ROOT_SIGNING_P12 }}
+      ROOT_SIGNING_PASSWORD: ${{ secrets.ROOT_SIGNING_PASSWORD }}
     strategy:
       fail-fast: false
       matrix:
@@ -40,8 +44,36 @@ jobs:
         run: swift build
       - name: Test
         run: swift test
+      - name: Signing identity
+        if: env.ROOT_SIGNING_P12 != ''
+        run: |
+          echo "$ROOT_SIGNING_P12" | base64 --decode > "$RUNNER_TEMP/root-signing.p12"
+          scripts/import-signing-identity.sh "$RUNNER_TEMP/root-signing.p12" "$ROOT_SIGNING_PASSWORD"
+          rm -f "$RUNNER_TEMP/root-signing.p12"
       - name: Package app bundle
         run: scripts/build-app.sh
+      - name: Signing self-test (permissions survive updates)
+        # With a throwaway certificate made by the same script you run: two different builds must
+        # get different code hashes but the same designated requirement, which is what macOS
+        # privacy permissions are tied to.
+        run: |
+          T="$RUNNER_TEMP/sigtest"
+          scripts/make-signing-identity.sh --ci "$T"
+          eval "$(GITHUB_ENV= scripts/import-signing-identity.sh "$T/root-signing.p12" "$(cat "$T/password")" | tail -1)"
+          for v in 1 2; do
+            rm -rf "$T/v$v.app"; cp -R dist/Root.app "$T/v$v.app"
+            /usr/libexec/PlistBuddy -c "Set :CFBundleVersion 9$v" "$T/v$v.app/Contents/Info.plist"
+            codesign --force --timestamp=none --keychain "$ROOT_SIGN_KEYCHAIN" --sign "$ROOT_SIGN_IDENTITY" "$T/v$v.app"
+            codesign --verify --strict "$T/v$v.app"
+          done
+          dr1="$(codesign -d -r- "$T/v1.app" 2>&1 | grep '^designated')"
+          dr2="$(codesign -d -r- "$T/v2.app" 2>&1 | grep '^designated')"
+          h1="$(codesign -dvvv "$T/v1.app" 2>&1 | grep '^CDHash=')"
+          h2="$(codesign -dvvv "$T/v2.app" 2>&1 | grep '^CDHash=')"
+          echo "$dr1"; echo "v1 $h1"; echo "v2 $h2"
+          [[ "$dr1" == "$dr2" && "$dr1" == *"certificate leaf"* && "$h1" != "$h2" ]] \
+            && echo "OK: different builds, same identity to macOS" \
+            || { echo "Signing self-test failed"; exit 1; }
       - name: CLI smoke test
         run: |
           dist/Root.app/Contents/Helpers/root --version

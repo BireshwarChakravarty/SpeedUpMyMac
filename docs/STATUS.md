@@ -44,6 +44,9 @@ macOS 27.2 shipped on 26 Oct 2026 (build 26B123). Changes Root adapts to, all ke
 - **`spctl` purge.** New maintenance task, and an uninstall trace that runs after the files are deleted, in the same admin prompt. The exact syntax is read from `spctl`'s usage text.
 - **SDK.** CI builds on GitHub's `xcode-27` image (macOS 27, Xcode 27.2) and on `macos-latest` (macOS 26). Root's menus are text-only, so SwiftUI 27 hiding menu-item icons changes nothing.
 
+## Signing
+`scripts/build-app.sh` signs with `ROOT_SIGN_IDENTITY` (CI imports it from the `ROOT_SIGNING_P12` / `ROOT_SIGNING_PASSWORD` secrets via `scripts/import-signing-identity.sh`), else the "Root Signing" identity in the login keychain, else ad-hoc. `scripts/make-signing-identity.sh` creates that certificate on the user's Mac and walks through adding the secrets. CI's "Signing self-test" proves two different builds share one designated requirement (what TCC keys permissions on).
+
 ## Latest build
 The latest green run is https://github.com/BireshwarChakravarty/SpeedUpMyMac/actions/runs/40828527911. Its **Root** artifact was built with Xcode 27.2 (Swift 6.4.2) on macOS 27.0.1, where all 65 tests passed and the screenshot tour ran. **Root-built-on-macOS-26** is the Tahoe-SDK build.
 

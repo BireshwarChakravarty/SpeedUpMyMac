@@ -33,9 +33,25 @@ cp "$BIN/root" "$APP/Contents/Helpers/root"
 cp Assets/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD/" Resources/Info.plist > "$APP/Contents/Info.plist"
 
-echo "==> Signing (ad-hoc)"
-codesign --force --sign - --timestamp=none "$APP/Contents/Helpers/root"
-codesign --force --sign - --timestamp=none "$APP"
+# Signing: ROOT_SIGN_IDENTITY (CI sets it from the repository secrets), else the "Root Signing"
+# certificate from scripts/make-signing-identity.sh if it's in your keychain, else ad-hoc.
+# A stable certificate makes every build the same app to macOS, so permissions survive updates.
+IDENTITY="${ROOT_SIGN_IDENTITY:-}"
+if [[ -z "$IDENTITY" ]] && security find-identity -p codesigning 2>/dev/null | grep -q '"Root Signing"'; then
+    IDENTITY="Root Signing"
+fi
+SIGN_ARGS=(--force --timestamp=none)
+if [[ -n "${ROOT_SIGN_KEYCHAIN:-}" ]]; then SIGN_ARGS+=(--keychain "$ROOT_SIGN_KEYCHAIN"); fi
+if [[ -n "$IDENTITY" ]]; then
+    echo "==> Signing with \"$IDENTITY\""
+else
+    IDENTITY="-"
+    echo "==> Signing (ad-hoc: permissions reset with each new build; see scripts/make-signing-identity.sh)"
+fi
+codesign "${SIGN_ARGS[@]}" --sign "$IDENTITY" --identifier io.rootapp.root-cli "$APP/Contents/Helpers/root"
+codesign "${SIGN_ARGS[@]}" --sign "$IDENTITY" "$APP"
+codesign --verify --strict "$APP"
+echo "    designated requirement: $(codesign -d -r- "$APP" 2>&1 | sed -n 's/^designated => //p')"
 
 echo "==> Zipping for your other Macs"
 rm -f "$DIST/Root.zip"

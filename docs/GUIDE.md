@@ -59,6 +59,15 @@ Root is built not to interrupt you:
 - **Login Items** are only touched when the app is actually listed there.
 
 Grant **Full Disk Access** once (Smart Scan shows a card for it) and the folder questions stop for good.
+
+### Keep permissions across updates (one-time setup)
+By default each build gets a throwaway signature, so macOS treats every update as a new app and asks for Full Disk Access again. Give Root a permanent signature once:
+
+1. On your Mac, run `bash ~/Downloads/make-signing-identity.sh` (the script is `scripts/make-signing-identity.sh` in the repo). It creates a "Root Signing" certificate in `~/.root-signing` and your login keychain.
+2. It opens GitHub's **New repository secret** page and copies each value to your clipboard in turn: paste `ROOT_SIGNING_P12`, then `ROOT_SIGNING_PASSWORD`. If you use the GitHub CLI (`gh`), it sets both itself.
+3. From the next build on, every Root is signed with that certificate. Grant Full Disk Access to the first signed build, and later updates keep it.
+
+The certificate is self-signed: it keeps permissions stable, but it isn't Apple notarization, so a fresh download may still need **Open Anyway** once. Keep `~/.root-signing` safe; anyone with it could sign an app that macOS treats as Root.
 - **From Terminal:** `root sudo on` turns it on permanently, and `--sudo` applies it to a single command.
 
 ---
