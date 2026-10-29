@@ -157,7 +157,7 @@ struct StartupView: View {
     var body: some View {
         ModuleScroll {
             HeroHeader(title: "Startup Items", value: "\(items.filter { !$0.disabled }.count) active",
-                       caption: "\(items.filter { $0.signing.suspicious }.count) unsigned, ad-hoc or broken · disabling is reversible, nothing is deleted",
+                       caption: "\(items.filter(\.needsAttention).count) need a look · disabling is reversible, nothing is deleted",
                        symbol: "power") {
                 Button("Refresh") { Task { await load() } }
             }
@@ -192,6 +192,14 @@ struct StartupView: View {
                 if let program = item.program { PathText(path: program) }
             }
             Spacer()
+            if item.quarantined && OSFeatures.launchdRejectsQuarantined {
+                Chip(text: "Won't load", color: Theme.review, symbol: "exclamationmark.triangle.fill")
+                    .help("macOS 27's launchd skips plists that still carry the download quarantine flag.")
+                Button("Fix") { fixQuarantine(item) }
+                    .controlSize(.small)
+                    .disabled(item.domain != .userAgent && !model.sudo)
+                    .help(item.domain == .userAgent ? "Clear the quarantine flag so launchd loads it" : "Needs Sudo mode")
+            }
             if item.signing.suspicious {
                 Chip(text: item.signer ?? item.signing.rawValue, color: Theme.risky, symbol: "exclamationmark.triangle.fill")
             } else {
@@ -205,6 +213,19 @@ struct StartupView: View {
 
     private func load() async {
         items = await model.run("Auditing launch agents…") { StartupItems.scan() }
+    }
+
+    private func fixQuarantine(_ item: StartupItem) {
+        let sudo = model.sudo, runner = model.runner
+        Task {
+            do {
+                try await Task.detached { try StartupItems.clearQuarantine(item, sudo: sudo, runner: runner) }.value
+                model.report("\(item.label) will load again")
+            } catch {
+                model.report(error.localizedDescription, error: true)
+            }
+            await load()
+        }
     }
 
     private func toggle(_ item: StartupItem, _ on: Bool) {
@@ -239,7 +260,7 @@ struct TweaksView: View {
                     Button("Revert all") { revert(Tweaks.all) }
                 }
             }
-            InfoNote(text: "macOS 26 seals the system volume, so system apps and Siri/Spotlight daemons can't be deleted without disabling SIP. Root won't ask you to. These are the changes that are safe and reversible.")
+            InfoNote(text: "macOS seals the system volume, so system apps and Siri/Spotlight daemons can't be deleted without disabling SIP. Root won't ask you to. These are the changes that are safe and reversible.")
             ForEach(TweakGroup.allCases, id: \.self) { group in
                 VStack(alignment: .leading, spacing: 6) {
                     SectionTitle(title: group.rawValue, symbol: "slider.horizontal.3", trailing: nil)

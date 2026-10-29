@@ -36,6 +36,14 @@ It is built for three Macs: the M4 and M6, which have admin accounts, and the M3
   - packages `Root.zip` as the **Root** artifact;
   - runs a **screenshot tour**: `ROOTAPP_TOUR=<dir>` makes the app scan and show every page while CI captures each one. Screenshots go into the **Screenshots** artifact, and as base64 between `@@SHOT`/`@@END` markers in the job log.
 
+## macOS 27 (Golden Gate) support
+macOS 27.2 shipped on 26 Oct 2026 (build 26B123). Changes Root adapts to, all keyed on the running major version in `Sources/RootCore/System/OSFeatures.swift`:
+- **Other apps' containers are denied by default.** Cleanup targets inside `Containers`/`Group Containers` are skipped with "Needs Full Disk Access" when Root doesn't have it; removal errors there explain the same; the Cleanup page offers Open Settings.
+- **Apps can't read the TCC database; XProtect may shield app data malware targets.** The Full Disk Access probe never opens TCC.db and accepts any of several protected folders.
+- **launchd won't load quarantined plists.** Startup Items flags them ("Won't load", `root startup fix <label>`), and the scheduled-clean agent's plist never carries the flag.
+- **`spctl` purge.** New maintenance task, and an uninstall trace that runs after the files are deleted, in the same admin prompt. The exact syntax is read from `spctl`'s usage text.
+- **SDK.** CI builds on GitHub's `xcode-27` image (macOS 27, Xcode 27.2) and on `macos-latest` (macOS 26). Root's menus are text-only, so SwiftUI 27 hiding menu-item icons changes nothing.
+
 ## Latest build
 The latest green run is https://github.com/BireshwarChakravarty/SpeedUpMyMac/actions/runs/40753939240, and its **Root** artifact is the version to install.
 

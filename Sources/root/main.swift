@@ -137,7 +137,7 @@ func cmdHelp() {
     \(bold("SPEED"))
       top                     Top CPU and memory processes
       optimize                Probe and run maintenance (--list, --task id, --all-optional)
-      startup                 Audit launch agents & daemons (disable|enable <label>)
+      startup                 Audit launch agents & daemons (disable|enable|fix <label>)
       tweaks                  List tweaks; apply <id|preset> / revert <id|all>; presets: balanced, privacy, snappy
       touchid on|off          Use Touch ID for sudo (admin)
 
@@ -433,6 +433,16 @@ func cmdStartup() {
         } catch { fail(error.localizedDescription) }
         return
     }
+    if sub == "fix" {
+        guard let label = args.positional.dropFirst().first else { fail("usage: root startup fix <label>") }
+        guard let item = StartupItems.scan(checkSignatures: false).first(where: { $0.label == label }) else { fail("no job labelled \(label)") }
+        guard item.quarantined else { print("\(label) isn't quarantined; nothing to fix."); return }
+        do {
+            try StartupItems.clearQuarantine(item, sudo: sudo, runner: runner)
+            print(green("✓ ") + "Cleared the quarantine flag on \(label); launchd will load it again")
+        } catch { fail(error.localizedDescription) }
+        return
+    }
     if sub == "btm" {
         guard sudo else { fail("needs --sudo") }
         do { print(try StartupItems.backgroundTaskDump(runner: runner)) } catch { fail(error.localizedDescription) }
@@ -443,7 +453,8 @@ func cmdStartup() {
     for item in items {
         let sig = item.signing.suspicious ? red(pad(item.signing.rawValue, 14)) : dim(pad(item.signing.rawValue, 14))
         let state = item.disabled ? dim("off") : green("on ")
-        print("  \(state)  \(sig) \(pad(item.domain.rawValue, 14)) \(item.label)\(item.signer.map { dim("  " + $0) } ?? "")")
+        let blocked = item.quarantined && OSFeatures.launchdRejectsQuarantined ? red("  quarantined: launchd won't load it (root startup fix \(item.label))") : ""
+        print("  \(state)  \(sig) \(pad(item.domain.rawValue, 14)) \(item.label)\(item.signer.map { dim("  " + $0) } ?? "")\(blocked)")
     }
     print(dim("\nDisable: root startup disable <label>   (reversible; nothing is deleted)   ·   full BTM list: root startup btm --sudo"))
 }
@@ -510,9 +521,19 @@ func cmdDoctor() {
     print(bold("Root doctor") + dim("  \(machine.name) · \(machine.chip) · macOS \(machine.osVersion)"))
     func row(_ ok: Bool, _ label: String, _ hint: String) { print("  \(ok ? green("✓") : amber("!")) \(pad(label, 30)) \(dim(hint))") }
     row(machine.isAdmin, "Administrator account", machine.isAdmin ? "Sudo mode available" : "standard account: user-level cleaning only (still most of the junk)")
-    row(Health.hasFullDiskAccess(), "Full Disk Access", "System Settings → Privacy & Security → Full Disk Access")
+    row(Health.hasFullDiskAccess(), "Full Disk Access",
+        OSFeatures.containersProtected
+            ? "needed on macOS 27 to clean inside other apps' containers; add your terminal app in Privacy & Security"
+            : "System Settings → Privacy & Security → Full Disk Access")
     row(Tweaks.touchIDForSudoEnabled(), "Touch ID for sudo", "root touchid on")
     row(Scheduler.isInstalled, "Scheduled clean", "root schedule weekly")
+    if OSFeatures.major >= 27 {
+        let stuck = StartupItems.scan(checkSignatures: false).filter { $0.quarantined && !$0.disabled }
+        row(stuck.isEmpty, "Launch jobs launchd will load", stuck.isEmpty ? "none are quarantined"
+            : "\(stuck.count) quarantined (macOS 27 skips them): root startup fix <label>")
+        row(OSFeatures.gatekeeperPurgeArguments != nil, "Gatekeeper purge (spctl)",
+            OSFeatures.gatekeeperPurgeArguments != nil ? "root optimize --task gatekeeper-purge --sudo" : "not offered by this spctl")
+    }
     for tool in ["brew", "xcrun", "docker", "git", "sqlite3"] {
         row(Shell.which(tool) != nil, "\(tool)", Shell.which(tool) ?? "not installed (related targets are skipped)")
     }

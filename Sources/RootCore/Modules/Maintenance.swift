@@ -39,6 +39,7 @@ public enum MaintenanceTask: String, CaseIterable, Codable, Identifiable, Sendab
     case updateXProtect = "update-xprotect"
     case periodicScripts = "periodic-scripts"
     case purgeMemory = "purge-memory"
+    case gatekeeperPurge = "gatekeeper-purge"
 
     public var id: String { rawValue }
 
@@ -59,6 +60,7 @@ public enum MaintenanceTask: String, CaseIterable, Codable, Identifiable, Sendab
         case .updateXProtect: return "Update XProtect now"
         case .periodicScripts: return "Run periodic maintenance scripts"
         case .purgeMemory: return "Purge disk cache from memory"
+        case .gatekeeperPurge: return "Clean up Gatekeeper records"
         }
     }
 
@@ -79,6 +81,7 @@ public enum MaintenanceTask: String, CaseIterable, Codable, Identifiable, Sendab
         case .updateXProtect: return "Fetches the latest malware definitions instead of waiting for the background check."
         case .periodicScripts: return "Legacy daily/weekly/monthly scripts. Removed by Apple in macOS 15."
         case .purgeMemory: return "Rarely helps on Apple silicon — macOS manages memory well. Useful only for benchmarking."
+        case .gatekeeperPurge: return "macOS 27 and later: drops Gatekeeper's records for apps and tools that are no longer on this Mac (spctl purge)."
         }
     }
 
@@ -99,12 +102,14 @@ public enum MaintenanceTask: String, CaseIterable, Codable, Identifiable, Sendab
         case .updateXProtect: return "shield.lefthalf.filled"
         case .periodicScripts: return "calendar.badge.clock"
         case .purgeMemory: return "memorychip"
+        case .gatekeeperPurge: return "checkmark.shield"
         }
     }
 
     public var needsAdmin: Bool {
         switch self {
-        case .flushDNS, .spotlightReindex, .thinSnapshots, .homePermissions, .updateXProtect, .periodicScripts, .purgeMemory:
+        case .flushDNS, .spotlightReindex, .thinSnapshots, .homePermissions, .updateXProtect, .periodicScripts, .purgeMemory,
+             .gatekeeperPurge:
             return true
         default:
             return false
@@ -158,6 +163,9 @@ public enum MaintenanceTask: String, CaseIterable, Codable, Identifiable, Sendab
                 : .optional("Legacy maintenance")
         case .purgeMemory:
             return .optional("Diagnostic only")
+        case .gatekeeperPurge:
+            if OSFeatures.gatekeeperPurgeArguments != nil { return .optional("Removes records left by apps you've deleted") }
+            return .unavailable(machine.osMajor >= 27 ? "This version of spctl has no purge command" : "Needs macOS 27 or later")
         case .launchServices, .quickLook, .iconCache, .fontCaches, .restartUI:
             return .optional("Run when you see the symptom described")
         }
@@ -213,6 +221,8 @@ public enum MaintenanceTask: String, CaseIterable, Codable, Identifiable, Sendab
             root.add("/usr/sbin/periodic", ["daily", "weekly", "monthly"])
         case .purgeMemory:
             root.add("/usr/sbin/purge")
+        case .gatekeeperPurge:
+            if let args = OSFeatures.gatekeeperPurgeArguments { root.add("/usr/sbin/spctl", args) }
         }
         return (user, root)
     }

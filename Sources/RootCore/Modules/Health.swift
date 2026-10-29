@@ -210,14 +210,17 @@ public enum Health {
         #endif
     }
 
-    /// Full Disk Access probe: a TCC-protected folder is only listable with FDA.
+    /// Full Disk Access probe: TCC-protected folders are only listable with FDA. Any one readable
+    /// folder proves it. Several are tried because macOS 27's XProtect may also shield app data that
+    /// malware targets (browser profiles, for one), and Root never opens the TCC database itself
+    /// (macOS 27 forbids apps from reading it directly).
     public static func hasFullDiskAccess() -> Bool {
         #if os(macOS)
-        for probe in ["~/Library/Safari", "~/Library/Containers/com.apple.stocks", "~/Library/Mail"] {
+        for probe in ["/Library/Application Support/com.apple.TCC", "~/Library/Mail", "~/Library/Messages",
+                      "~/Library/Safari", "~/Library/Containers/com.apple.stocks"] {
             let path = Paths.expand(probe)
-            if FileManager.default.fileExists(atPath: path) {
-                return (try? FileManager.default.contentsOfDirectory(atPath: path)) != nil
-            }
+            guard FileManager.default.fileExists(atPath: path) else { continue }
+            if (try? FileManager.default.contentsOfDirectory(atPath: path)) != nil { return true }
         }
         return false
         #else

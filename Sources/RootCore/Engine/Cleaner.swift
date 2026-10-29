@@ -145,7 +145,7 @@ public struct Cleaner {
             } catch {
                 // Root-owned files inside user folders (e.g. from an old `sudo brew`) get escalated.
                 if sudo && isPermissionError(error) { escalate.append(item) } else {
-                    report.failures.append(RemovalFailure(path: item.path, reason: describe(error)))
+                    report.failures.append(RemovalFailure(path: item.path, reason: describe(error, path: item.path)))
                 }
             }
         }
@@ -222,6 +222,13 @@ public struct Cleaner {
             return underlying.code == Int(EACCES) || underlying.code == Int(EPERM)
         }
         return false
+    }
+
+    func describe(_ error: Error, path: String) -> String {
+        if isPermissionError(error) && OSFeatures.containersProtected && OSFeatures.isInsideAppContainer(path) {
+            return "macOS 27 protects other apps' containers: give Root (or your terminal, for the CLI) Full Disk Access"
+        }
+        return describe(error)
     }
 
     func describe(_ error: Error) -> String {

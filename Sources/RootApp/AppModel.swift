@@ -349,7 +349,7 @@ final class AppModel {
                     }
                 }
             }
-            for line in preview.lines { tracesPreview.addTrusted(line) }
+            for line in preview.lines + Uninstaller.afterRemoval(traces, sudo: sudo).lines { tracesPreview.addTrusted(line) }
             preview = tracesPreview
         }
         let needsAdmin = requests.contains { $0.scope == .system } || traces.contains(where: \.needsAdmin)

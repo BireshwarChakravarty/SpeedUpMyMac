@@ -25,16 +25,23 @@ public struct Scanner {
                      progress: ((CleanupTarget) -> Void)? = nil) -> ScanReport {
         var claimed = ClaimSet()
         var results: [TargetResult] = []
+        let containersReadable = !OSFeatures.containersProtected || Scanner.fullDiskAccess()
         for target in targets where !settings.disabledTargets.contains(target.id) {
             progress?(target)
-            if let result = scanTarget(target, claimed: &claimed) { results.append(result) }
+            if let result = scanTarget(target, claimed: &claimed, containersReadable: containersReadable) { results.append(result) }
         }
         return ScanReport(date: now, results: results, sudo: sudo)
     }
 
-    func scanTarget(_ target: CleanupTarget, claimed: inout ClaimSet) -> TargetResult? {
+    /// Full Disk Access probe; replaceable in tests.
+    nonisolated(unsafe) static var fullDiskAccess: () -> Bool = { Health.hasFullDiskAccess() }
+
+    public static let needsFullDiskAccess = "Needs Full Disk Access: macOS 27 protects other apps' containers"
+
+    func scanTarget(_ target: CleanupTarget, claimed: inout ClaimSet, containersReadable: Bool = true) -> TargetResult? {
         var skipped: String?
         if target.scope == .system && !sudo { skipped = "Needs Sudo mode" }
+        if !containersReadable && Scanner.touchesAppContainers(target) { skipped = Scanner.needsFullDiskAccess }
         let blockers = target.skipWhileRunning.filter { running.contains($0) }
         if !blockers.isEmpty { skipped = "Quit \(blockers.joined(separator: ", ")) first" }
 
@@ -87,6 +94,17 @@ public struct Scanner {
     }
 
     /// Depth-limited file search by name glob. Does not descend into packages' hidden dirs or symlinks.
+    static func touchesAppContainers(_ target: CleanupTarget) -> Bool {
+        let paths: [String]
+        switch target.kind {
+        case .contents(let dirs): paths = dirs
+        case .paths(let globs): paths = globs
+        case .files(let root, _, _): paths = [root]
+        case .command(_, _, let estimate): paths = estimate
+        }
+        return paths.contains { OSFeatures.isInsideAppContainer($0) }
+    }
+
     public static func findFiles(in root: String, patterns: [String], maxDepth: Int) -> [String] {
         var found: [String] = []
         func walk(_ dir: String, depth: Int) {

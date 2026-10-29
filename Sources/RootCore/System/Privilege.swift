@@ -120,19 +120,22 @@ public final class RecordingRunner: PrivilegeRunner, @unchecked Sendable {
     }
 }
 
-/// Runs a prefix (e.g. `launchctl bootout` for daemons) in the same authorization as the main script.
+/// Runs a prefix (e.g. `launchctl bootout` for daemons) and a suffix (e.g. `spctl` purge) in the same
+/// authorization as the main script.
 public struct PrependingRunner: PrivilegeRunner {
     public var prefix: PrivilegedScript
     public var base: PrivilegeRunner
+    public var suffix: PrivilegedScript
 
-    public init(prefix: PrivilegedScript, base: PrivilegeRunner) {
+    public init(prefix: PrivilegedScript, base: PrivilegeRunner, suffix: PrivilegedScript = PrivilegedScript()) {
         self.prefix = prefix
         self.base = base
+        self.suffix = suffix
     }
 
     public func run(_ script: PrivilegedScript, reason: String) throws -> ShellResult {
         var combined = prefix
-        for line in script.lines { combined.addTrusted(line) }
+        for line in script.lines + suffix.lines { combined.addTrusted(line) }
         return try base.run(combined, reason: reason)
     }
 }

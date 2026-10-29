@@ -109,8 +109,8 @@ struct SmartScanView: View {
             tile("Security", security.isEmpty ? "All good" : "\(security.count) to fix",
                  security.isEmpty ? "SIP, Gatekeeper, FileVault and firewall" : security.joined(separator: ", ") + " off",
                  color: security.isEmpty ? nil : Theme.review) { go(.health) }
-            tile("Startup", smart.suspiciousStartupItems.isEmpty ? "Clean" : "\(smart.suspiciousStartupItems.count) unsigned",
-                 smart.suspiciousStartupItems.isEmpty ? "Every launch item is signed" : "Review in Startup Items",
+            tile("Startup", smart.suspiciousStartupItems.isEmpty ? "Clean" : "\(smart.suspiciousStartupItems.count) to review",
+                 smart.suspiciousStartupItems.isEmpty ? "Every launch item is signed and loadable" : "Unsigned, broken or won't load",
                  color: nil) { go(.startup) }
             tile("Maintenance", smart.recommendedTasks.isEmpty ? "Nothing to do" : "\(smart.recommendedTasks.count) suggested",
                  smart.recommendedTasks.isEmpty ? "Checks found nothing broken" : smart.recommendedTasks.map(\.title).prefix(2).joined(separator: ", "),

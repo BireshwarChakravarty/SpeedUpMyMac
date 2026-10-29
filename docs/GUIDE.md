@@ -8,7 +8,7 @@ Nothing is ever removed without a **receipt**: a list of exactly what goes, wher
 ## 1. Install
 
 ### Download
-1. Open the repo's **Actions** tab on GitHub, open the latest green **CI** run, and download the **Root** artifact.
+1. Open the repo's **Actions** tab on GitHub, open the latest green **CI** run, and download the **Root** artifact. It's built with the macOS 27.2 SDK and runs on macOS 14 Sonoma and later. **Root-built-on-macOS-26** is the same app built with the Tahoe SDK, if you ever need it.
 2. Safari unzips it to a folder in **Downloads**. If you see another `Root.zip` inside, double-click that too, until **Root.app** appears.
 
 ### Put it in Applications
@@ -33,6 +33,8 @@ On the M3, use `~/Applications/Root.app` instead.
 Without it, Root can't see Mail, Safari, other apps' containers or the Trash.
 Go to **System Settings → Privacy & Security → Full Disk Access**, click **+** and add Root.
 The Smart Scan and Health pages also have a button that opens this setting.
+
+**On macOS 27 this matters more.** macOS 27 no longer asks before an app reads another app's container. It just says no. Without Full Disk Access, Root skips the cleanup items inside other apps' containers (sandboxed app caches and logs, Slack, Teams, Mail downloads) and says so on the Cleanup page. For the `root` command, add your terminal app (Terminal, iTerm, Ghostty…) instead.
 
 ---
 
@@ -62,8 +64,8 @@ The **Sudo** switch is at the top right of every page.
 | **Uninstaller** | Removes apps **completely**, with no traces left (see below). Also finds files left behind by apps you deleted long ago. |
 | **Space Lens** | A sunburst map of your disk (click to drill in), large and old files, and duplicate files. |
 | **Processes** | Quit, pause, or move a resource hog onto the efficiency cores. |
-| **Maintenance** | Runs only tasks whose check found a real problem. |
-| **Startup Items** | Every launch agent and daemon, with signature checks. Disabling one is reversible. |
+| **Maintenance** | Runs only tasks whose check found a real problem. On macOS 27 it adds **Clean up Gatekeeper records** (`spctl` purge), which forgets launch approvals for apps that are gone. |
+| **Startup Items** | Every launch agent and daemon, with signature checks. Disabling one is reversible. On macOS 27, launchd silently skips a job whose plist still carries the download quarantine flag; Root marks those **Won't load** and **Fix** clears the flag. |
 | **Tweaks** | Reversible macOS tweaks. Presets: *balanced*, *privacy*, *snappy*. **Revert all** restores your previous settings. |
 | **Health** | Disk, memory, battery, thermals, SIP, Gatekeeper, FileVault, firewall and a health score. |
 | **Fleet** | All your Macs on one page, synced through iCloud Drive, or any folder you choose for the work Mac. |
@@ -94,7 +96,8 @@ Keyboard: **⌘R** runs Smart Scan, and **⌘1** to **⌘9** jump between pages.
    - privacy permissions (camera, microphone, accessibility and others);
    - Login Items entry;
    - Dock tile;
-   - installer receipts (`pkgutil --forget`).
+   - installer receipts (`pkgutil --forget`);
+   - on macOS 27, Gatekeeper's record of the app (`spctl` purge, run after the files are gone).
 4. **Verifies the result.** It rescans and shows either **"Gone without a trace"** or exactly what's left and why.
 
 Some items need Sudo mode: system daemons, root-owned files and receipts. With Sudo on, all of them run in **one** password prompt.

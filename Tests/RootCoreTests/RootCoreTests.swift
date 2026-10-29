@@ -442,6 +442,68 @@ final class LegacyTests: SandboxedTestCase {
     }
 }
 
+final class MacOS27Tests: SandboxedTestCase {
+    override func tearDown() {
+        unsetenv("ROOTAPP_OS_MAJOR")
+        Scanner.fullDiskAccess = { Health.hasFullDiskAccess() }
+        super.tearDown()
+    }
+
+    func testSpctlPurgeSyntaxIsReadFromUsage() {
+        XCTAssertEqual(OSFeatures.parsePurgeArguments("usage: spctl --assess ... | spctl --purge [--verbose]"), ["--purge"])
+        XCTAssertEqual(OSFeatures.parsePurgeArguments("spctl purge [-v]\nspctl --assess"), ["purge"])
+        XCTAssertNil(OSFeatures.parsePurgeArguments("usage: spctl --assess [--type type] [-v] path"))
+    }
+
+    func testContainerTargetsNeedFullDiskAccessOnMacOS27() {
+        makeFile("Library/Containers/com.vendor.app/Data/Library/Caches/blob", bytes: 4096)
+        let target = CleanupTarget(id: "box", title: "Sandboxed caches", detail: "", category: .caches,
+                                   kind: .contents(["~/Library/Containers/*/Data/Library/Caches"]))
+        Scanner.fullDiskAccess = { false }
+
+        setenv("ROOTAPP_OS_MAJOR", "26", 1)
+        let before = Scanner(settings: Settings(), sudo: false).scan([target]).results.first
+        XCTAssertNil(before?.skippedReason)
+        XCTAssertEqual(before?.items.count, 1)
+
+        setenv("ROOTAPP_OS_MAJOR", "27", 1)
+        let after = Scanner(settings: Settings(), sudo: false).scan([target]).results.first
+        XCTAssertEqual(after?.skippedReason, Scanner.needsFullDiskAccess)
+
+        Scanner.fullDiskAccess = { true }
+        XCTAssertNil(Scanner(settings: Settings(), sudo: false).scan([target]).results.first?.skippedReason)
+    }
+
+    func testAppContainerPathsAreRecognised() {
+        XCTAssertTrue(OSFeatures.isInsideAppContainer("/Users/x/Library/Containers/com.a.b/Data"))
+        XCTAssertTrue(OSFeatures.isInsideAppContainer("/Users/x/Library/Group Containers/TEAM.group.x"))
+        XCTAssertFalse(OSFeatures.isInsideAppContainer("/Users/x/Library/Caches/com.a.b"))
+    }
+
+    func testGatekeeperPurgeRunsAfterTheFilesInTheSamePrompt() throws {
+        var prefix = PrivilegedScript(); prefix.add("/bin/launchctl", ["bootout", "system/com.x"])
+        var main = PrivilegedScript(); main.remove("/Library/x")
+        var suffix = PrivilegedScript(); suffix.add("/usr/sbin/spctl", ["--purge"])
+        let recorder = RecordingRunner()
+        _ = try PrependingRunner(prefix: prefix, base: recorder, suffix: suffix).run(main, reason: "test")
+        XCTAssertEqual(recorder.scripts.first?.lines, prefix.lines + main.lines + suffix.lines)
+        let traces = [UninstallTrace(kind: .gatekeeper, title: "", detail: "", items: ["--purge"], needsAdmin: true)]
+        XCTAssertEqual(Uninstaller.afterRemoval(traces, sudo: true).lines, suffix.lines)
+        XCTAssertTrue(Uninstaller.afterRemoval(traces, sudo: false).isEmpty)
+    }
+
+    #if os(macOS)
+    func testQuarantineFlagIsDetectedAndCleared() {
+        let plist = makeFile("Library/LaunchAgents/com.vendor.agent.plist")
+        let value = "0081;00000000;Safari;"
+        XCTAssertEqual(setxattr(plist, "com.apple.quarantine", value, value.utf8.count, 0, 0), 0)
+        XCTAssertTrue(Quarantine.isQuarantined(plist))
+        XCTAssertTrue(Quarantine.clear(plist))
+        XCTAssertFalse(Quarantine.isQuarantined(plist))
+    }
+    #endif
+}
+
 final class OrphanTests: SandboxedTestCase {
     func testFindsLeftoversOfUninstalledAppsOnly() {
         makeFile("Library/Application Support/com.gone.app/data", bytes: 2048)

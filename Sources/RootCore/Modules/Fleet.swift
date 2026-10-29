@@ -93,6 +93,8 @@ public enum Scheduler {
         try FileManager.default.createDirectory(atPath: Paths.expand("~/Library/LaunchAgents"), withIntermediateDirectories: true)
         let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
         try data.write(to: URL(fileURLWithPath: plistPath), options: .atomic)
+        // macOS 27's launchd won't load a quarantined plist; files written by a downloaded app can inherit it.
+        Quarantine.clear(plistPath)
         Shell.run("/bin/launchctl", ["bootstrap", "gui/\(getuid())", plistPath])
     }
 

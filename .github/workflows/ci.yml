@@ -6,13 +6,32 @@ on:
 
 jobs:
   macos:
-    name: macOS — build app, CLI and tests
-    runs-on: macos-latest
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS 27 Golden Gate with the 27.2 SDK. GitHub labels this image "xcode-27" (preview).
+          # This build is the one to install on Macs running macOS 27.
+          - name: macOS 27 · Xcode 27.2 SDK
+            runner: xcode-27
+            xcode: "27.2"
+            artifact: Root
+          # Current GA image (macOS 26 Tahoe), so the app keeps building for Sonoma through Tahoe.
+          - name: macOS 26 · newest Xcode
+            runner: macos-latest
+            xcode: ""
+            artifact: Root-built-on-macOS-26
     steps:
       - uses: actions/checkout@v4
-      - name: Toolchain (newest installed Xcode)
+      - name: Toolchain
         run: |
-          XCODE="$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)"
+          XCODE=""
+          if [ -n "${{ matrix.xcode }}" ]; then
+            XCODE="$(ls -d "/Applications/Xcode_${{ matrix.xcode }}.app" 2>/dev/null | head -1)"
+          fi
+          [ -n "$XCODE" ] || XCODE="$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)"
           if [ -n "$XCODE" ]; then sudo xcode-select -s "$XCODE"; fi
           sw_vers
           xcodebuild -version
@@ -31,7 +50,7 @@ jobs:
           dist/Root.app/Contents/Helpers/root optimize --list
       - uses: actions/upload-artifact@v4
         with:
-          name: Root
+          name: ${{ matrix.artifact }}
           path: dist/Root.zip
       - name: Screenshot tour
         # Launches the real app, which runs a scan and steps through every page; each page is
@@ -66,7 +85,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Screenshots
+          name: Screenshots-${{ matrix.artifact }}
           path: shots/*.jpg
           if-no-files-found: ignore
 

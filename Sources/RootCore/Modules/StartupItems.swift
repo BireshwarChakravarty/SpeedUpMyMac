@@ -30,6 +30,13 @@ public struct StartupItem: Codable, Identifiable, Hashable, Sendable {
     public var disabled: Bool
     public var signing: SigningStatus
     public var signer: String?
+    /// The plist carries the download quarantine flag, which macOS 27's launchd refuses to load.
+    public var quarantined = false
+
+    /// Unsigned or broken, or (on macOS 27+) a plist launchd will silently skip.
+    public var needsAttention: Bool {
+        signing.suspicious || (quarantined && OSFeatures.launchdRejectsQuarantined)
+    }
 
     public enum Domain: String, Codable, Sendable {
         case userAgent = "User Agent"
@@ -65,7 +72,7 @@ public enum StartupItems {
                 items.append(StartupItem(label: label, plistPath: plistPath, program: program, domain: domain,
                                          runAtLoad: (plist["RunAtLoad"] as? Bool) ?? false, keepAlive: keepAlive,
                                          disabled: disabledHere || ((plist["Disabled"] as? Bool) ?? false),
-                                         signing: .unknown, signer: nil))
+                                         signing: .unknown, signer: nil, quarantined: Quarantine.isQuarantined(plistPath)))
             }
         }
         if checkSignatures {
@@ -78,7 +85,7 @@ public enum StartupItems {
                 }
             }
         }
-        return items.sorted { ($0.signing.suspicious ? 0 : 1, $0.label) < ($1.signing.suspicious ? 0 : 1, $1.label) }
+        return items.sorted { ($0.needsAttention ? 0 : 1, $0.label) < ($1.needsAttention ? 0 : 1, $1.label) }
     }
 
     /// Reads `launchctl print-disabled` for a domain.
@@ -150,6 +157,21 @@ public enum StartupItems {
             if !r.succeeded { throw PrivilegeError.failed(r.stderr) }
         }
         History.append(HistoryEntry(action: "startup", detail: "\(enabled ? "Enabled" : "Disabled") \(item.label)"))
+    }
+
+    /// Removes the quarantine flag so macOS 27's launchd loads the job again. Your own agents need no
+    /// admin rights; plists in /Library are root-owned.
+    public static func clearQuarantine(_ item: StartupItem, sudo: Bool, runner: PrivilegeRunner?) throws {
+        if item.domain == .userAgent {
+            guard Quarantine.clear(item.plistPath) else { throw PrivilegeError.failed("Couldn't clear the quarantine flag") }
+        } else {
+            guard sudo, let runner else { throw PrivilegeError.failed("Turn on Sudo mode to fix system items") }
+            var script = PrivilegedScript()
+            script.add("/usr/bin/xattr", ["-d", Quarantine.attribute, item.plistPath])
+            _ = try runner.run(script, reason: "let launchd load \(item.label)")
+            if Quarantine.isQuarantined(item.plistPath) { throw PrivilegeError.failed("The quarantine flag is still set") }
+        }
+        History.append(HistoryEntry(action: "startup", detail: "Cleared quarantine on \(item.label)"))
     }
 
     /// Full Background Task Management dump (login items + launchd + SMAppService), admin only.

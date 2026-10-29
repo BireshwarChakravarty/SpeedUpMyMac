@@ -33,7 +33,7 @@ public enum SmartScan {
         let machine = health.machine
         let tasks = MaintenanceTask.allCases.filter { $0.probe(machine: machine, sudo: sudo).isRecommended }
         progress?("Auditing startup items…")
-        let startup = StartupItems.scan().filter { $0.signing.suspicious && !$0.disabled }
+        let startup = StartupItems.scan().filter { $0.needsAttention && !$0.disabled }
         return SmartScanResult(cleanup: cleanup, artifacts: artifacts, health: health, recommendedTasks: tasks,
                                suspiciousStartupItems: startup)
     }

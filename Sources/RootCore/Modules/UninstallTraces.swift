@@ -10,7 +10,7 @@ import Glibc
 /// an installer receipt. A complete uninstall clears these before the files go, so nothing respawns.
 public struct UninstallTrace: Codable, Identifiable, Hashable, Sendable {
     public enum Kind: String, Codable, Sendable, CaseIterable {
-        case processes, launchJobs, preferences, launchServices, privacy, loginItem, dock, receipts
+        case processes, launchJobs, preferences, launchServices, privacy, loginItem, dock, receipts, gatekeeper
     }
 
     public var kind: Kind
@@ -32,6 +32,7 @@ public struct UninstallTrace: Codable, Identifiable, Hashable, Sendable {
         case .loginItem: return "person.crop.circle.badge.xmark"
         case .dock: return "dock.rectangle"
         case .receipts: return "shippingbox"
+        case .gatekeeper: return "checkmark.shield"
         }
     }
 }
@@ -79,6 +80,11 @@ public extension Uninstaller {
         if !pkgs.isEmpty {
             traces.append(UninstallTrace(kind: .receipts, title: "Forget \(pkgs.count) installer receipt\(pkgs.count == 1 ? "" : "s")",
                                          detail: pkgs.joined(separator: ", "), items: pkgs, needsAdmin: true))
+        }
+        if let purge = OSFeatures.gatekeeperPurgeArguments {
+            traces.append(UninstallTrace(kind: .gatekeeper, title: "Forget Gatekeeper's record of it",
+                                         detail: "macOS 27 keeps launch approvals for removed apps until they're purged",
+                                         items: purge, needsAdmin: true))
         }
         return traces
     }
@@ -132,9 +138,20 @@ public extension Uninstaller {
                 for path in trace.items where removeFromDock(path) { Shell.run("/usr/bin/killall", ["Dock"], timeout: 5) }
             case .receipts:
                 if sudo { for pkg in trace.items { root.add("/usr/sbin/pkgutil", ["--forget", pkg]) } }
+            case .gatekeeper:
+                break // only meaningful once the app is gone: see `afterRemoval`
             }
         }
         return root
+    }
+
+    /// Root steps that only make sense after the files are gone (Gatekeeper purges records for
+    /// apps that are no longer on disk).
+    static func afterRemoval(_ traces: [UninstallTrace], sudo: Bool) -> PrivilegedScript {
+        var script = PrivilegedScript()
+        guard sudo else { return script }
+        for trace in traces where trace.kind == .gatekeeper { script.add("/usr/sbin/spctl", trace.items) }
+        return script
     }
 
     // MARK: Discovery
@@ -269,6 +286,7 @@ public extension Uninstaller {
     static func uninstall(_ app: InstalledApp, leftovers: [Leftover], traces: [UninstallTrace], complete: Bool,
                           settings: Settings, sudo: Bool, runner: PrivilegeRunner?, dryRun: Bool = false) -> CleanReport {
         var root = PrivilegedScript()
+        let after = dryRun ? PrivilegedScript() : afterRemoval(traces, sudo: sudo)
         if !dryRun {
             #if os(macOS)
             // Ask nicely first (unsaved documents); `clearTraces` terminates whatever is left.
@@ -280,11 +298,15 @@ public extension Uninstaller {
             root = clearTraces(traces, sudo: sudo)
         }
         let requests = self.requests(app: app, leftovers: leftovers, sudo: sudo, complete: complete)
-        let base: PrivilegeRunner? = runner.map { root.isEmpty ? $0 : PrependingRunner(prefix: root, base: $0) }
+        let base: PrivilegeRunner? = runner.map {
+            root.isEmpty && after.isEmpty ? $0 : PrependingRunner(prefix: root, base: $0, suffix: after)
+        }
         var report = Cleaner(settings: settings, sudo: sudo, runner: base, dryRun: dryRun).remove(requests, reason: "uninstall \(app.name)")
-        // Nothing needed root for files, but traces did (system daemons, receipts): run those on their own.
-        if !dryRun, sudo, !root.isEmpty, report.script == nil, let runner {
-            do { _ = try runner.run(root, reason: "clear \(app.name) system traces") } catch {
+        // Nothing needed root for files, but traces did (system daemons, receipts, Gatekeeper): run those on their own.
+        var traceScript = root
+        for line in after.lines { traceScript.addTrusted(line) }
+        if !dryRun, sudo, !traceScript.isEmpty, report.script == nil, let runner {
+            do { _ = try runner.run(traceScript, reason: "clear \(app.name) system traces") } catch {
                 report.failures.append(RemovalFailure(path: "\(app.name) system traces", reason: error.localizedDescription))
             }
         }
