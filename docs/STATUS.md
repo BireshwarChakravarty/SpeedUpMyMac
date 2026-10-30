@@ -1,6 +1,6 @@
 # Project status: where Root stands
 
-_Last updated: 29 Oct 2026, after the macOS 27 support commit `47fc41f` on branch `claude/clever-johnson-pnrg7t`._
+_Last updated: 30 Oct 2026, after the notarization commit `d0c2cd9` on branch `claude/clever-johnson-pnrg7t`._
 
 ## What Root is
 Root is a native macOS cleaner. It was previously named Burnish. It has:
@@ -54,7 +54,7 @@ macOS 27.2 shipped on 26 Oct 2026 (build 26B123). Changes Root adapts to, all ke
 - Why: the M3 is a work laptop managed by Iru (Kandji), which removes Gatekeeper's **Open Anyway**. A notarized Developer ID app is the legitimate route; IT may still need to allow it.
 
 ## Latest build
-The latest green run is https://github.com/BireshwarChakravarty/SpeedUpMyMac/actions/runs/40835678707, the first **signed** one. Its **Root** artifact was built with Xcode 27.2 on macOS 27 and signed with the "Root Signing" certificate (designated requirement `identifier "io.rootapp.Root" and certificate leaf = H"021d6e02…"`). Permissions granted to it carry over to later signed builds. Start a new build any time from Actions → CI → Run workflow.
+The latest green run is https://github.com/BireshwarChakravarty/SpeedUpMyMac/actions/runs/41014078042. Its **Root** artifact was built with Xcode 27.2 on macOS 27, signed with the "Root Signing" certificate **with the hardened runtime** (designated requirement unchanged: `identifier "io.rootapp.Root" and certificate leaf = H"021d6e02…"`, so existing permissions carry over), and the hardened app passed the full 15-page screenshot tour on macOS 27 and 26. Notarize was skipped because the Developer ID secrets don't exist yet. Start a new build any time from Actions → CI → Run workflow.
 
 ## How to see the real UI (from a cloud session)
 1. Push. The `Screenshot tour` step runs at the end of the macOS job.
