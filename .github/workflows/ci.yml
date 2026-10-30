@@ -14,6 +14,13 @@ jobs:
       # Root's signing certificate (scripts/make-signing-identity.sh). Absent → ad-hoc signing.
       ROOT_SIGNING_P12: ${{ secrets.ROOT_SIGNING_P12 }}
       ROOT_SIGNING_PASSWORD: ${{ secrets.ROOT_SIGNING_PASSWORD }}
+      # Developer ID + notarization (scripts/make-developer-id.sh). When present, these win: the app
+      # is signed with the Developer ID, notarized by Apple and stapled, so it opens with no warning.
+      DEVELOPER_ID_P12: ${{ secrets.DEVELOPER_ID_P12 }}
+      DEVELOPER_ID_PASSWORD: ${{ secrets.DEVELOPER_ID_PASSWORD }}
+      NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+      NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+      NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
     strategy:
       fail-fast: false
       matrix:
@@ -47,13 +54,28 @@ jobs:
       - name: Test
         run: swift test
       - name: Signing identity
-        if: env.ROOT_SIGNING_P12 != ''
+        if: env.DEVELOPER_ID_P12 != '' || env.ROOT_SIGNING_P12 != ''
         run: |
-          echo "$ROOT_SIGNING_P12" | base64 --decode > "$RUNNER_TEMP/root-signing.p12"
-          scripts/import-signing-identity.sh "$RUNNER_TEMP/root-signing.p12" "$ROOT_SIGNING_PASSWORD"
+          if [ -n "$DEVELOPER_ID_P12" ]; then
+            echo "Using the Developer ID certificate"
+            echo "$DEVELOPER_ID_P12" | base64 --decode > "$RUNNER_TEMP/root-signing.p12"
+            scripts/import-signing-identity.sh "$RUNNER_TEMP/root-signing.p12" "$DEVELOPER_ID_PASSWORD"
+            echo "ROOT_SIGN_TIMESTAMP=1" >> "$GITHUB_ENV"
+            echo "ROOT_DEVELOPER_ID=1" >> "$GITHUB_ENV"
+          else
+            echo "Using the Root Signing certificate"
+            echo "$ROOT_SIGNING_P12" | base64 --decode > "$RUNNER_TEMP/root-signing.p12"
+            scripts/import-signing-identity.sh "$RUNNER_TEMP/root-signing.p12" "$ROOT_SIGNING_PASSWORD"
+          fi
           rm -f "$RUNNER_TEMP/root-signing.p12"
       - name: Package app bundle
         run: scripts/build-app.sh
+      - name: Notarize
+        # Apple scans the app and issues a ticket; stapling it means Gatekeeper accepts the app on
+        # any Mac, offline too, with no "Open Anyway". Rebuilds dist/Root.zip from the stapled app.
+        if: env.ROOT_DEVELOPER_ID == '1' && env.NOTARY_APPLE_ID != ''
+        timeout-minutes: 35
+        run: scripts/notarize.sh dist/Root.app
       - name: Signing self-test (permissions survive updates)
         # With a throwaway certificate made by the same script you run: two different builds must
         # get different code hashes but the same designated requirement, which is what macOS

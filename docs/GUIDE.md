@@ -16,18 +16,20 @@ Nothing is ever removed without a **receipt**: a list of exactly what goes, wher
 - **On the M3 (no admin):** drag it into the **Applications** folder inside your home folder (`~/Applications`). Create that folder if it isn't there.
 
 ### First launch
-macOS blocks apps that aren't from a registered developer. Unblock it once:
+**Notarized builds** (once the Developer ID setup below is done) open normally: double-click, and macOS confirms once that it was downloaded from the internet.
+
+**Builds that aren't notarized** are blocked the first time. Unblock it once:
 
 1. Double-click Root. When macOS says it can't be opened, click **Done**.
 2. Open **System Settings → Privacy & Security**, scroll down, click **Open Anyway** next to Root, and confirm.
 
-If there's no **Open Anyway** button, run this once in Terminal:
+If there's no **Open Anyway** button on your own Mac, run this once in Terminal:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/Root.app
 ```
 
-On the M3, use `~/Applications/Root.app` instead.
+**On a work Mac managed by your company** (Iru/Kandji, Jamf, Intune…), the company may have removed **Open Anyway** on purpose. Don't work around that: use a notarized build, or ask IT to approve Root. A notarized app from a named Developer ID is what most IT teams can allow with one rule.
 
 ### Give it Full Disk Access
 Without it, Root can't see Mail, Safari, other apps' containers or the Trash.
@@ -69,6 +71,16 @@ By default each build gets a throwaway signature, so macOS treats every update a
 
 The certificate is self-signed: it keeps permissions stable, but it isn't Apple notarization, so a fresh download may still need **Open Anyway** once. Keep `~/.root-signing` safe; anyone with it could sign an app that macOS treats as Root.
 - **From Terminal:** `root sudo on` turns it on permanently, and `--sudo` applies it to a single command.
+
+### Notarized builds: no Gatekeeper warning (one-time setup)
+Notarization means Apple has scanned the app and vouches for it. A notarized Root opens on any Mac with no **Open Anyway** step, and it's the version a company's IT can approve. It needs a membership in the **Apple Developer Program** (US$99 a year).
+
+1. Join at [developer.apple.com/programs](https://developer.apple.com/programs/) as an individual. Approval usually takes a day or two.
+2. On one of your own Macs (not a managed work laptop), run `bash ~/Downloads/make-developer-id.sh` (the script is `scripts/make-developer-id.sh` in the repo). It makes a certificate request and opens Apple's certificate page: choose **Developer ID Application**, profile type **G2 Sub-CA**, upload the request it shows you, and download the certificate.
+3. Run `bash ~/Downloads/make-developer-id.sh ~/Downloads/developerID_application.cer`. It asks for your Apple ID and an **app-specific password** (make one at [account.apple.com](https://account.apple.com) → Sign-In and Security → App-Specific Passwords; never your real password), checks them with Apple, and adds five GitHub secrets: `DEVELOPER_ID_P12`, `DEVELOPER_ID_PASSWORD`, `NOTARY_APPLE_ID`, `NOTARY_PASSWORD`, `NOTARY_TEAM_ID`.
+4. On GitHub, open **Actions → CI → Run workflow**. The build is signed with your Developer ID, sent to Apple, and the approval is stapled into the app. The log's **Notarize** step ends with `source=Notarized Developer ID`.
+
+The switch from the "Root Signing" certificate to the Developer ID changes Root's identity once, so grant **Full Disk Access** one more time to the first notarized build. Later builds keep it. Keep `~/.root-developer-id` safe: it holds your Developer ID private key.
 
 ---
 

@@ -47,6 +47,12 @@ macOS 27.2 shipped on 26 Oct 2026 (build 26B123). Changes Root adapts to, all ke
 ## Signing
 `scripts/build-app.sh` signs with `ROOT_SIGN_IDENTITY` (CI imports it from the `ROOT_SIGNING_P12` / `ROOT_SIGNING_PASSWORD` secrets via `scripts/import-signing-identity.sh`), else the "Root Signing" identity in the login keychain, else ad-hoc. `scripts/make-signing-identity.sh` creates that certificate on the user's Mac and walks through adding the secrets. CI's "Signing self-test" proves two different builds share one designated requirement (what TCC keys permissions on).
 
+### Notarization (ready, waiting on an Apple Developer membership)
+- Real identities sign with the hardened runtime and `Resources/Root.entitlements` (Apple Events, for the admin prompt and quitting apps before uninstall). `ROOT_SIGN_TIMESTAMP=1` adds Apple's secure timestamp.
+- `scripts/make-developer-id.sh` (run on the user's own Mac): step 1 makes a key and CSR and opens Apple's certificate page; step 2 takes the downloaded `.cer`, bundles Apple's Developer ID G2 intermediate into a `.p12`, checks the Apple ID + app-specific password with `notarytool history`, and sets `DEVELOPER_ID_P12`, `DEVELOPER_ID_PASSWORD`, `NOTARY_APPLE_ID`, `NOTARY_PASSWORD`, `NOTARY_TEAM_ID`.
+- CI prefers `DEVELOPER_ID_P12` over `ROOT_SIGNING_P12`, then runs `scripts/notarize.sh` (notarytool submit --wait, staple, `spctl --assess`, re-zip).
+- Why: the M3 is a work laptop managed by Iru (Kandji), which removes Gatekeeper's **Open Anyway**. A notarized Developer ID app is the legitimate route; IT may still need to allow it.
+
 ## Latest build
 The latest green run is https://github.com/BireshwarChakravarty/SpeedUpMyMac/actions/runs/40835678707, the first **signed** one. Its **Root** artifact was built with Xcode 27.2 on macOS 27 and signed with the "Root Signing" certificate (designated requirement `identifier "io.rootapp.Root" and certificate leaf = H"021d6e02…"`). Permissions granted to it carry over to later signed builds. Start a new build any time from Actions → CI → Run workflow.
 
@@ -59,6 +65,6 @@ The latest green run is https://github.com/BireshwarChakravarty/SpeedUpMyMac/act
 - Space Lens: the "Map your disk" card sits low on the page; align it to the top.
 - The remaining pages (Dev Purge, Maintenance, Startup, Fleet, History, Settings, menu bar) use the shared components but haven't had page-specific polish like Smart Scan and Cleanup.
 - Uninstaller: check the detail page with an app selected. The screenshot tour doesn't select one yet.
-- Install and try it on each Mac (M4, M6, M3). On first launch: **Open Anyway**, then **Full Disk Access**.
-- Not signed with a Developer ID, so Gatekeeper asks once per Mac. Notarizing would remove that step.
+- Install and try it on each Mac (M4, M6, M3). On first launch: **Open Anyway** (until notarized), then **Full Disk Access**.
+- Notarization: the user joins the Apple Developer Program and runs `scripts/make-developer-id.sh`; then a CI run produces the first notarized build. Its Notarize step hasn't run for real yet.
 - No pull request has been opened (none was requested).

@@ -33,23 +33,30 @@ cp "$BIN/root" "$APP/Contents/Helpers/root"
 cp Assets/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD/" Resources/Info.plist > "$APP/Contents/Info.plist"
 
-# Signing: ROOT_SIGN_IDENTITY (CI sets it from the repository secrets), else the "Root Signing"
-# certificate from scripts/make-signing-identity.sh if it's in your keychain, else ad-hoc.
-# A stable certificate makes every build the same app to macOS, so permissions survive updates.
+# Signing, best first:
+#   ROOT_SIGN_IDENTITY  set by CI from repository secrets: a Developer ID (notarizable) or "Root Signing"
+#   "Root Signing"      the certificate from scripts/make-signing-identity.sh, if it's in your keychain
+#   ad-hoc              otherwise (permissions then reset with each new build)
+# Real identities get the hardened runtime, which notarization requires. ROOT_SIGN_TIMESTAMP=1 adds
+# Apple's secure timestamp (also required for notarization; needs network).
 IDENTITY="${ROOT_SIGN_IDENTITY:-}"
 if [[ -z "$IDENTITY" ]] && security find-identity -p codesigning 2>/dev/null | grep -q '"Root Signing"'; then
     IDENTITY="Root Signing"
 fi
-SIGN_ARGS=(--force --timestamp=none)
+SIGN_ARGS=(--force)
+if [[ "${ROOT_SIGN_TIMESTAMP:-}" == 1 ]]; then SIGN_ARGS+=(--timestamp); else SIGN_ARGS+=(--timestamp=none); fi
 if [[ -n "${ROOT_SIGN_KEYCHAIN:-}" ]]; then SIGN_ARGS+=(--keychain "$ROOT_SIGN_KEYCHAIN"); fi
 if [[ -n "$IDENTITY" ]]; then
-    echo "==> Signing with \"$IDENTITY\""
+    echo "==> Signing with \"$IDENTITY\" (hardened runtime)"
+    SIGN_ARGS+=(--options runtime)
+    APP_ARGS=(--entitlements Resources/Root.entitlements)
 else
     IDENTITY="-"
+    APP_ARGS=()
     echo "==> Signing (ad-hoc: permissions reset with each new build; see scripts/make-signing-identity.sh)"
 fi
 codesign "${SIGN_ARGS[@]}" --sign "$IDENTITY" --identifier io.rootapp.root-cli "$APP/Contents/Helpers/root"
-codesign "${SIGN_ARGS[@]}" --sign "$IDENTITY" "$APP"
+codesign "${SIGN_ARGS[@]}" ${APP_ARGS[@]+"${APP_ARGS[@]}"} --sign "$IDENTITY" "$APP"
 codesign --verify --strict "$APP"
 echo "    designated requirement: $(codesign -d -r- "$APP" 2>&1 | sed -n 's/.*designated => //p')"
 
