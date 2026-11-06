@@ -137,6 +137,7 @@ jobs:
             sleep 0.5
           done
           kill $APP 2>/dev/null || true
+          echo "in-process AppleScript on a background queue: $(cat shots/applescript.txt 2>/dev/null || echo 'not run')"
           echo "menu bar panel: $(cat shots/panel.txt 2>/dev/null || echo 'not shown')"
           echo "reopen event received: $([ -e shots/reopen-event ] && echo yes || echo no)"
           cat shots/reopen-result 2>/dev/null || echo "REOPEN FAILED: no result written"

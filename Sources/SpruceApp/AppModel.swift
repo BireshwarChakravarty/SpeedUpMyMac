@@ -210,16 +210,27 @@ final class AppModel {
     func setTouchIDForAdmin(_ on: Bool) {
         let runner = self.runner
         Task {
-            let ok = await run(on ? "Setting up Touch ID…" : "Turning off Touch ID…") {
+            let failure: String? = await run(on ? "Setting up Touch ID…" : "Turning off Touch ID…") {
                 let reason = on ? "use Touch ID instead of your password from now on" : "go back to the password for admin steps"
-                return (try? runner.run(Tweaks.touchIDScript(enable: on), reason: reason))?.succeeded ?? false
+                do {
+                    let result = try runner.run(Tweaks.touchIDScript(enable: on), reason: reason)
+                    if result.succeeded { return nil }
+                    let detail = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+                    return detail.isEmpty ? "the setup script exited with status \(result.status)" : detail
+                } catch PrivilegeError.cancelled {
+                    return "cancelled"
+                } catch {
+                    return error.localizedDescription
+                }
             }
             touchIDForAdmin = Tweaks.touchIDForSudoEnabled()
-            if ok {
+            if failure == nil && touchIDForAdmin == on {
                 report(on ? "Touch ID is on: your fingerprint replaces the admin password" : "Admin steps ask for your password again")
                 SoundFX.shared.play(on ? .unlock : .lock)
+            } else if failure == "cancelled" {
+                report("Touch ID setting unchanged")
             } else {
-                report("Couldn't change the Touch ID setting", error: true)
+                report("Couldn't change the Touch ID setting: \(failure ?? "sudo_local wasn't updated")", error: true)
             }
         }
     }
@@ -237,7 +248,7 @@ final class AppModel {
         statusIsError = error
         if error { SoundFX.shared.play(.error, haptic: .generic) }
         Task { @MainActor in
-            try? await Task.sleep(for: .seconds(6))
+            try? await Task.sleep(for: .seconds(error ? 14 : 6))   // long enough to read an error
             if self.status == text { self.status = nil }
         }
     }
@@ -623,6 +634,8 @@ final class AppModel {
     func runTour(_ folder: String) async {
         guard !tourStarted else { return }   // the reopened window must not start it again
         tourStarted = true
+        let mechanism = await Task.detached { AdminSession.shared.mechanismSelfTest() }.value
+        FileManager.default.createFile(atPath: (folder as NSString).appendingPathComponent("applescript.txt"), contents: Data(mechanism.utf8))
         await captureTour(folder, "first-launch")
         await loadApps()
         await runSmartScan()

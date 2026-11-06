@@ -47,9 +47,16 @@ final class AdminSession: PrivilegeRunner, @unchecked Sendable {
                 let result = try execute(script.text, prompt: "Spruce: \(reason)")
                 log("Password", reason: reason, detail: "ran (exit \(result.status))")
                 return result
+            } catch PrivilegeError.cancelled {
+                log("Password", reason: reason, detail: "cancelled")
+                throw PrivilegeError.cancelled
             } catch {
-                log("Password", reason: reason, detail: error.localizedDescription)
-                throw error
+                // The in-process prompt itself failed (not the script, not a wrong password): use a
+                // separate osascript process, which always works but doesn't share the grace period.
+                log("Password (in-process failed)", reason: reason, detail: error.localizedDescription)
+                let result = try Privilege.appleScriptRunner().run(script, reason: reason)
+                log("Password (osascript)", reason: reason, detail: result.succeeded ? "ran" : "failed: \(result.stderr)")
+                return result
             }
         }
     }
@@ -98,12 +105,36 @@ final class AdminSession: PrivilegeRunner, @unchecked Sendable {
             let number = (error[NSAppleScript.errorNumber] as? Int) ?? 1
             if number == -128 { throw PrivilegeError.cancelled }
             let message = (error[NSAppleScript.errorMessage] as? String) ?? "The administrator step failed"
-            // A non-zero exit from the shell still means you authorized successfully.
-            if number != -60005 && number != -60007 { markAuthorized() }
-            return ShellResult(status: Int32(truncatingIfNeeded: number == 0 ? 1 : number), stdout: "", stderr: message)
+            // -60005/-60007: wrong password or not allowed. Other negative numbers are AppleScript or
+            // Apple Event errors: the prompt mechanism failed, so the caller tries another way.
+            if number == -60005 || number == -60007 { return ShellResult(status: Int32(truncatingIfNeeded: number), stdout: "", stderr: message) }
+            if number < 0 { throw PrivilegeError.failed("Administrator prompt failed (\(number)): \(message)") }
+            // A positive number is the shell's exit status: you authorized, the script failed.
+            markAuthorized()
+            return ShellResult(status: Int32(truncatingIfNeeded: number), stdout: "", stderr: message)
         }
         markAuthorized()
         return ShellResult(status: 0, stdout: result.stringValue ?? "", stderr: "")
+    }
+
+    /// For CI: calls a handler in a compiled script on this session's background queue, the same
+    /// way the admin prompt does, minus the password. Returns its output or the error.
+    func mechanismSelfTest() -> String {
+        queue.sync {
+            guard let script = NSAppleScript(source: "on plainrun(cmd)\n return do shell script cmd\nend plainrun") else { return "couldn't create" }
+            var error: NSDictionary?
+            guard script.compileAndReturnError(&error) else { return "couldn't compile: \(error ?? [:])" }
+            let event = NSAppleEventDescriptor(eventClass: AEEventClass(0x6173_6372), eventID: AEEventID(0x7073_6272),
+                                               targetDescriptor: .currentProcess(), returnID: AEReturnID(-1),
+                                               transactionID: AETransactionID(0))
+            event.setDescriptor(NSAppleEventDescriptor(string: "plainrun"), forKeyword: AEKeyword(0x736E_616D))
+            let parameters = NSAppleEventDescriptor.list()
+            parameters.insert(NSAppleEventDescriptor(string: "echo in-process-ok"), at: 1)
+            event.setParam(parameters, forKeyword: AEKeyword(0x2D2D_2D2D))
+            let result = script.executeAppleEvent(event, error: &error)
+            if let error { return "error \(error[NSAppleScript.errorNumber] ?? "?"): \(error[NSAppleScript.errorMessage] ?? "")" }
+            return result.stringValue ?? "no output"
+        }
     }
 
     private func prepared() -> NSAppleScript? {

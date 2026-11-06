@@ -238,7 +238,7 @@ struct StatusBanner: View {
             Image(systemName: isError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
                 .font(.system(size: 14))
                 .foregroundStyle(isError ? Theme.risky : Theme.accentText)
-            Text(text).font(.system(size: 13, weight: .medium)).lineLimit(2)
+            Text(text).font(.system(size: 13, weight: .medium)).lineLimit(4).textSelection(.enabled)
         }
         .padding(.horizontal, 16).padding(.vertical, 10)
         .glassCard(cornerRadius: 20)
