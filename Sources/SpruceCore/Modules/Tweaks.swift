@@ -233,6 +233,9 @@ public enum Tweaks {
 
     public static let touchIDPamPath = "/etc/pam.d/sudo_local"
 
+    /// The same change by hand, for when macOS won't let an app write /etc/pam.d.
+    public static let touchIDTerminalCommand = "sed 's/^#auth/auth/' /etc/pam.d/sudo_local.template | sudo tee /etc/pam.d/sudo_local"
+
     /// True when sudo accepts Touch ID: pam_tid in sudo_local, or added to /etc/pam.d/sudo by hand.
     public static func touchIDForSudoEnabled() -> Bool {
         [touchIDPamPath, "/etc/pam.d/sudo"].contains { path in
@@ -251,7 +254,8 @@ public enum Tweaks {
         var script = PrivilegedScript()
         let f = touchIDPamPath
         if enable {
-            script.addTrusted("[ -f \(f) ] || printf '%s\\n' '# sudo_local: local config file which survives system update and is included for sudo' > \(f)")
+            // Start from Apple's template where there is one (macOS 14+), else a one-line header.
+            script.addTrusted("[ -f \(f) ] || { [ -f \(f).template ] && cp \(f).template \(f); } || printf '%s\\n' '# sudo_local: local config file which survives system update and is included for sudo' > \(f)")
             script.addTrusted("if grep -q '^#[[:space:]]*auth.*pam_tid.so' \(f); then sed -i '' 's/^#[[:space:]]*\\(auth.*pam_tid.so\\)/\\1/' \(f); fi")
             script.addTrusted("grep -q '^auth.*pam_tid.so' \(f) || printf '%s\\n' 'auth       sufficient     pam_tid.so' >> \(f)")
             script.addTrusted("chmod 444 \(f)")

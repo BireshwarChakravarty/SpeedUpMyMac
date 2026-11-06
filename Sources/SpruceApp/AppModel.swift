@@ -178,6 +178,10 @@ final class AppModel {
         showTouchIDOffer = true
     }
 
+    /// macOS refused to let Spruce write /etc/pam.d/sudo_local ("Operation not permitted"), so
+    /// Settings explains Full Disk Access and offers the Terminal command instead.
+    var touchIDSetupBlocked = false
+
     /// The result of "Test Touch ID" in Settings, shown under the button.
     var touchIDTestResult: (ok: Bool, text: String)?
 
@@ -224,7 +228,10 @@ final class AppModel {
                 }
             }
             touchIDForAdmin = Tweaks.touchIDForSudoEnabled()
-            if failure == nil && touchIDForAdmin == on {
+            touchIDSetupBlocked = on && !touchIDForAdmin && (failure ?? "").contains("Operation not permitted")
+            if touchIDSetupBlocked {
+                report("macOS didn't let Spruce turn on Touch ID. Settings → Admin access shows two ways to fix it.", error: true)
+            } else if failure == nil && touchIDForAdmin == on {
                 report(on ? "Touch ID is on: your fingerprint replaces the admin password" : "Admin steps ask for your password again")
                 SoundFX.shared.play(on ? .unlock : .lock)
             } else if failure == "cancelled" {

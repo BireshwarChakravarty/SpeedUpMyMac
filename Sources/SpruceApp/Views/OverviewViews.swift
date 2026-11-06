@@ -326,6 +326,33 @@ struct SettingsView: View {
                          ? "When Spruce needs admin rights, it asks for your fingerprint. If Touch ID isn't available (lid closed) or you cancel it, the password dialog appears instead. Also applies to sudo in Terminal."
                          : "No Touch ID sensor found. On a Mac mini or Mac Studio, connect a Magic Keyboard with Touch ID.")
                         .font(.caption).foregroundStyle(.secondary)
+                    if model.touchIDSetupBlocked && !model.touchIDForAdmin {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("macOS blocked Spruce from writing /etc/pam.d/sudo_local, the file that turns on Touch ID for admin steps.",
+                                  systemImage: "exclamationmark.triangle.fill")
+                                .foregroundStyle(Theme.review)
+                            Text("Give Spruce Full Disk Access, quit and reopen it, then turn this on again. Or paste this in Terminal (it asks for your password once):")
+                                .foregroundStyle(.secondary)
+                            Text(Tweaks.touchIDTerminalCommand)
+                                .font(Theme.mono)
+                                .textSelection(.enabled)
+                                .padding(8)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(RoundedRectangle(cornerRadius: 8).fill(Theme.rim.opacity(0.06)))
+                            HStack {
+                                Button("Open Full Disk Access") { model.openFullDiskAccessSettings() }
+                                Button("Copy Command") {
+                                    NSPasteboard.general.clearContents()
+                                    NSPasteboard.general.setString(Tweaks.touchIDTerminalCommand, forType: .string)
+                                    model.report("Copied. Paste it in Terminal.")
+                                }
+                                Spacer()
+                                Button("Check Again") { model.touchIDForAdmin = Tweaks.touchIDForSudoEnabled()
+                                    if model.touchIDForAdmin { model.touchIDSetupBlocked = false; model.report("Touch ID is on") } }
+                            }
+                        }
+                        .font(.caption)
+                    }
                     if model.touchIDForAdmin {
                         HStack {
                             Button("Test Touch ID") { model.testTouchID() }.disabled(model.busy != nil)
