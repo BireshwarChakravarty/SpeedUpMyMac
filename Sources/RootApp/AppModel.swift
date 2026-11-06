@@ -601,6 +601,9 @@ final class AppModel {
 
         // The menu bar panel: empty, then with an app dropped on it.
         StatusItemController.shared?.show()
+        try? await Task.sleep(for: .milliseconds(300))
+        FileManager.default.createFile(atPath: (folder as NSString).appendingPathComponent("panel.txt"),
+                                       contents: Data((StatusItemController.shared?.panelDescription ?? "no controller").utf8))
         await captureTour(folder, "menu-bar-panel")
         if let sample = apps.filter({ $0.userRemovable && !$0.isAppleApp }).min(by: { $0.bytes < $1.bytes }) {
             await quickScan(sample.path)

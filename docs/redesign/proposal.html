@@ -1,0 +1,532 @@
+<title>Spruce Redesign Proposal</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a single reading column for the argument, with full-width "stage" bands where the app mockups sit on a dark desk. */
+:root {
+  --paper: #F4F6F5; --ink: #101614; --muted: #5B6662; --rule: #DCE2DF; --card: #FFFFFF;
+  --accent: #0F8A6A; --accent-soft: #D7F0E7;
+  --stage: #0A100E;
+  --display: "Bricolage Grotesque", "SF Pro Display", -apple-system, system-ui, sans-serif;
+  --body: -apple-system, "SF Pro Text", "Figtree", system-ui, sans-serif;
+  --app: -apple-system, "SF Pro Text", "Figtree", system-ui, sans-serif;
+  --round: ui-rounded, "SF Pro Rounded", -apple-system, "Figtree", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #0E1312; --ink: #E8EEEC; --muted: #93A19C; --rule: #24302C; --card: #151C1A;
+  --accent: #4FD1A5; --accent-soft: #143329; --stage: #060A09; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --paper: #0E1312; --ink: #E8EEEC; --muted: #93A19C; --rule: #24302C; --card: #151C1A;
+  --accent: #4FD1A5; --accent-soft: #143329; --stage: #060A09; color-scheme: dark }
+
+body { background: var(--paper); color: var(--ink); font: 16px/1.6 var(--body); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.col { max-width: 720px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; line-height: 1.1; margin: 0; }
+h1 { font-size: clamp(36px, 6vw, 64px); font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: clamp(26px, 3.4vw, 36px); font-weight: 700; letter-spacing: -0.01em; }
+h3 { font-size: 19px; font-weight: 700; }
+p { margin: 0; }
+.eyebrow { font: 600 12px/1 var(--body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+.lede { font-size: 19px; color: var(--muted); max-width: 62ch; }
+section { padding-block: 56px; border-top: 1px solid var(--rule); }
+section > .wrap { display: grid; gap: 22px; }
+header { padding-block: 64px 48px; }
+header .wrap { display: grid; gap: 20px; }
+
+/* critique */
+.critique { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.critique div { background: var(--card); border: 1px solid var(--rule); border-radius: 14px; padding: 16px 18px; display: grid; gap: 6px; min-width: 0; }
+.critique b { font-size: 15px; }
+.critique span { color: var(--muted); font-size: 14.5px; }
+
+/* audit table */
+.audit { overflow-x: auto; border: 1px solid var(--rule); border-radius: 14px; background: var(--card); }
+.audit table { width: 100%; border-collapse: collapse; min-width: 720px; font-size: 14.5px; }
+.audit th, .audit td { text-align: left; vertical-align: top; padding: 14px 16px; border-bottom: 1px solid var(--rule); }
+.audit tr:last-child td { border-bottom: 0; }
+.audit th { font: 600 11px/1 var(--body); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); background: transparent; }
+.audit td:first-child { font-weight: 600; white-space: nowrap; }
+.audit td:first-child small { display: block; font-weight: 400; color: var(--muted); font-size: 12.5px; }
+.audit td:last-child { color: var(--accent); font-weight: 500; }
+
+/* stage: dark desk the mockups sit on */
+.stage { background: radial-gradient(1200px 500px at 30% 0%, #12302A 0%, transparent 60%), radial-gradient(900px 500px at 90% 100%, #1B1838 0%, transparent 60%), var(--stage); padding-block: 48px; border-top: 0; color: #E8EEEC; }
+.stage .wrap { display: grid; gap: 28px; }
+.stage .cap { color: #9FB0AA; font-size: 14.5px; max-width: 70ch; }
+.stage .cap b { color: #E8EEEC; }
+.fit { width: 100%; position: relative; overflow: hidden; border-radius: 22px; }
+.fit > .scaled { transform-origin: top left; position: absolute; top: 0; left: 0; }
+
+/* ---------- the app window mock ---------- */
+.win { width: 1180px; height: 740px; border-radius: 22px; position: relative; overflow: hidden; font-family: var(--app); color: #F2F5F4;
+  background: radial-gradient(700px 520px at 34% 30%, rgba(45,212,160,0.20), transparent 65%), radial-gradient(600px 400px at 100% 100%, rgba(56,120,255,0.10), transparent 70%), #121816;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.10), 0 40px 120px rgba(0,0,0,0.6), 0 12px 30px rgba(0,0,0,0.4); }
+.lights { position: absolute; top: 20px; left: 22px; display: flex; gap: 8px; z-index: 3; }
+.lights i { width: 12px; height: 12px; border-radius: 50%; background: #FF5F57; }
+.lights i:nth-child(2) { background: #FEBC2E; } .lights i:nth-child(3) { background: #28C840; }
+.side { position: absolute; top: 10px; bottom: 10px; left: 10px; width: 236px; border-radius: 18px; padding: 52px 10px 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.04)); backdrop-filter: blur(30px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), inset 0 0 0 1px rgba(255,255,255,0.07), 0 10px 30px rgba(0,0,0,0.25); display: flex; flex-direction: column; gap: 2px; }
+.side .grp { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.42); padding: 12px 10px 4px; }
+.nav { display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 9px; font-size: 13.5px; color: rgba(255,255,255,0.88); }
+.nav.on { background: rgba(255,255,255,0.12); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); }
+.nav .ic { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; box-shadow: inset 0 1px 0 rgba(255,255,255,0.35); }
+.nav .ic svg { width: 14px; height: 14px; }
+.nav em { margin-left: auto; font-style: normal; font-size: 12px; color: rgba(255,255,255,0.45); font-variant-numeric: tabular-nums; }
+.side .me { margin-top: auto; display: flex; gap: 10px; align-items: center; padding: 10px; border-radius: 12px; background: rgba(255,255,255,0.05); font-size: 12.5px; }
+.side .me small { display: block; color: rgba(255,255,255,0.5); font-size: 11px; }
+.main { position: absolute; left: 262px; right: 0; top: 0; bottom: 0; padding: 16px 30px 26px 26px; display: flex; flex-direction: column; gap: 22px; }
+.bar { height: 36px; display: flex; align-items: center; gap: 10px; }
+.bar h4 { margin: 0; font-size: 15px; font-weight: 600; flex: 1; }
+.glass { background: rgba(255,255,255,0.08); box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), inset 0 0 0 1px rgba(255,255,255,0.07); border-radius: 999px; }
+.pillbtn { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 14px; font-size: 13px; font-weight: 500; }
+.admin { padding: 0 6px 0 12px; }
+.admin .sw { width: 34px; height: 20px; border-radius: 999px; background: #F5A524; position: relative; box-shadow: inset 0 1px 0 rgba(255,255,255,0.4); }
+.admin .sw::after { content: ""; position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; }
+.hero { display: grid; grid-template-columns: 330px 1fr; gap: 34px; align-items: center; padding: 6px 4px; }
+.orb { width: 300px; height: 300px; position: relative; justify-self: center; }
+.orb .ring { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 210deg, #5EF0C4, #2DD4A0 40%, #20A4F3 70%, rgba(255,255,255,0.06) 70.5%); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px)); mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px)); filter: drop-shadow(0 0 14px rgba(45,212,160,0.55)); }
+.orb .glassball { position: absolute; inset: 26px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 28%, rgba(255,255,255,0.55), rgba(255,255,255,0) 22%), radial-gradient(circle at 50% 62%, rgba(45,212,160,0.55), rgba(17,94,89,0.35) 45%, rgba(8,30,26,0.85) 78%);
+  box-shadow: inset 0 -20px 40px rgba(32,164,243,0.25), inset 0 2px 1px rgba(255,255,255,0.35), 0 20px 60px rgba(45,212,160,0.25); overflow: hidden; }
+.orb .p { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: #D9FFF0; box-shadow: 0 0 10px #5EF0C4; opacity: 0.85; animation: drift 6s ease-in-out infinite; }
+@keyframes drift { 0%,100% { transform: translate(0,0); } 50% { transform: translate(8px,-14px); } }
+@media (prefers-reduced-motion: reduce) { .orb .p, .droptile { animation: none !important; } }
+.orb .label { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; }
+.orb .label b { font: 700 64px/1 var(--round); letter-spacing: -0.02em; display: block; text-shadow: 0 2px 20px rgba(0,0,0,0.35); }
+.orb .label small { font-size: 13px; color: rgba(255,255,255,0.75); }
+.copy { display: grid; gap: 12px; }
+.copy .k { font-size: 13px; font-weight: 600; color: #7CF2CB; letter-spacing: 0.02em; }
+.copy .big { font: 700 92px/0.95 var(--round); letter-spacing: -0.03em; }
+.copy .big span { font-size: 38px; font-weight: 600; color: rgba(255,255,255,0.7); margin-left: 6px; }
+.copy p { font-size: 15px; color: rgba(255,255,255,0.68); max-width: 46ch; }
+.ctas { display: flex; gap: 10px; margin-top: 8px; }
+.cta { height: 44px; padding: 0 26px; border-radius: 999px; display: inline-flex; align-items: center; font-weight: 600; font-size: 15px; color: #04140F;
+  background: linear-gradient(180deg, #7DF5D0, #2DD4A0); box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 8px 24px rgba(45,212,160,0.45), 0 0 0 1px rgba(255,255,255,0.15); }
+.cta2 { height: 44px; padding: 0 22px; font-size: 15px; font-weight: 500; display: inline-flex; align-items: center; }
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.tile { border-radius: 16px; padding: 14px 16px; background: rgba(255,255,255,0.055); box-shadow: inset 0 1px 0 rgba(255,255,255,0.09), inset 0 0 0 1px rgba(255,255,255,0.06); display: grid; gap: 6px; min-height: 122px; align-content: start; }
+.tile .t { font-size: 12px; color: rgba(255,255,255,0.55); display: flex; align-items: center; gap: 6px; }
+.tile .t i { width: 8px; height: 8px; border-radius: 3px; }
+.tile .v { font: 650 24px/1.1 var(--round); }
+.tile .s { font-size: 12px; color: rgba(255,255,255,0.55); }
+.stack { display: flex; height: 8px; border-radius: 5px; overflow: hidden; gap: 2px; margin-top: 4px; }
+.where { border-radius: 16px; padding: 16px 18px; background: rgba(255,255,255,0.04); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06); display: grid; gap: 12px; }
+.where .row { display: grid; grid-template-columns: 150px 1fr 70px; gap: 14px; align-items: center; font-size: 13px; }
+.where .track { height: 8px; border-radius: 6px; background: rgba(255,255,255,0.07); overflow: hidden; }
+.where .track i { display: block; height: 100%; border-radius: 6px; }
+.where .row span:last-child { text-align: right; font-variant-numeric: tabular-nums; color: rgba(255,255,255,0.7); }
+
+/* ---------- menu bar panel mock ---------- */
+.mb { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+@media (max-width: 860px) { .mb { grid-template-columns: 1fr; } }
+.menubar { height: 28px; border-radius: 10px 10px 0 0; background: rgba(30,36,34,0.85); display: flex; align-items: center; justify-content: flex-end; gap: 16px; padding: 0 14px; font: 500 13px var(--app); color: #E8EEEC; max-width: 380px; }
+.menubar .me-ico { width: 22px; height: 18px; border-radius: 5px; background: rgba(255,255,255,0.18); display: grid; place-items: center; }
+.panel { width: 360px; max-width: 100%; margin-top: 6px; margin-left: auto; border-radius: 20px; padding: 16px; font-family: var(--app); color: #F2F5F4; display: grid; gap: 14px;
+  background: linear-gradient(180deg, rgba(40,52,48,0.92), rgba(22,28,26,0.94)); box-shadow: 0 0 0 1px rgba(255,255,255,0.12), inset 0 1px 0 rgba(255,255,255,0.12), 0 30px 80px rgba(0,0,0,0.55); }
+.mbwrap { max-width: 380px; width: 100%; }
+.ph { display: flex; align-items: center; gap: 12px; }
+.ph b { font-size: 15px; }
+.ph small { display: block; color: rgba(255,255,255,0.55); font-size: 12px; }
+.x { margin-left: auto; width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,0.12); display: grid; place-items: center; font-size: 11px; color: rgba(255,255,255,0.7); }
+.gauges { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.g { border-radius: 12px; padding: 10px; background: rgba(255,255,255,0.06); display: grid; gap: 4px; }
+.g small { font-size: 11px; color: rgba(255,255,255,0.55); }
+.g b { font: 650 16px var(--round); font-variant-numeric: tabular-nums; }
+.g svg { width: 100%; height: 22px; }
+.ready { display: flex; align-items: center; gap: 10px; border-radius: 14px; padding: 10px 10px 10px 14px; background: rgba(45,212,160,0.12); box-shadow: inset 0 0 0 1px rgba(45,212,160,0.25); }
+.ready b { font: 700 20px var(--round); }
+.ready span { font-size: 12.5px; color: rgba(255,255,255,0.65); flex: 1; }
+.ready .cta { height: 32px; padding: 0 16px; font-size: 13px; }
+.drop { border-radius: 16px; padding: 14px; background: rgba(255,255,255,0.05); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); display: grid; gap: 12px; }
+.drop h5 { margin: 0; font-size: 14px; display: flex; gap: 8px; align-items: center; }
+.zone { border-radius: 14px; min-height: 150px; display: grid; place-items: center; text-align: center; align-content: center; gap: 6px; position: relative;
+  background: radial-gradient(circle at 50% 35%, rgba(244,114,182,0.14), transparent 60%); }
+.zone::before { content: ""; position: absolute; inset: 0; border-radius: 14px; padding: 1.5px; background: repeating-linear-gradient(90deg, rgba(255,255,255,0.35) 0 8px, transparent 8px 14px); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.droptile { width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; background: linear-gradient(180deg, #FB7DB0, #E8467C); box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 8px 20px rgba(232,70,124,0.45); animation: bob 2.6s ease-in-out infinite; }
+@keyframes bob { 50% { transform: translateY(-4px); } }
+.zone b { font-size: 15px; } .zone span { font-size: 12.5px; color: rgba(255,255,255,0.6); }
+.choose { justify-self: center; height: 32px; padding: 0 16px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+.fine { font-size: 11.5px; color: rgba(255,255,255,0.42); text-align: center; }
+.foot { display: flex; justify-content: space-between; font-size: 12.5px; color: rgba(255,255,255,0.6); }
+.result { border-radius: 14px; padding: 12px; background: rgba(255,255,255,0.05); display: grid; gap: 10px; }
+.result .top { display: flex; gap: 12px; align-items: center; }
+.appico { width: 46px; height: 46px; border-radius: 11px; background: linear-gradient(135deg, #5B8CFF, #7B5BFF); box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 6px 14px rgba(0,0,0,0.35); }
+.kv { display: flex; justify-content: space-between; font-size: 12.5px; color: rgba(255,255,255,0.62); }
+.kv span:last-child { color: #F2F5F4; font-variant-numeric: tabular-nums; }
+.rm { height: 32px; padding: 0 16px; border-radius: 999px; font-size: 13px; font-weight: 600; color: #fff; background: linear-gradient(180deg, #FB7DB0, #E8467C); box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 6px 16px rgba(232,70,124,0.4); display: inline-flex; align-items: center; }
+
+/* module colour system */
+.mods { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.mod { border-radius: 14px; padding: 12px; display: flex; gap: 10px; align-items: center; background: rgba(255,255,255,0.05); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.07); font-size: 13.5px; min-width: 0; }
+.mod .ic { width: 28px; height: 28px; border-radius: 8px; flex: none; display: grid; place-items: center; box-shadow: inset 0 1px 0 rgba(255,255,255,0.35); }
+.mod .ic svg { width: 16px; height: 16px; }
+.mod small { display: block; color: #9FB0AA; font-size: 12px; }
+
+/* moments */
+.moments { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+.moment { border-top: 2px solid var(--accent); padding-top: 12px; display: grid; gap: 6px; min-width: 0; }
+.moment p { color: var(--muted); font-size: 14.5px; }
+
+/* names */
+.names { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.name { background: var(--card); border: 1px solid var(--rule); border-radius: 18px; padding: 18px; display: grid; gap: 12px; align-content: start; min-width: 0; position: relative; }
+.name.rec { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.name .badge { position: absolute; top: 14px; right: 14px; font: 600 11px/1 var(--body); padding: 6px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); letter-spacing: 0.04em; }
+.name svg.icon { width: 112px; height: 112px; filter: drop-shadow(0 10px 18px rgba(0,0,0,0.28)); }
+.name h3 { font-size: 28px; }
+.name .tag { font-size: 14px; color: var(--accent); font-weight: 600; }
+.name p { color: var(--muted); font-size: 14.5px; }
+.name ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; display: grid; gap: 4px; }
+.dock { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+.dock svg { width: 64px; height: 64px; }
+.dock .small svg { width: 32px; height: 32px; }
+.decide { background: var(--card); border: 1px solid var(--rule); border-radius: 18px; padding: 20px 22px; display: grid; gap: 10px; }
+.decide ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+footer { padding-block: 32px 64px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--rule); }
+</style>
+
+<header>
+  <div class="wrap">
+    <p class="eyebrow">Redesign proposal · for review before building</p>
+    <h1>Make it the best-looking Mac utility, not another dark dashboard</h1>
+    <p class="lede">An audit of the Mac apps people point to when they say "beautiful", what each one does that Root doesn't, and a full direction: new name, new icon, a colour world per section, a signature glass orb, and the menu bar uninstaller you asked for.</p>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Where Root is today</p>
+    <h2>Why it reads as basic</h2>
+    <div class="critique">
+      <div><b>Every page is the same grey card grid</b><span>Identical #262628 boxes with text in them. Nothing tells you which section you're in at a glance.</span></div>
+      <div><b>One accent does every job</b><span>Lime is the button, the chart, the selection and the badge. With one colour there's no hierarchy, and near-black plus one neon pop is the most common template look right now.</span></div>
+      <div><b>No hero object</b><span>The best cleaners give each section a thing to look at. Root has a progress ring and a number, which is what every system monitor has.</span></div>
+      <div><b>The name and icon say "terminal"</b><span>"Root" and a # glyph read as a developer tool or a hashtag. Neither says fast, clean or cared-for.</span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Audit</p>
+    <h2>What the best-looking Mac apps actually do</h2>
+    <p class="lede">Nine apps people point to for Mac design, picked across cleaners, utilities and Apple Design Award winners. The right column is what Root takes from each.</p>
+    <div class="audit">
+      <table>
+        <thead><tr><th>App</th><th>What makes it look expensive</th><th>What we take</th></tr></thead>
+        <tbody>
+          <tr><td>CleanMyMac<small>MacPaw, 2024 redesign</small></td><td>Each section has its own colour world and a 3D hero object. One big action per screen. Scans are an animation, not a progress bar.</td><td>A colour world per section, one hero object, one primary action</td></tr>
+          <tr><td>Sensei<small>Cindori</small></td><td>Cleaner plus monitor with dashboard-grade charts. Real data visualisation instead of label/value rows.</td><td>Charts in every insight tile</td></tr>
+          <tr><td>Raycast</td><td>Crisp 1px light top edges on dark surfaces, beautifully drawn icons, keyboard hints everywhere, zero lag.</td><td>Hairline highlights on glass, a coloured icon tile for each section</td></tr>
+          <tr><td>Linear</td><td>Restraint. Low-contrast greys for structure, colour only where something needs attention, tight type scale, consistent motion.</td><td>Semantic colour only for state, one type scale</td></tr>
+          <tr><td>Things 3</td><td>Generous space, and small delightful animations on the things you touch most (the checkbox).</td><td>Delight on the moments that matter: clean, uninstall, unlock</td></tr>
+          <tr><td>Flighty<small>Apple Design Award</small></td><td>Dense information that still feels calm. Live states, big numerals, perfect alignment.</td><td>Rounded numerals, tabular digits, live states</td></tr>
+          <tr><td>iStat Menus 7</td><td>A menu bar panel that's a real mini dashboard, with sparklines and gauges.</td><td>Menu bar panel with live gauges</td></tr>
+          <tr><td>Pearcleaner</td><td>Native-feeling, with a drag-an-app-in mini window like the one you sent.</td><td>The drop zone, upgraded</td></tr>
+          <tr><td>Apple apps on macOS 26/27</td><td>Liquid Glass floating sidebar, concentric corner radii, colourful System Settings icon tiles.</td><td>Glass only on chrome (sidebar, toolbar, panel), content stays solid</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="stage" aria-label="Main window mockup">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow" style="color:#7CF2CB">Proposed direction · main window</p>
+      <h2 style="color:#F2F5F4; margin-top:10px">Spruce, Smart Scan page</h2>
+    </div>
+    <div class="fit" data-w="1180" data-h="740">
+      <div class="scaled">
+        <div class="win">
+          <div class="lights"><i></i><i></i><i></i></div>
+          <aside class="side" id="side"></aside>
+          <div class="main">
+            <div class="bar">
+              <h4>Smart Scan</h4>
+              <span class="glass pillbtn">⌘R Rescan</span>
+              <span class="glass pillbtn admin">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5A524" stroke-width="1.8" stroke-linecap="round"><path d="M12 11v3m-4-3.5a4 4 0 0 1 8 0V14m-11-3a7 7 0 0 1 14 0v2m-14 1.5c0 2.5 1 4.5 2.5 6M16 14v1.5c0 1.8-.5 3.5-1.5 5m-5.5-6.5v1c0 1.6.4 3 1.2 4.3"/></svg>
+                Admin <span class="sw"></span></span>
+            </div>
+            <div class="hero">
+              <div class="orb" aria-hidden="true">
+                <div class="ring"></div>
+                <div class="glassball" id="ball"></div>
+                <div class="label"><div><b>92</b><small>Mac health</small></div></div>
+              </div>
+              <div class="copy">
+                <span class="k">Ready to spruce up</span>
+                <div class="big">4.6<span>GB</span></div>
+                <p>Caches, logs and old build folders in 5 places. All of it is safe to remove, and every file is listed before anything goes.</p>
+                <div class="ctas"><span class="cta">Spruce Up</span><span class="glass cta2">Review 212 items</span></div>
+              </div>
+            </div>
+            <div class="tiles">
+              <div class="tile"><span class="t"><i style="background:#38BDF8"></i>Junk</span><span class="v">4.6 GB</span>
+                <div class="stack"><i style="flex:52;background:#38BDF8"></i><i style="flex:21;background:#818CF8"></i><i style="flex:14;background:#F472B6"></i><i style="flex:9;background:#FBBF24"></i><i style="flex:4;background:#94A3B8"></i></div>
+                <span class="s">App caches, Xcode, logs, browsers, Trash</span></div>
+              <div class="tile"><span class="t"><i style="background:#A78BFA"></i>Memory</span><span class="v">61%</span>
+                <svg viewBox="0 0 200 34" preserveAspectRatio="none" style="width:100%;height:30px"><defs><linearGradient id="mg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#A78BFA" stop-opacity=".45"/><stop offset="1" stop-color="#A78BFA" stop-opacity="0"/></linearGradient></defs><path d="M0 24 L20 22 L40 25 L60 18 L80 20 L100 14 L120 17 L140 12 L160 15 L180 10 L200 12 L200 34 L0 34Z" fill="url(#mg)"/><path d="M0 24 L20 22 L40 25 L60 18 L80 20 L100 14 L120 17 L140 12 L160 15 L180 10 L200 12" fill="none" stroke="#A78BFA" stroke-width="2"/><circle cx="200" cy="12" r="3" fill="#fff"/></svg>
+                <span class="s">Pressure normal · 9.8 of 16 GB</span></div>
+              <div class="tile"><span class="t"><i style="background:#F87171"></i>Security</span><span class="v">2 to fix</span>
+                <span class="s" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px"><span class="glass" style="padding:3px 8px;color:#FCA5A5">Firewall off</span><span class="glass" style="padding:3px 8px;color:#FCA5A5">FileVault off</span></span></div>
+              <div class="tile"><span class="t"><i style="background:#FBBF24"></i>Startup</span><span class="v">3 to review</span>
+                <span style="display:flex;gap:6px;margin-top:2px"><i style="width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,#60A5FA,#2563EB)"></i><i style="width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,#F97316,#DC2626)"></i><i style="width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,#A3A3A3,#525252)"></i></span>
+                <span class="s">1 unsigned, 1 won't load</span></div>
+            </div>
+            <div class="where">
+              <div class="row"><span>App caches</span><span class="track"><i style="width:72%;background:linear-gradient(90deg,#38BDF8,#7DD3FC)"></i></span><span>2.4 GB</span></div>
+              <div class="row"><span>Developer</span><span class="track"><i style="width:30%;background:linear-gradient(90deg,#818CF8,#A5B4FC)"></i></span><span>980 MB</span></div>
+              <div class="row"><span>Browsers</span><span class="track"><i style="width:20%;background:linear-gradient(90deg,#F472B6,#F9A8D4)"></i></span><span>640 MB</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="cap"><b>What changed.</b> The sidebar becomes a floating glass panel with a coloured icon tile for each section, like System Settings. The page takes its section's colour as a soft light behind the content (green-teal here; Cleanup is sky blue, Uninstaller rose). The hero is a glass orb: during a scan, particles of junk drift into it, and Spruce Up sweeps them out with a glint and a sound. Numbers use SF Pro Rounded. Each insight tile carries a small chart. The Sudo switch becomes <b>Admin</b> with a fingerprint, since Touch ID now replaces the password.</p>
+  </div>
+</section>
+
+<section class="stage" aria-label="Menu bar panel mockup" style="padding-top:8px">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow" style="color:#F9A8D4">Proposed direction · menu bar</p>
+      <h2 style="color:#F2F5F4; margin-top:10px">The panel, with drag-in uninstall</h2>
+    </div>
+    <div class="mb">
+      <div class="mbwrap">
+        <div class="menubar"><span>⌁</span><span class="me-ico" id="mbicon"></span><span>Fri 6 Nov 10:42</span></div>
+        <div class="panel">
+          <div class="ph"><span id="tinyicon"></span><div><b>Spruce</b><small>MacBook Pro · Health 92</small></div><span class="x">✕</span></div>
+          <div class="gauges">
+            <div class="g"><small>Disk free</small><b>212 GB</b><svg viewBox="0 0 100 22"><rect x="0" y="8" width="100" height="6" rx="3" fill="rgba(255,255,255,.1)"/><rect x="0" y="8" width="58" height="6" rx="3" fill="#38BDF8"/></svg></div>
+            <div class="g"><small>Memory</small><b>61%</b><svg viewBox="0 0 100 22" preserveAspectRatio="none"><path d="M0 16 L15 14 L30 17 L45 11 L60 13 L75 8 L100 10" fill="none" stroke="#A78BFA" stroke-width="2"/></svg></div>
+            <div class="g"><small>CPU</small><b>14%</b><svg viewBox="0 0 100 22" preserveAspectRatio="none"><path d="M0 18 L12 17 L24 12 L36 18 L48 16 L60 6 L72 15 L86 17 L100 14" fill="none" stroke="#FBBF24" stroke-width="2"/></svg></div>
+          </div>
+          <div class="ready"><b>4.6 GB</b><span>ready to clean, all safe</span><span class="cta">Spruce Up</span></div>
+          <div class="drop">
+            <h5><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F9A8D4" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>Uninstaller</h5>
+            <div class="zone"><span class="droptile"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg></span><b>Drag an app here</b><span>or drop it on the menu bar icon</span></div>
+            <span class="glass choose">＋ Choose app…</span>
+            <span class="fine">Nothing is removed without your confirmation.</span>
+          </div>
+          <div class="foot"><span>Open Spruce</span><span>Quit</span></div>
+        </div>
+      </div>
+      <div class="mbwrap">
+        <div class="menubar"><span>⌁</span><span class="me-ico" style="background:rgba(244,114,182,.5)"></span><span>Fri 6 Nov 10:43</span></div>
+        <div class="panel">
+          <div class="ph"><span id="tinyicon2"></span><div><b>Spruce</b><small>MacBook Pro · Health 92</small></div><span class="x">✕</span></div>
+          <div class="drop">
+            <h5><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F9A8D4" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>Uninstaller</h5>
+            <div class="result">
+              <div class="top"><span class="appico"></span><div><b style="font-size:15px">Zoom</b><div style="font-size:12px;color:rgba(255,255,255,.55)">14 related items on this Mac</div></div></div>
+              <div class="kv"><span>zoom.us.app</span><span>412 MB</span></div>
+              <div class="kv"><span>Application Support</span><span>186 MB</span></div>
+              <div class="kv"><span>Caches</span><span>94 MB</span></div>
+              <div class="kv"><span>Launch agent, preferences, logs</span><span>2 MB</span></div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:4px"><b style="font:700 22px var(--round);flex:1">694 MB</b><span class="glass choose" style="justify-self:auto">Details</span><span class="rm">Remove…</span></div>
+            </div>
+            <span class="fine">Nothing is removed without your confirmation.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="cap"><b>Already built in this round:</b> the panel stays open while you drag from Finder, accepts drops on the menu bar icon, scans the app, and Remove opens the usual receipt. The mockup shows how it looks once restyled: live gauges like iStat Menus, the clean action, and the Uninstaller in its rose colour. The drop tile bobs gently and lights up when an app hovers over it.</p>
+    <div>
+      <p class="eyebrow" style="color:#7CF2CB">Colour world per section</p>
+    </div>
+    <div class="mods" id="mods"></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Signature moments</p>
+    <h2>Four moments that get the extra polish</h2>
+    <div class="moments">
+      <div class="moment"><h3>Scan</h3><p>The orb fills with particles as each place is checked, and the count rolls up. Scanning stops feeling like waiting.</p></div>
+      <div class="moment"><h3>Spruce Up</h3><p>A swept-glass sound, the particles stream out, and the orb clears to a bright glint. The freed space counts down to zero.</p></div>
+      <div class="moment"><h3>Uninstall</h3><p>The app icon tilts into the drop tile and dissolves into the section's rose colour. The "Gone without a trace" check follows.</p></div>
+      <div class="moment"><h3>Admin with Touch ID</h3><p>The Admin switch shows a fingerprint. One touch unlocks system cleaning for five minutes, and the switch glows amber while it's unlocked.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="names">
+  <div class="wrap">
+    <p class="eyebrow">Name and icon</p>
+    <h2>Four names, each with its icon</h2>
+    <p class="lede">Each name comes with an icon in the macOS 26/27 layered-glass style. None of them turned up as an existing Mac cleaner in a quick search; a proper trademark check comes before any public release.</p>
+    <div class="names">
+      <div class="name rec"><span class="badge">Recommended</span><svg class="icon" data-icon="spruce" viewBox="0 0 1024 1024"></svg><h3>Spruce</h3><span class="tag">Spruce up your Mac.</span>
+        <p>"Spruce up" means to tidy and smarten. The icon is three stacked glass chevrons: a spruce tree that also reads as "speed up".</p>
+        <ul><li>Says what it does, in plain English</li><li>Friendly, short, easy to say aloud</li><li>The icon carries both cleaning and speed</li></ul></div>
+      <div class="name"><svg class="icon" data-icon="halcyon" viewBox="0 0 1024 1024"></svg><h3>Halcyon</h3><span class="tag">Calm, clear, fast.</span>
+        <p>Halcyon days are calm and clear. A sun rising over still water: the feeling of a Mac that's quiet and fast again.</p>
+        <ul><li>Elegant, premium tone</li><li>Less obvious what it does</li></ul></div>
+      <div class="name"><svg class="icon" data-icon="fettle" viewBox="0 0 1024 1024"></svg><h3>Fettle</h3><span class="tag">Keep your Mac in fine fettle.</span>
+        <p>"In fine fettle" means in great shape, and to fettle is to trim and clean a casting. A polished, faceted gem.</p>
+        <ul><li>Distinctive and ownable</li><li>Unfamiliar word to many people</li></ul></div>
+      <div class="name"><svg class="icon" data-icon="kestrel" viewBox="0 0 1024 1024"></svg><h3>Kestrel</h3><span class="tag">Sharp eyes, quick work.</span>
+        <p>A kestrel hovers still, spots the smallest thing and strikes fast. Swept wings that form an arrow.</p>
+        <ul><li>Speed-first personality</li><li>Also a well-known web server name among developers</li></ul></div>
+    </div>
+    <div class="dock" aria-label="Spruce icon at Dock and menu sizes"><svg data-icon="spruce" viewBox="0 0 1024 1024"></svg><span class="small"><svg data-icon="spruce" viewBox="0 0 1024 1024"></svg></span><span style="color:var(--muted);font-size:13px">Spruce at Dock and Finder-list sizes. The chevrons stay readable at 32 px.</span></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Next</p>
+    <h2>What I'll build once you pick</h2>
+    <div class="decide">
+      <ol>
+        <li>The name, icon (with Icon Composer layers for macOS 26/27) and menu bar glyph, with settings migrated from Root automatically.</li>
+        <li>Design tokens: colour per section, glass levels, type scale with SF Pro Rounded numerals, and motion timings.</li>
+        <li>The floating glass sidebar with coloured icon tiles, and the section colour behind each page.</li>
+        <li>The orb, rendered with SwiftUI shaders, and the four signature moments with matching sounds.</li>
+        <li>Every page restyled to the new system, in light and dark, checked with CI screenshots after each page.</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<footer><div class="wrap">Mockups are drawn in HTML and approximate SF Pro with the system font. The app itself uses native SwiftUI materials and Liquid Glass where macOS provides them.</div></footer>
+
+<script>
+(() => {
+  // Section icons: a colour and a simple glyph for each.
+  const glyph = {
+    scan: '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/>',
+    clean: '<path d="M5 19l9-9m-6.5 9.5c2-1 4.5-1.5 6.5-1l3-3-3-3-3 3c.5 2 0 4.5-1 6.5"/><path d="M15 5l4 4"/>',
+    dev: '<path d="M9 7l-5 5 5 5M15 7l5 5-5 5"/>',
+    uninst: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+    lens: '<path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/>',
+    proc: '<rect x="7" y="7" width="10" height="10" rx="2"/><path d="M10 3v3M14 3v3M10 18v3M14 18v3M3 10h3M3 14h3M18 10h3M18 14h3"/>',
+    maint: '<path d="M14.5 6.5a4 4 0 0 0-5 5L4 17l3 3 5.5-5.5a4 4 0 0 0 5-5L15 12l-3-3z"/>',
+    start: '<path d="M12 3v8M7 6.5a7 7 0 1 0 10 0"/>',
+    tweak: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
+    health: '<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/>',
+    fleet: '<rect x="3" y="5" width="12" height="9" rx="1.5"/><path d="M1.5 17h15"/><rect x="17" y="8" width="5" height="10" rx="1"/>',
+    hist: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>'
+  };
+  const sections = [
+    ["Overview", [["scan","Smart Scan","#2DD4A0","#0E9F7A","Teal green",""]]],
+    ["Clean", [["clean","Cleanup","#38BDF8","#0284C7","Sky","4.6 GB"],["dev","Dev Purge","#818CF8","#4F46E5","Indigo","980 MB"],["uninst","Uninstaller","#F472B6","#DB2777","Rose",""],["lens","Space Lens","#C084FC","#9333EA","Violet",""]]],
+    ["Speed", [["proc","Processes","#FBBF24","#D97706","Amber",""],["maint","Maintenance","#FB923C","#EA580C","Orange",""],["start","Startup Items","#FCD34D","#CA8A04","Gold","3"],["tweak","Tweaks","#94A3B8","#475569","Slate",""]]],
+    ["Protect", [["health","Health","#F87171","#DC2626","Red","92"]]],
+    ["Everywhere", [["fleet","Fleet","#60A5FA","#2563EB","Blue","3"],["hist","History","#A3A3A3","#525252","Graphite",""]]]
+  ];
+  const tileSVG = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${glyph[k]}</svg>`;
+  const side = document.getElementById("side");
+  if (side) {
+    let html = "";
+    sections.forEach(([group, items], gi) => {
+      if (gi > 0) html += `<div class="grp">${group}</div>`;
+      items.forEach(([k, name, a, b, , badge], i) => {
+        html += `<div class="nav${gi === 0 ? " on" : ""}"><span class="ic" style="background:linear-gradient(180deg,${a},${b})">${tileSVG(k)}</span>${name}${badge ? `<em>${badge}</em>` : ""}</div>`;
+      });
+    });
+    html += `<div class="me"><svg width="30" height="30" data-icon="spruce" viewBox="0 0 1024 1024"></svg><div>MacBook Pro<small>M4 Pro · Admin · 212 GB free</small></div></div>`;
+    side.innerHTML = html;
+  }
+  const mods = document.getElementById("mods");
+  if (mods) mods.innerHTML = sections.flatMap(([, items]) => items).map(([k, name, a, b, label]) =>
+    `<div class="mod"><span class="ic" style="background:linear-gradient(180deg,${a},${b})">${tileSVG(k)}</span><div>${name}<small>${label}</small></div></div>`).join("");
+
+  // Orb particles.
+  const ball = document.getElementById("ball");
+  if (ball) {
+    const pts = [[30,58],[44,40],[62,52],[52,70],[70,34],[38,76],[60,28],[76,62],[24,42],[50,50],[66,74],[34,30]];
+    pts.forEach(([x, y], i) => {
+      const p = document.createElement("span");
+      p.className = "p";
+      p.style.left = x + "%"; p.style.top = y + "%";
+      p.style.animationDelay = (-i * 0.5) + "s";
+      p.style.transform = `scale(${0.6 + (i % 4) * 0.2})`;
+      ball.appendChild(p);
+    });
+  }
+
+  // App icons in the macOS 26/27 squircle, layered glass.
+  const squircle = "M512 100c228 0 312 0 362 50s50 134 50 362 0 312-50 362-134 50-362 50-312 0-362-50-50-134-50-362 0-312 50-362 134-50 362-50z";
+  const icons = {
+    spruce: (id) => `
+      <defs>
+        <linearGradient id="${id}bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14594A"/><stop offset="1" stop-color="#062A25"/></linearGradient>
+        <radialGradient id="${id}glow" cx="0.5" cy="0.32" r="0.6"><stop offset="0" stop-color="#5EF0C4" stop-opacity=".55"/><stop offset="1" stop-color="#5EF0C4" stop-opacity="0"/></radialGradient>
+        <linearGradient id="${id}g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E6FFF6"/><stop offset="1" stop-color="#7DF5D0"/></linearGradient>
+        <linearGradient id="${id}g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9CF7DA" stop-opacity=".95"/><stop offset="1" stop-color="#2DD4A0" stop-opacity=".9"/></linearGradient>
+        <linearGradient id="${id}g3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5EE6BE" stop-opacity=".85"/><stop offset="1" stop-color="#0E9F7A" stop-opacity=".85"/></linearGradient>
+      </defs>
+      <path d="${squircle}" fill="url(#${id}bg)"/>
+      <path d="${squircle}" fill="url(#${id}glow)"/>
+      <path d="M512 590 L780 790 L700 790 L512 650 L324 790 L244 790 Z" fill="url(#${id}g3)"/>
+      <path d="M512 430 L760 618 L680 618 L512 492 L344 618 L264 618 Z" fill="url(#${id}g2)"/>
+      <path d="M512 250 L730 420 L650 420 L512 314 L374 420 L294 420 Z" fill="url(#${id}g1)"/>
+      <path d="M512 250 L730 420 L700 420 L512 274 Z" fill="#fff" opacity=".55"/>
+      <circle cx="512" cy="230" r="16" fill="#fff"/>
+      <path d="${squircle}" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width="6"/>`,
+    halcyon: (id) => `
+      <defs>
+        <linearGradient id="${id}bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FDBA74"/><stop offset=".55" stop-color="#F472B6"/><stop offset="1" stop-color="#3B2A7A"/></linearGradient>
+        <linearGradient id="${id}sun" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF7E0"/><stop offset="1" stop-color="#FFD089"/></linearGradient>
+      </defs>
+      <path d="${squircle}" fill="url(#${id}bg)"/>
+      <path d="M322 560 a190 190 0 0 1 380 0 Z" fill="url(#${id}sun)"/>
+      <path d="M232 610 h560" stroke="#fff" stroke-width="34" stroke-linecap="round" opacity=".95"/>
+      <path d="M292 688 h440" stroke="#fff" stroke-width="30" stroke-linecap="round" opacity=".6"/>
+      <path d="M372 760 h280" stroke="#fff" stroke-width="26" stroke-linecap="round" opacity=".35"/>
+      <path d="${squircle}" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width="6"/>`,
+    fettle: (id) => `
+      <defs>
+        <linearGradient id="${id}bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2A1B3D"/><stop offset="1" stop-color="#120B1E"/></linearGradient>
+        <linearGradient id="${id}a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE4A8"/><stop offset="1" stop-color="#F59E0B"/></linearGradient>
+        <linearGradient id="${id}b" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FDBA74"/><stop offset="1" stop-color="#E8467C"/></linearGradient>
+      </defs>
+      <path d="${squircle}" fill="url(#${id}bg)"/>
+      <path d="M512 230 L740 430 L512 800 L284 430 Z" fill="url(#${id}b)"/>
+      <path d="M512 230 L620 430 L512 800 L404 430 Z" fill="url(#${id}a)"/>
+      <path d="M284 430 H740" stroke="#fff" stroke-opacity=".55" stroke-width="10"/>
+      <path d="M512 230 L404 430 L284 430 Z" fill="#fff" opacity=".4"/>
+      <path d="${squircle}" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="6"/>`,
+    kestrel: (id) => `
+      <defs>
+        <linearGradient id="${id}bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1E3A8A"/><stop offset="1" stop-color="#0B1236"/></linearGradient>
+        <linearGradient id="${id}w" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#93C5FD"/><stop offset="1" stop-color="#E0F2FE"/></linearGradient>
+      </defs>
+      <path d="${squircle}" fill="url(#${id}bg)"/>
+      <path d="M200 380 C380 420 460 470 512 600 C564 470 644 420 824 380 C700 470 600 520 512 760 C424 520 324 470 200 380 Z" fill="url(#${id}w)"/>
+      <path d="M512 600 L470 300 L512 250 L554 300 Z" fill="#fff" opacity=".9"/>
+      <path d="${squircle}" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="6"/>`
+  };
+  let n = 0;
+  document.querySelectorAll("svg[data-icon]").forEach((svg) => {
+    const make = icons[svg.dataset.icon];
+    if (make) svg.innerHTML = make("i" + (n++) + "_");
+  });
+  ["tinyicon", "tinyicon2"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = `<svg width="34" height="34" viewBox="0 0 1024 1024">${icons.spruce("t" + id)}</svg>`;
+  });
+  const mb = document.getElementById("mbicon");
+  if (mb) mb.innerHTML = '<svg width="14" height="12" viewBox="0 0 24 20" fill="#fff"><path d="M12 0 20 7h-3.5L12 3.5 7.5 7H4zM12 6l8 7h-3.5L12 9.5 7.5 13H4zM12 12l8 7h-3.5L12 15.5 7.5 19H4z"/></svg>';
+
+  // Scale the fixed-size window mock to the column.
+  const fits = [...document.querySelectorAll(".fit")];
+  const layout = () => fits.forEach((f) => {
+    const w = +f.dataset.w, h = +f.dataset.h, s = Math.min(1, f.clientWidth / w);
+    const inner = f.querySelector(".scaled");
+    inner.style.transform = `scale(${s})`;
+    f.style.height = (h * s) + "px";
+  });
+  layout();
+  addEventListener("resize", layout);
+})();
+</script>

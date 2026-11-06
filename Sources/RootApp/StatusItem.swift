@@ -40,6 +40,7 @@ final class StatusItemController: NSObject, NSWindowDelegate, NSDraggingDestinat
     func show() {
         let panel = self.panel ?? makePanel()
         self.panel = panel
+        if let host = panel.contentView { panel.setContentSize(host.fittingSize) }
         if let button = item.button, let window = button.window {
             let icon = window.convertToScreen(button.convert(button.bounds, to: nil))
             anchorTop = icon.minY - 6
@@ -78,19 +79,29 @@ final class StatusItemController: NSObject, NSWindowDelegate, NSDraggingDestinat
             .environment(model)
             .preferredColorScheme(dark ? .dark : nil)
             .tint(Theme.leaf)
-        let host = NSHostingController(rootView: root)
-        host.sizingOptions = [.intrinsicContentSize]
-        panel.contentViewController = host
+            .fixedSize()
+            .onGeometryChange(for: CGSize.self, of: \.size) { [weak self] size in self?.fit(size) }
+        let host = NSHostingView(rootView: root)
+        panel.contentView = host
+        panel.setContentSize(host.fittingSize)
         panel.delegate = self
         panel.onEscape = { [weak self] in self?.hide() }
         return panel
     }
 
-    // Keep the panel hanging from the menu bar as its content grows or shrinks.
-    func windowDidResize(_ notification: Notification) {
-        guard let panel, notification.object as? NSWindow === panel, anchorTop > 0 else { return }
-        let frame = panel.frame
-        if abs(frame.maxY - anchorTop) > 0.5 { panel.setFrameOrigin(NSPoint(x: frame.minX, y: anchorTop - frame.height)) }
+    /// Sizes the panel to its content, hanging from the menu bar as the content grows or shrinks.
+    private func fit(_ size: CGSize) {
+        guard let panel, size.width > 0, size.height > 0 else { return }
+        var frame = panel.frameRect(forContentRect: NSRect(origin: .zero, size: size))
+        frame.origin.x = panel.frame.minX
+        frame.origin.y = (anchorTop > 0 ? anchorTop : panel.frame.maxY) - frame.height
+        panel.setFrame(frame, display: true, animate: false)
+    }
+
+    /// For the CI tour's log.
+    var panelDescription: String {
+        guard let panel else { return "no panel" }
+        return "visible=\(panel.isVisible) frame=\(NSStringFromRect(panel.frame)) screen=\(NSStringFromRect(panel.screen?.frame ?? .zero))"
     }
 
     // MARK: Dropping an app on the menu bar icon
