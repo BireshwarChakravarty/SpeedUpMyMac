@@ -1,18 +1,18 @@
 #!/bin/bash
-# Sets up notarized builds of Root, once, after you've joined the Apple Developer Program.
+# Sets up notarized builds of Spruce, once, after you've joined the Apple Developer Program.
 # Run it on one of your own Macs (not a managed work laptop). Two steps:
 #
 #   bash make-developer-id.sh                    1) make a certificate request and open Apple's page
 #   bash make-developer-id.sh <downloaded .cer>  2) turn Apple's certificate into the GitHub secrets
 #
-# The private key is created here and stays in ~/.root-developer-id and your GitHub secrets.
+# The private key is created here and stays in ~/.spruce-developer-id and your GitHub secrets.
 set -euo pipefail
 
 REPO="BireshwarChakravarty/SpeedUpMyMac"
 OPENSSL=/usr/bin/openssl   # macOS's LibreSSL writes .p12 files the macOS keychain can import
-DIR="$HOME/.root-developer-id"
+DIR="$HOME/.spruce-developer-id"
 KEY="$DIR/developer-id.key"
-CSR="$DIR/Root-Developer-ID.certSigningRequest"
+CSR="$DIR/Spruce-Developer-ID.certSigningRequest"
 mkdir -p "$DIR"
 chmod 700 "$DIR"
 
@@ -22,7 +22,7 @@ if [[ $# -eq 0 ]]; then
         "$OPENSSL" genrsa -out "$KEY" 2048 2>/dev/null
         chmod 600 "$KEY"
     fi
-    "$OPENSSL" req -new -key "$KEY" -subj "/CN=Root Developer ID/C=US" -out "$CSR"
+    "$OPENSSL" req -new -key "$KEY" -subj "/CN=Spruce Developer ID/C=US" -out "$CSR"
     echo "Step 1 of 2: ask Apple for a Developer ID certificate."
     echo
     echo "  1. On the page that's opening, choose  Developer ID Application, then Continue."
@@ -60,7 +60,7 @@ curl -fsSL https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer -o "$W
 "$OPENSSL" x509 -inform DER -in "$WORK/g2.cer" -out "$WORK/g2.pem"
 P12="$DIR/developer-id.p12"
 PASSWORD="$("$OPENSSL" rand -hex 16)"
-"$OPENSSL" pkcs12 -export -name "Root Developer ID" -inkey "$KEY" -in "$WORK/cert.pem" -certfile "$WORK/g2.pem" \
+"$OPENSSL" pkcs12 -export -name "Spruce Developer ID" -inkey "$KEY" -in "$WORK/cert.pem" -certfile "$WORK/g2.pem" \
     -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1 -passout "pass:$PASSWORD" -out "$P12"
 printf '%s' "$PASSWORD" > "$DIR/password"
 chmod 600 "$P12" "$DIR/password"
@@ -106,5 +106,5 @@ set_secret NOTARY_TEAM_ID "$TEAM_ID"
 printf '' | pbcopy 2>/dev/null || true
 
 echo
-echo "All set. The next CI build of Root is Developer ID-signed and notarized."
+echo "All set. The next CI build of Spruce is Developer ID-signed and notarized."
 echo "Keep $DIR safe: it holds your Developer ID private key."

@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>Root</string>
+    <string>Spruce</string>
     <key>CFBundleDisplayName</key>
-    <string>Root</string>
+    <string>Spruce</string>
     <key>CFBundleIdentifier</key>
-    <string>io.rootapp.Root</string>
+    <string>io.spruceapp.Spruce</string>
     <key>CFBundleExecutable</key>
-    <string>Root</string>
+    <string>Spruce</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundlePackageType</key>
@@ -27,8 +27,8 @@
     <key>NSSupportsAutomaticTermination</key>
     <false/>
     <key>NSAppleEventsUsageDescription</key>
-    <string>Root asks apps to quit before uninstalling them, and uses an administrator prompt for system-level cleaning when Sudo mode is on.</string>
+    <string>Spruce asks apps to quit before uninstalling them, and uses an administrator prompt for system-level cleaning when Admin mode is on.</string>
     <key>NSHumanReadableCopyright</key>
-    <string>Root — deep-clean every Mac you own.</string>
+    <string>Spruce — spruce up every Mac you own.</string>
 </dict>
 </plist>

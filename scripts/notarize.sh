@@ -1,20 +1,20 @@
 #!/bin/bash
-# Sends a Developer ID-signed Root.app to Apple's notary service, staples the ticket, checks that
-# Gatekeeper accepts it, and rebuilds dist/Root.zip from the stapled app.
+# Sends a Developer ID-signed Spruce.app to Apple's notary service, staples the ticket, checks that
+# Gatekeeper accepts it, and rebuilds dist/Spruce.zip from the stapled app.
 #
 #   NOTARY_APPLE_ID=you@example.com NOTARY_PASSWORD=<app-specific password> NOTARY_TEAM_ID=ABCDE12345 \
-#       scripts/notarize.sh dist/Root.app
+#       scripts/notarize.sh dist/Spruce.app
 set -euo pipefail
-APP="${1:-dist/Root.app}"
+APP="${1:-dist/Spruce.app}"
 : "${NOTARY_APPLE_ID:?set NOTARY_APPLE_ID}" "${NOTARY_PASSWORD:?set NOTARY_PASSWORD}" "${NOTARY_TEAM_ID:?set NOTARY_TEAM_ID}"
 AUTH=(--apple-id "$NOTARY_APPLE_ID" --password "$NOTARY_PASSWORD" --team-id "$NOTARY_TEAM_ID")
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
-ditto -c -k --keepParent "$APP" "$WORK/Root-notarize.zip"
+ditto -c -k --keepParent "$APP" "$WORK/Spruce-notarize.zip"
 
 echo "==> Submitting to Apple's notary service (usually a few minutes)"
-xcrun notarytool submit "$WORK/Root-notarize.zip" "${AUTH[@]}" --wait --timeout 30m --output-format json > "$WORK/result.json" || true
+xcrun notarytool submit "$WORK/Spruce-notarize.zip" "${AUTH[@]}" --wait --timeout 30m --output-format json > "$WORK/result.json" || true
 STATUS="$(plutil -extract status raw -o - "$WORK/result.json" 2>/dev/null || echo unknown)"
 ID="$(plutil -extract id raw -o - "$WORK/result.json" 2>/dev/null || echo "")"
 echo "    submission $ID: $STATUS"
@@ -32,7 +32,7 @@ xcrun stapler validate "$APP"
 echo "==> Gatekeeper's verdict"
 spctl --assess --type execute -vv "$APP"
 
-ZIP="$(dirname "$APP")/Root.zip"
+ZIP="$(dirname "$APP")/Spruce.zip"
 rm -f "$ZIP"
 ditto -c -k --keepParent "$APP" "$ZIP"
 echo "==> Notarized and stapled: $ZIP"

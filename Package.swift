@@ -2,24 +2,24 @@
 import PackageDescription
 
 var products: [Product] = [
-    .library(name: "RootCore", targets: ["RootCore"]),
-    .executable(name: "root", targets: ["root"]),
+    .library(name: "SpruceCore", targets: ["SpruceCore"]),
+    .executable(name: "spruce", targets: ["spruce"]),
 ]
 
 var targets: [Target] = [
-    .target(name: "RootCore", path: "Sources/RootCore"),
-    .executableTarget(name: "root", dependencies: ["RootCore"], path: "Sources/root"),
-    .testTarget(name: "RootCoreTests", dependencies: ["RootCore"], path: "Tests/RootCoreTests"),
+    .target(name: "SpruceCore", path: "Sources/SpruceCore"),
+    .executableTarget(name: "spruce", dependencies: ["SpruceCore"], path: "Sources/spruce"),
+    .testTarget(name: "SpruceCoreTests", dependencies: ["SpruceCore"], path: "Tests/SpruceCoreTests"),
 ]
 
 // The SwiftUI app only builds on macOS; the engine and CLI also build on Linux so CI can test them.
 #if os(macOS)
-products.append(.executable(name: "RootApp", targets: ["RootApp"]))
-targets.append(.executableTarget(name: "RootApp", dependencies: ["RootCore"], path: "Sources/RootApp"))
+products.append(.executable(name: "SpruceApp", targets: ["SpruceApp"]))
+targets.append(.executableTarget(name: "SpruceApp", dependencies: ["SpruceCore"], path: "Sources/SpruceApp"))
 #endif
 
 let package = Package(
-    name: "Root",
+    name: "Spruce",
     platforms: [.macOS(.v14)],
     products: products,
     targets: targets

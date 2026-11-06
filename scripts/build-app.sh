@@ -1,8 +1,8 @@
 #!/bin/bash
-# Builds Root.app (SwiftUI app + bundled `root` CLI) from source.
+# Builds Spruce.app (SwiftUI app + bundled `spruce` CLI) from source.
 #
-#   scripts/build-app.sh            build dist/Root.app and dist/Root.zip
-#   scripts/build-app.sh --install  also install the app and put `root` on your PATH
+#   scripts/build-app.sh            build dist/Spruce.app and dist/Spruce.zip
+#   scripts/build-app.sh --install  also install the app and put `spruce` on your PATH
 #
 # No admin rights needed: on a standard account the app goes to ~/Applications and the CLI to
 # ~/.local/bin. A locally built app carries no quarantine flag, so Gatekeeper doesn't block it.
@@ -12,24 +12,24 @@ cd "$(dirname "$0")/.."
 VERSION="1.0.0"
 BUILD="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 DIST="dist"
-APP="$DIST/Root.app"
+APP="$DIST/Spruce.app"
 
 if ! command -v swift >/dev/null; then
     echo "Swift not found. Install Xcode or the Command Line Tools (xcode-select --install)." >&2
-    echo "No admin on this Mac? Build on another Mac and copy dist/Root.zip over (see README)." >&2
+    echo "No admin on this Mac? Build on another Mac and copy dist/Spruce.zip over (see README)." >&2
     exit 1
 fi
 
 echo "==> Building (release)…"
-swift build -c release --product RootApp
-swift build -c release --product root
+swift build -c release --product SpruceApp
+swift build -c release --product spruce
 BIN="$(swift build -c release --show-bin-path)"
 
 echo "==> Assembling $APP"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Helpers" "$APP/Contents/Resources"
-cp "$BIN/RootApp" "$APP/Contents/MacOS/Root"
-cp "$BIN/root" "$APP/Contents/Helpers/root"
+cp "$BIN/SpruceApp" "$APP/Contents/MacOS/Spruce"
+cp "$BIN/spruce" "$APP/Contents/Helpers/spruce"
 cp Assets/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD/" Resources/Info.plist > "$APP/Contents/Info.plist"
 
@@ -49,47 +49,50 @@ if [[ -n "${ROOT_SIGN_KEYCHAIN:-}" ]]; then SIGN_ARGS+=(--keychain "$ROOT_SIGN_K
 if [[ -n "$IDENTITY" ]]; then
     echo "==> Signing with \"$IDENTITY\" (hardened runtime)"
     SIGN_ARGS+=(--options runtime)
-    APP_ARGS=(--entitlements Resources/Root.entitlements)
+    APP_ARGS=(--entitlements Resources/Spruce.entitlements)
 else
     IDENTITY="-"
     APP_ARGS=()
     echo "==> Signing (ad-hoc: permissions reset with each new build; see scripts/make-signing-identity.sh)"
 fi
-codesign "${SIGN_ARGS[@]}" --sign "$IDENTITY" --identifier io.rootapp.root-cli "$APP/Contents/Helpers/root"
+codesign "${SIGN_ARGS[@]}" --sign "$IDENTITY" --identifier io.spruceapp.spruce-cli "$APP/Contents/Helpers/spruce"
 codesign "${SIGN_ARGS[@]}" ${APP_ARGS[@]+"${APP_ARGS[@]}"} --sign "$IDENTITY" "$APP"
 codesign --verify --strict "$APP"
 echo "    designated requirement: $(codesign -d -r- "$APP" 2>&1 | sed -n 's/.*designated => //p')"
 
 echo "==> Zipping for your other Macs"
-rm -f "$DIST/Root.zip"
-ditto -c -k --keepParent "$APP" "$DIST/Root.zip"
+rm -f "$DIST/Spruce.zip"
+ditto -c -k --keepParent "$APP" "$DIST/Spruce.zip"
 
 if [[ "${1:-}" == "--install" ]]; then
     if [[ -w /Applications ]]; then DEST="/Applications"; else DEST="$HOME/Applications"; mkdir -p "$DEST"; fi
     echo "==> Installing to $DEST"
-    rm -rf "$DEST/Root.app"
-    ditto "$APP" "$DEST/Root.app"
-    # The app used to be called Burnish: drop that copy and its CLI link.
-    rm -rf "$DEST/Burnish.app"
-    for old in /opt/homebrew/bin/burnish /usr/local/bin/burnish "$HOME/.local/bin/burnish"; do
-        [[ -L "$old" && "$(readlink "$old")" == *"/Burnish.app/"* ]] && rm -f "$old"
+    rm -rf "$DEST/Spruce.app"
+    ditto "$APP" "$DEST/Spruce.app"
+    # The app used to be called Burnish, then Root: drop those copies and their CLI links. Only our
+    # own symlinks are removed (CERN ROOT installs a `root` command of its own).
+    for old in Burnish Root; do
+        rm -rf "$DEST/$old.app"
+        lower="$(tr '[:upper:]' '[:lower:]' <<<"$old")"
+        for link in /opt/homebrew/bin/$lower /usr/local/bin/$lower "$HOME/.local/bin/$lower"; do
+            if [[ -L "$link" && "$(readlink "$link")" == *"/$old.app/"* ]]; then rm -f "$link"; fi
+        done
     done
 
     for dir in /opt/homebrew/bin /usr/local/bin "$HOME/.local/bin"; do
         if [[ -d "$dir" && -w "$dir" ]] || [[ "$dir" == "$HOME/.local/bin" ]]; then
-            # Never replace someone else's `root` (CERN ROOT installs one); only our own symlink.
-            if [[ -e "$dir/root" && "$(readlink "$dir/root" 2>/dev/null)" != *"/Root.app/"* ]]; then
-                echo "==> $dir/root already exists and isn't Root's; skipping the CLI link"
+            if [[ -e "$dir/spruce" && "$(readlink "$dir/spruce" 2>/dev/null)" != *"/Spruce.app/"* ]]; then
+                echo "==> $dir/spruce already exists and isn't Spruce's; skipping the CLI link"
                 continue
             fi
             mkdir -p "$dir"
-            ln -sf "$DEST/Root.app/Contents/Helpers/root" "$dir/root"
-            echo "==> CLI linked at $dir/root"
+            ln -sf "$DEST/Spruce.app/Contents/Helpers/spruce" "$dir/spruce"
+            echo "==> CLI linked at $dir/spruce"
             case ":$PATH:" in *":$dir:"*) ;; *) echo "    add to your shell: export PATH=\"$dir:\$PATH\"";; esac
             break
         fi
     done
-    echo "Done. Open Root from $DEST, or run: root doctor"
+    echo "Done. Open Spruce from $DEST, or run: spruce doctor"
 else
     echo "Done: $APP  (run with --install to install)"
 fi

@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#18221A"/><stop offset="1" stop-color="#070A08"/></linearGradient>
-    <radialGradient id="glow" cx="0.42" cy="0.5" r="0.45"><stop offset="0" stop-color="#84CC16" stop-opacity="0.35"/><stop offset="1" stop-color="#84CC16" stop-opacity="0"/></radialGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1A6B58"/><stop offset="0.55" stop-color="#0D3F35"/><stop offset="1" stop-color="#05201B"/></linearGradient>
+    <radialGradient id="light" cx="0.5" cy="0.18" r="0.75"><stop offset="0" stop-color="#7DF5D0" stop-opacity="0.55"/><stop offset="0.45" stop-color="#2DD4A0" stop-opacity="0.12"/><stop offset="1" stop-color="#2DD4A0" stop-opacity="0"/></radialGradient>
   </defs>
   <rect width="1024" height="1024" fill="url(#bg)"/>
-  <rect width="1024" height="1024" fill="url(#glow)"/>
+  <rect width="1024" height="1024" fill="url(#light)"/>
 </svg>

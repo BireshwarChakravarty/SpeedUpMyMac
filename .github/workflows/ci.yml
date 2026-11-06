@@ -11,7 +11,7 @@ jobs:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
     env:
-      # Root's signing certificate (scripts/make-signing-identity.sh). Absent → ad-hoc signing.
+      # The signing certificate (scripts/make-signing-identity.sh). Absent → ad-hoc signing.
       ROOT_SIGNING_P12: ${{ secrets.ROOT_SIGNING_P12 }}
       ROOT_SIGNING_PASSWORD: ${{ secrets.ROOT_SIGNING_PASSWORD }}
       # Developer ID + notarization (scripts/make-developer-id.sh). When present, these win: the app
@@ -30,12 +30,12 @@ jobs:
           - name: macOS 27 · Xcode 27.2 SDK
             runner: xcode-27
             xcode: "27.2"
-            artifact: Root
+            artifact: Spruce
           # Current GA image (macOS 26 Tahoe), so the app keeps building for Sonoma through Tahoe.
           - name: macOS 26 · newest Xcode
             runner: macos-latest
             xcode: ""
-            artifact: Root-built-on-macOS-26
+            artifact: Spruce-built-on-macOS-26
     steps:
       - uses: actions/checkout@v4
       - name: Toolchain
@@ -72,10 +72,10 @@ jobs:
         run: scripts/build-app.sh
       - name: Notarize
         # Apple scans the app and issues a ticket; stapling it means Gatekeeper accepts the app on
-        # any Mac, offline too, with no "Open Anyway". Rebuilds dist/Root.zip from the stapled app.
+        # any Mac, offline too, with no "Open Anyway". Rebuilds dist/Spruce.zip from the stapled app.
         if: env.ROOT_DEVELOPER_ID == '1' && env.NOTARY_APPLE_ID != ''
         timeout-minutes: 35
-        run: scripts/notarize.sh dist/Root.app
+        run: scripts/notarize.sh dist/Spruce.app
       - name: Signing self-test (permissions survive updates)
         # With a throwaway certificate made by the same script you run: two different builds must
         # get different code hashes but the same designated requirement, which is what macOS
@@ -85,7 +85,7 @@ jobs:
           scripts/make-signing-identity.sh --ci "$T"
           eval "$(GITHUB_ENV= scripts/import-signing-identity.sh "$T/root-signing.p12" "$(cat "$T/password")" | tail -1)"
           for v in 1 2; do
-            rm -rf "$T/v$v.app"; cp -R dist/Root.app "$T/v$v.app"
+            rm -rf "$T/v$v.app"; cp -R dist/Spruce.app "$T/v$v.app"
             /usr/libexec/PlistBuddy -c "Set :CFBundleVersion 9$v" "$T/v$v.app/Contents/Info.plist"
             codesign --force --timestamp=none --keychain "$ROOT_SIGN_KEYCHAIN" --sign "$ROOT_SIGN_IDENTITY" "$T/v$v.app"
             codesign --verify --strict "$T/v$v.app"
@@ -100,14 +100,14 @@ jobs:
             || { echo "Signing self-test failed"; exit 1; }
       - name: CLI smoke test
         run: |
-          dist/Root.app/Contents/Helpers/root --version
-          dist/Root.app/Contents/Helpers/root doctor
-          dist/Root.app/Contents/Helpers/root scan
-          dist/Root.app/Contents/Helpers/root optimize --list
+          dist/Spruce.app/Contents/Helpers/spruce --version
+          dist/Spruce.app/Contents/Helpers/spruce doctor
+          dist/Spruce.app/Contents/Helpers/spruce scan
+          dist/Spruce.app/Contents/Helpers/spruce optimize --list
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: dist/Root.zip
+          path: dist/Spruce.zip
       - name: Screenshot tour
         # Launches the real app, which runs a scan and steps through every page; each page is
         # captured here. JPEGs are printed between @@SHOT/@@END markers so they can be read back
@@ -116,7 +116,7 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p shots
-          ROOTAPP_TOUR="$PWD/shots" dist/Root.app/Contents/MacOS/Root > shots/app.log 2>&1 &
+          SPRUCE_TOUR="$PWD/shots" dist/Spruce.app/Contents/MacOS/Spruce > shots/app.log 2>&1 &
           APP=$!
           for _ in $(seq 1 1200); do
             for ready in shots/*.ready; do
@@ -130,7 +130,7 @@ jobs:
             if [ -e shots/closed ] && [ ! -e shots/reopen-sent ]; then
               touch shots/reopen-sent
               cat shots/closed
-              open "$PWD/dist/Root.app"
+              open "$PWD/dist/Spruce.app"
             fi
             [ -e shots/finished ] && break
             kill -0 $APP 2>/dev/null || { echo "app exited early"; cat shots/app.log; break; }
@@ -140,8 +140,8 @@ jobs:
           echo "menu bar panel: $(cat shots/panel.txt 2>/dev/null || echo 'not shown')"
           echo "reopen event received: $([ -e shots/reopen-event ] && echo yes || echo no)"
           cat shots/reopen-result 2>/dev/null || echo "REOPEN FAILED: no result written"
-          echo "Root processes still running: $(pgrep -f 'Root.app/Contents/MacOS/Root' | wc -l | tr -d ' ')"
-          pkill -f 'Root.app/Contents/MacOS/Root' || true
+          echo "Spruce processes still running: $(pgrep -f 'Spruce.app/Contents/MacOS/Spruce' | wc -l | tr -d ' ')"
+          pkill -f 'Spruce.app/Contents/MacOS/Spruce' || true
           for png in shots/*.png; do
             [ -e "$png" ] || continue
             jpg="${png%.png}.jpg"
