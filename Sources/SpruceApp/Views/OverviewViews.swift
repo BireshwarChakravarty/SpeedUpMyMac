@@ -93,7 +93,7 @@ struct HealthView: View {
                 }
             }
             if let fraction {
-                GrowingBar(fraction: fraction, fill: fraction > 0.9 ? Theme.danger : Module.health.gradient, delay: 0.2, height: 7)
+                GrowingBar(fraction: fraction, fill: fraction > 0.9 ? Theme.danger : Module.smartScan.barGradient, delay: 0.2, height: 7)
             }
             ForEach(rows, id: \.0) { row in
                 HStack {
@@ -631,7 +631,7 @@ struct QuickUninstallPanel: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 150, alignment: .top)
+        .frame(maxWidth: .infinity, alignment: .top)
     }
 
     private struct KindTotal { var name: String; var bytes: Int64 }

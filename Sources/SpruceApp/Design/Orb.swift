@@ -40,22 +40,20 @@ struct GlassOrb: View {
         let still = reduceMotion || reduceEffects
         let clean = phase == .done && junkBytes == 0
         ZStack {
-            Circle()
-                .fill(RadialGradient(colors: [Theme.spruce.opacity(clean ? 0.45 : 0.32), .clear],
-                                     center: .center, startRadius: size * 0.3, endRadius: size * 0.66))
-                .frame(width: size * 1.3, height: size * 1.3)
-                .allowsHitTesting(false)
             Circle().stroke(Theme.rim.opacity(0.08), lineWidth: ring)
+                .frame(width: size, height: size)
             Circle()
                 .trim(from: 0, to: ringTarget)
                 .stroke(Theme.brandAngular, style: StrokeStyle(lineWidth: ring, lineCap: .round))
                 .rotationEffect(.degrees(-90))
+                .frame(width: size, height: size)
                 .shadow(color: Theme.spruce.opacity(0.6), radius: size * 0.04)
                 .animation(.timingCurve(0.2, 0.8, 0.2, 1, duration: phase == .scanning ? 0.4 : 1.2), value: ringTarget)
             if phase == .scanning && !still {
                 Circle()
                     .trim(from: 0, to: 0.07)
                     .stroke(Color.white.opacity(0.85), style: StrokeStyle(lineWidth: ring, lineCap: .round))
+                    .frame(width: size, height: size)
                     .rotationEffect(.degrees(spin ? 360 : 0))
                     .animation(.linear(duration: 1.4).repeatForever(autoreverses: false), value: spin)
                     .onAppear { spin = true }
@@ -66,6 +64,14 @@ struct GlassOrb: View {
             label
         }
         .frame(width: size, height: size)
+        .background {
+            // A soft halo, drawn behind and outside the orb without taking up layout space.
+            Circle()
+                .fill(RadialGradient(colors: [Theme.spruce.opacity(clean ? 0.45 : 0.32), .clear],
+                                     center: .center, startRadius: size * 0.3, endRadius: size * 0.66))
+                .frame(width: size * 1.3, height: size * 1.3)
+                .allowsHitTesting(false)
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(phase == .done ? "Health \(score ?? 0) out of 100" : phase == .scanning ? "Scanning, \(Int(progress * 100)) percent" : "Ready to scan")
     }
@@ -90,11 +96,11 @@ struct GlassOrb: View {
                         let seed = Double(i) * 12.9898
                         let base = (sin(seed) * 43758.5453).truncatingRemainder(dividingBy: 1)
                         let angle = Double(i) * 2.399963 + t * (0.18 + abs(base) * 0.25) * (i.isMultiple(of: 2) ? 1 : -1)
-                        var distance = 0.18 + abs(base) * 0.62
+                        var distance = 0.42 + abs(base) * 0.46
                         if scanning {
                             // Drift inwards from the rim, over and over: junk being gathered.
                             let cycle = (t * 0.22 + abs(base) * 3).truncatingRemainder(dividingBy: 1)
-                            distance = 0.85 - cycle * 0.7
+                            distance = 0.9 - cycle * 0.55
                         }
                         let bob = sin(t * 1.3 + seed) * 0.03
                         let point = CGPoint(x: center.x + cos(angle) * radius * distance,

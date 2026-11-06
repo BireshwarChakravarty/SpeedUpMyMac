@@ -37,6 +37,8 @@ struct SpaceLensView: View {
             .transition(.moduleSwap)
             .animation(Theme.spring, value: mode)
         }
+        .padding(.top, 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .navigationTitle("Space Lens")
     }
 

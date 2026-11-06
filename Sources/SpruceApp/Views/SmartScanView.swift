@@ -31,7 +31,7 @@ struct SmartScanView: View {
     private var hero: some View {
         HStack(alignment: .center, spacing: 40) {
             GlassOrb(phase: phase, progress: model.scanProgress ?? 0, score: model.smart?.health.score,
-                     junkBytes: model.smart?.quickWinBytes ?? 0, size: 290)
+                     junkBytes: model.smart?.quickWinBytes ?? 0, size: 250)
                 .padding(.leading, 6)
             VStack(alignment: .leading, spacing: 12) {
                 switch phase {
@@ -76,7 +76,7 @@ struct SmartScanView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, 12)
+        .padding(.top, 20).padding(.bottom, 12)
         .reveal()
     }
 
@@ -130,16 +130,13 @@ struct SmartScanView: View {
                 }
             } action: { go(.cleanup) }
             tile(.health, "Security", security.isEmpty ? "All good" : "\(security.count) to fix",
-                 security.isEmpty ? "SIP, Gatekeeper, FileVault and firewall are on" : "Tap to see how to turn them on") {
+                 security.isEmpty ? "SIP, Gatekeeper, FileVault and firewall are on" : "See how to turn them on") {
                 if !security.isEmpty {
                     HStack(spacing: 5) {
-                        ForEach(security, id: \.self) { name in
-                            Text("\(name) off").font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(Theme.risky)
-                                .padding(.horizontal, 7).padding(.vertical, 3)
-                                .background(Capsule().fill(Theme.risky.opacity(0.14)))
-                        }
+                        Image(systemName: "exclamationmark.shield.fill").font(.system(size: 12))
+                        Text(security.joined(separator: ", ") + " off").font(.system(size: 12, weight: .semibold)).lineLimit(2)
                     }
+                    .foregroundStyle(Theme.risky)
                 }
             } action: { go(.health) }
             tile(.startup, "Startup", smart.suspiciousStartupItems.isEmpty ? "Clean" : "\(smart.suspiciousStartupItems.count) to review",
