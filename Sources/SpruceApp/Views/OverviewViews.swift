@@ -141,7 +141,8 @@ struct FleetView: View {
             }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 16, alignment: .top)], spacing: 16) {
                 ForEach(Array(model.fleet.enumerated()), id: \.element.id) { index, snap in
-                    FleetCard(snap: snap, isThisMac: snap.machine.machineID == model.machine.machineID)
+                    FleetCard(snap: snap, isThisMac: snap.machine.machineID == model.machine.machineID,
+                              remove: { model.forgetFleetMachine(snap) })
                         .reveal(index: index, step: 0.08)
                 }
             }
@@ -166,6 +167,9 @@ struct FleetView: View {
 struct FleetCard: View {
     var snap: FleetSnapshot
     var isThisMac: Bool
+    var remove: () -> Void = {}
+    @State private var hovering = false
+    @State private var confirming = false
 
     var body: some View {
         let used = snap.diskTotal > 0 ? 1 - Double(snap.diskAvailable) / Double(snap.diskTotal) : 0
@@ -187,6 +191,23 @@ struct FleetCard: View {
                 Spacer()
                 if let score = snap.healthScore { ScoreRing(score: score, size: 54) }
             }
+            .overlay(alignment: .topTrailing) {
+                if !isThisMac && (hovering || confirming) {
+                    Button { confirming = true } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 22, height: 22)
+                            .background(Circle().fill(.regularMaterial))
+                            .overlay(Circle().strokeBorder(Theme.rimGradient, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .offset(x: 8, y: -8)
+                    .help("Remove from Fleet")
+                    .accessibilityLabel("Remove \(snap.machine.name) from the fleet")
+                    .transition(.scale.combined(with: .opacity))
+                }
+            }
             HStack(spacing: 6) {
                 Chip(text: snap.machine.isAdmin ? "Admin" : "Standard", color: snap.machine.isAdmin ? Theme.safe : Theme.review,
                      symbol: snap.machine.isAdmin ? "person.badge.key.fill" : "person.fill")
@@ -206,6 +227,22 @@ struct FleetCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .surface()
         .hoverLift()
+        .onHover { on in withAnimation(Theme.snappy) { hovering = on } }
+        .contextMenu {
+            if isThisMac {
+                Text("This Mac can't be removed while Spruce runs on it")
+            } else {
+                Button("Remove from Fleet", role: .destructive) { confirming = true }
+            }
+        }
+        .confirmationDialog("Remove \(snap.machine.name) from the fleet?", isPresented: $confirming) {
+            Button("Remove", role: .destructive, action: remove)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(snap.isStale
+                 ? "Its card was last updated \(Format.relative(snap.updatedAt)). Nothing on that Mac changes; if it runs Spruce again, it adds itself back."
+                 : "Nothing on that Mac changes. It adds itself back the next time it runs Spruce, so use this for Macs you no longer have and old duplicates.")
+        }
     }
 }
 

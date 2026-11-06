@@ -655,6 +655,50 @@ final class FleetAndHistoryTests: SandboxedTestCase {
         XCTAssertEqual(loaded.first?.reclaimableBytes, 42)
     }
 
+    private func snapshot(_ id: String, hardware: String?, name: String = "Bir's Mac Mini M6", user: String = "bir") -> FleetSnapshot {
+        var machine = MachineInfo.current()
+        machine.machineID = id
+        machine.hardwareID = hardware
+        machine.name = name
+        machine.model = "Mac17,1"
+        machine.chip = "M6"
+        machine.userName = user
+        return FleetSnapshot(machine: machine, updatedAt: Date(), appVersion: "1", sudoEnabled: false, diskTotal: 1,
+                             diskAvailable: 1, reclaimableBytes: nil, healthScore: nil, lastClean: nil, totalFreed: 0, notes: [])
+    }
+
+    func testReinstallsDoNotDuplicateACard() {
+        let me = snapshot("hw-1", hardware: "hw-1").machine
+        let fleet = [
+            snapshot("hw-1", hardware: "hw-1"),                         // this card
+            snapshot("random-a", hardware: nil),                        // same Mac, before fingerprints
+            snapshot("random-b", hardware: nil),                        // another reinstall
+            snapshot("hw-2", hardware: "hw-2"),                         // a different Mac with the same name
+            snapshot("random-c", hardware: nil, name: "Bir's MacBook Air M4"),
+            snapshot("random-d", hardware: nil, user: "work"),          // another account on this Mac
+        ]
+        XCTAssertEqual(Set(Fleet.superseded(by: me, in: fleet).map(\.id)), ["random-a", "random-b"])
+    }
+
+    func testPublishingRemovesThisMacsOldCards() throws {
+        var s = Settings()
+        s.fleetFolder = "~/fleet"
+        setenv("SPRUCE_HARDWARE_UUID", "TEST-UUID-1234", 1)
+        defer { unsetenv("SPRUCE_HARDWARE_UUID") }
+        let current = MachineInfo.current()
+        var old = snapshot("left-behind", hardware: nil, name: current.name, user: current.userName)
+        old.machine.model = current.model
+        old.machine.chip = current.chip
+        let url = URL(fileURLWithPath: Fleet.folder(s)).appendingPathComponent("left-behind.json")
+        try JSONEncoder.stable.encode(old).write(to: url)
+        XCTAssertEqual(Fleet.load(settings: s).count, 1)
+
+        let published = try Fleet.publish(settings: s, reclaimable: nil, health: nil)
+        XCTAssertTrue(published.machine.machineID.hasPrefix("hw-"))
+        XCTAssertEqual(Fleet.load(settings: s).map(\.id), [published.machine.machineID])
+        XCTAssertEqual(MachineInfo.current().machineID, published.machine.machineID, "the same Mac keeps its ID")
+    }
+
     func testHistoryAppendsAndTotals() {
         var report = CleanReport()
         report.removed = [RemovedItem(path: "/x", bytes: 100, method: .delete), RemovedItem(path: "/y", bytes: 50, method: .trash)]

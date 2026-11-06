@@ -107,7 +107,7 @@ The switch from the "Root Signing" certificate to the Developer ID changes Spruc
 | **Startup Items** | Every launch agent and daemon, with signature checks. Disabling one is reversible. On macOS 27, launchd silently skips a job whose plist still carries the download quarantine flag; Spruce marks those **Won't load** and **Fix** clears the flag. |
 | **Tweaks** | Reversible macOS tweaks. Presets: *balanced*, *privacy*, *snappy*. **Revert all** restores your previous settings. |
 | **Health** | Disk, memory, battery, thermals, SIP, Gatekeeper, FileVault, firewall and a health score. |
-| **Fleet** | All your Macs on one page, synced through iCloud Drive, or any folder you choose for the work Mac. |
+| **Fleet** | All your Macs on one page, synced through iCloud Drive, or any folder you choose for the work Mac. Each Mac keeps one card even if you reinstall Spruce, and old duplicates clear themselves the next time that Mac opens Spruce. To remove a card by hand, point at it and click ✕ (or right-click → **Remove from Fleet**). |
 | **History** | Every removal, with its paths. |
 
 Keyboard: **⌘R** runs Smart Scan, and **⌘1** to **⌘9** jump between pages.

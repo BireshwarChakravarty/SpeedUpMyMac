@@ -558,6 +558,16 @@ final class AppModel {
         }.value
     }
 
+    /// Takes a Mac's card off the fleet (a Mac you sold, or an old duplicate). If that Mac runs
+    /// Spruce again, it publishes a fresh card.
+    func forgetFleetMachine(_ snap: FleetSnapshot) {
+        let settings = self.settings
+        Fleet.forget(snap.machine.machineID, settings: settings)
+        withAnimation(Theme.spring) { fleet.removeAll { $0.id == snap.id } }
+        SoundFX.shared.play(.vanish)
+        report("Removed \(snap.machine.name) from the fleet")
+    }
+
     func loadHistory() { history = History.load() }
 
     // MARK: Screenshot tour (CI only)

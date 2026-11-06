@@ -49,7 +49,22 @@ public enum Fleet {
                                      notes: health?.notes ?? previous?.notes ?? [])
         let url = URL(fileURLWithPath: folder(settings)).appendingPathComponent("\(machine.machineID).json")
         try JSONEncoder.stable.encode(snapshot).write(to: url, options: .atomic)
+        // Cards this same Mac left behind under an older ID (a reinstall, or an earlier version).
+        for old in superseded(by: machine, in: load(settings: settings)) { forget(old.machine.machineID, settings: settings) }
         return snapshot
+    }
+
+    /// Older snapshots of the Mac and account described by `machine`: the same hardware fingerprint
+    /// under another ID, or, for snapshots from versions that didn't record one, the same name,
+    /// model, chip and account.
+    public static func superseded(by machine: MachineInfo, in snapshots: [FleetSnapshot]) -> [FleetSnapshot] {
+        snapshots.filter { other in
+            guard other.machine.machineID != machine.machineID else { return false }
+            if let mine = machine.hardwareID, let theirs = other.machine.hardwareID { return mine == theirs }
+            return other.machine.hardwareID == nil && machine.hardwareID != nil
+                && other.machine.name == machine.name && other.machine.model == machine.model
+                && other.machine.chip == machine.chip && other.machine.userName == machine.userName
+        }
     }
 
     public static func load(settings: Settings) -> [FleetSnapshot] {
@@ -62,7 +77,8 @@ public enum Fleet {
         }.sorted { $0.machine.name.localizedCaseInsensitiveCompare($1.machine.name) == .orderedAscending }
     }
 
-    /// Removes a Mac you no longer own from the fleet.
+    /// Removes a Mac from the fleet. It comes back the next time that Mac runs Spruce, so this is
+    /// for Macs you no longer own and old duplicates.
     public static func forget(_ machineID: String, settings: Settings) {
         let url = URL(fileURLWithPath: folder(settings)).appendingPathComponent("\(machineID).json")
         try? FileManager.default.removeItem(at: url)
