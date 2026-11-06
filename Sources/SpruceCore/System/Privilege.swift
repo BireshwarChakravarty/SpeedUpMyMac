@@ -113,27 +113,46 @@ struct SudoRunner: PrivilegeRunner {
 /// Runs a root script through `sudo`, authorized with Touch ID instead of a password, from an app
 /// with no terminal. This works once pam_tid is enabled for sudo (`Tweaks.touchIDScript`). Returns
 /// nil whenever Touch ID can't be used (not set up, no sensor, lid closed, cancelled) so the caller
-/// can fall back to the password dialog.
+/// can fall back to the password dialog; `lastFailure` then says why.
 ///
-/// After one fingerprint, sudo's own timestamp covers the next five minutes for this app, as the
-/// password dialog's grace period does.
+/// Authorizing and running happen in one `sudo` call, so nothing depends on sudo remembering an
+/// earlier authorization for a process that has no terminal. A marker printed by the script itself
+/// tells "authorized, and the script ran" apart from "sudo refused".
 public enum TouchIDSudo {
     public typealias Exec = @Sendable (_ executable: String, _ arguments: [String], _ timeout: TimeInterval) -> ShellResult
 
     public static let sudo = "/usr/bin/sudo"
+    static let marker = "__SPRUCE_AUTHORIZED__"
+
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var _lastFailure: String?
+    /// Why the last attempt didn't use Touch ID (sudo's own message), for Settings and the log.
+    public static var lastFailure: String? {
+        lock.lock(); defer { lock.unlock() }
+        return _lastFailure
+    }
+
+    private static func note(_ failure: String?) {
+        lock.lock(); _lastFailure = failure; lock.unlock()
+    }
 
     public static func run(_ script: PrivilegedScript, enabled: Bool = Tweaks.touchIDForSudoEnabled(),
                            exec: Exec = { Shell.run($0, $1, timeout: $2) }) -> ShellResult? {
-        guard enabled, !script.isEmpty else { return nil }
-        if exec(sudo, ["-n", "true"], 10).status != 0 {
-            // -S takes any password from stdin, which is /dev/null: Touch ID or nothing, never a
-            // prompt waiting on a terminal that isn't there.
-            guard exec(sudo, ["-S", "-p", "", "-v"], 120).status == 0 else { return nil }
+        guard enabled else { note("Touch ID isn't set up for sudo (no pam_tid in /etc/pam.d/sudo_local)"); return nil }
+        guard !script.isEmpty else { return nil }
+        // -S takes any password from stdin, which is /dev/null: Touch ID or nothing, never a prompt
+        // waiting on a terminal that isn't there. -p "" keeps sudo's own prompt out of stderr.
+        let wrapped = "printf '%s\\n' \(marker)\n" + script.text
+        let result = exec(sudo, ["-S", "-p", "", "/bin/sh", "-c", wrapped], 1800)
+        guard let range = result.stdout.range(of: marker + "\n") else {
+            let reason = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+            note(reason.isEmpty ? "sudo exited with status \(result.status) without running the script" : reason)
+            return nil
         }
-        let result = exec(sudo, ["-n", "/bin/sh", "-c", script.text], 1800)
-        // The timestamp ran out in between: ask again through the dialog rather than fail.
-        if result.status != 0 && result.stderr.contains("password is required") { return nil }
-        return result
+        note(nil)
+        var output = result.stdout
+        output.removeSubrange(output.startIndex..<range.upperBound)
+        return ShellResult(status: result.status, stdout: output, stderr: result.stderr)
     }
 }
 

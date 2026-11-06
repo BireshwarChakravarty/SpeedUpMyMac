@@ -324,8 +324,24 @@ struct SettingsView: View {
                         .disabled(!model.hasTouchID && !model.touchIDForAdmin)
                     Text(model.hasTouchID
                          ? "When Spruce needs admin rights, it asks for your fingerprint. If Touch ID isn't available (lid closed) or you cancel it, the password dialog appears instead. Also applies to sudo in Terminal."
-                         : "This Mac has no Touch ID sensor.")
+                         : "No Touch ID sensor found. On a Mac mini or Mac Studio, connect a Magic Keyboard with Touch ID.")
                         .font(.caption).foregroundStyle(.secondary)
+                    if model.touchIDForAdmin {
+                        HStack {
+                            Button("Test Touch ID") { model.testTouchID() }.disabled(model.busy != nil)
+                            Spacer()
+                            Button("Show Log") {
+                                NSWorkspace.shared.open(URL(fileURLWithPath: Paths.expand("~/Library/Logs/Spruce/admin.log")))
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                        if let result = model.touchIDTestResult {
+                            Label(result.text, systemImage: result.ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                                .font(.caption)
+                                .foregroundStyle(result.ok ? Theme.safe : Theme.review)
+                                .textSelection(.enabled)
+                        }
+                    }
                 }
             }
             Section("Look & Sound") {

@@ -36,11 +36,44 @@ final class AdminSession: PrivilegeRunner, @unchecked Sendable {
         guard !script.isEmpty else { return ShellResult(status: 0, stdout: "", stderr: "") }
         // One script at a time, always on the same thread: NSAppleScript isn't re-entrant.
         return try queue.sync {
-            if let result = TouchIDSudo.run(script) {
+            let touchIDSetUp = Tweaks.touchIDForSudoEnabled()
+            if let result = TouchIDSudo.run(script, enabled: touchIDSetUp) {
                 markAuthorized()
+                log("Touch ID", reason: reason, detail: "ran (exit \(result.status))")
                 return result
             }
-            return try execute(script.text, prompt: "Spruce: \(reason)")
+            if touchIDSetUp { log("Touch ID unavailable", reason: reason, detail: TouchIDSudo.lastFailure ?? "unknown") }
+            do {
+                let result = try execute(script.text, prompt: "Spruce: \(reason)")
+                log("Password", reason: reason, detail: "ran (exit \(result.status))")
+                return result
+            } catch {
+                log("Password", reason: reason, detail: error.localizedDescription)
+                throw error
+            }
+        }
+    }
+
+    private var _lastAuthorization: (path: String, detail: String)?
+    /// How the last admin step was authorized, and what happened.
+    var lastAuthorization: (path: String, detail: String)? {
+        lock.lock(); defer { lock.unlock() }
+        return _lastAuthorization
+    }
+
+    /// One line per admin step in ~/Library/Logs/Spruce/admin.log, so a failure can be diagnosed.
+    private func log(_ path: String, reason: String, detail: String) {
+        lock.lock(); _lastAuthorization = (path, detail); lock.unlock()
+        let dir = Paths.expand("~/Library/Logs/Spruce")
+        try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        let file = (dir as NSString).appendingPathComponent("admin.log")
+        let line = "\(ISO8601DateFormatter().string(from: Date()))  \(path)  \(reason)  —  \(detail)\n"
+        if let handle = FileHandle(forWritingAtPath: file) {
+            handle.seekToEndOfFile()
+            handle.write(Data(line.utf8))
+            try? handle.close()
+        } else {
+            try? line.write(toFile: file, atomically: true, encoding: .utf8)
         }
     }
 

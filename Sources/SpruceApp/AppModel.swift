@@ -178,6 +178,35 @@ final class AppModel {
         showTouchIDOffer = true
     }
 
+    /// The result of "Test Touch ID" in Settings, shown under the button.
+    var touchIDTestResult: (ok: Bool, text: String)?
+
+    /// Runs a harmless admin step (`id -u`) and reports how it was authorized.
+    func testTouchID() {
+        let runner = self.runner
+        touchIDTestResult = nil
+        Task {
+            let outcome: (Bool, String) = await run("Testing Touch ID…") {
+                var script = PrivilegedScript()
+                script.add("/usr/bin/id", ["-u"], tolerateFailure: false)
+                do {
+                    let result = try runner.run(script, reason: "test Touch ID")
+                    let path = AdminSession.shared.lastAuthorization
+                    let asRoot = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines) == "0"
+                    if path?.path == "Touch ID" && asRoot { return (true, "Touch ID works: your fingerprint authorized a step as root.") }
+                    let why = TouchIDSudo.lastFailure ?? "unknown"
+                    return (false, "macOS asked for your password instead. sudo said: \(why)")
+                } catch PrivilegeError.cancelled {
+                    return (false, "Cancelled. sudo said: \(TouchIDSudo.lastFailure ?? "nothing")")
+                } catch {
+                    return (false, error.localizedDescription)
+                }
+            }
+            touchIDTestResult = outcome
+            if outcome.0 { SoundFX.shared.play(.success) } else { SoundFX.shared.play(.error) }
+        }
+    }
+
     func setTouchIDForAdmin(_ on: Bool) {
         let runner = self.runner
         Task {
