@@ -53,7 +53,7 @@ struct CleanupView: View {
                     }
                     .overlay(alignment: .topTrailing) {
                         Label(model.machine.isAdmin
-                              ? "Turn on Sudo to include · \(Format.bytes(sudoOnly.reduce(0) { $0 + $1.bytes }))"
+                              ? "Turn on Admin mode to include · \(Format.bytes(sudoOnly.reduce(0) { $0 + $1.bytes }))"
                               : "Needs an admin account · \(Format.bytes(sudoOnly.reduce(0) { $0 + $1.bytes }))",
                               systemImage: "lock.fill")
                             .font(.system(size: 12))

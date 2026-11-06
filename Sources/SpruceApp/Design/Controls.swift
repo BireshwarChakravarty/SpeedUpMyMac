@@ -3,46 +3,54 @@ import SpruceCore
 
 // MARK: - Buttons
 
-/// The primary call to action: a solid lime capsule with dark text. One per screen.
+/// The primary call to action: a capsule in the section's colour with dark text, a glass top
+/// edge and a soft glow. One per screen. `.controlSize(.large)` for hero actions.
 struct PrimaryButtonStyle: ButtonStyle {
-    var fill: LinearGradient = Theme.brand
-    var glow: Color = Theme.leaf
+    /// nil: the colour of the section the button sits in.
+    var fill: LinearGradient? = nil
+    var glow: Color? = nil
     var text: Color = Theme.ink
 
     func makeBody(configuration: Configuration) -> some View {
-        PrimaryButtonBody(configuration: configuration, fill: fill, text: text)
+        PrimaryButtonBody(configuration: configuration, fill: fill, glow: glow, text: text)
     }
 }
 
 private struct PrimaryButtonBody: View {
     var configuration: ButtonStyleConfiguration
-    var fill: LinearGradient
+    var fill: LinearGradient?
+    var glow: Color?
     var text: Color
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.controlSize) private var controlSize
+    @Environment(\.pageModule) private var module
     @State private var hovering = false
 
     var body: some View {
         let small = controlSize == .small || controlSize == .mini
+        let large = controlSize == .large || controlSize == .extraLarge
+        let glowColor = glow ?? module.accent
         configuration.label
-            .font(.system(size: small ? 12 : 13, weight: .semibold))
+            .font(.system(size: large ? 15 : small ? 12 : 13, weight: .semibold))
             .lineLimit(1)
             .fixedSize()
             .foregroundStyle(text)
-            .padding(.horizontal, small ? 12 : 18)
-            .frame(height: small ? 26 : 32)
-            .background(Capsule().fill(fill))
-            .overlay(Capsule().fill(.white.opacity(hovering ? 0.12 : 0)))
+            .padding(.horizontal, large ? 26 : small ? 12 : 18)
+            .frame(height: large ? 44 : small ? 26 : 32)
+            .background(Capsule().fill(fill ?? module.buttonGradient))
+            .overlay(Capsule().strokeBorder(LinearGradient(colors: [.white.opacity(0.7), .white.opacity(0.0)], startPoint: .top, endPoint: .center), lineWidth: 1))
+            .overlay(Capsule().fill(.white.opacity(hovering ? 0.14 : 0)))
             .overlay(Capsule().fill(.black.opacity(configuration.isPressed ? 0.12 : 0)))
+            .shadow(color: glowColor.opacity(isEnabled ? (hovering ? 0.55 : 0.38) : 0), radius: large ? 16 : 8, y: large ? 6 : 3)
             .opacity(isEnabled ? 1 : 0.4)
             .contentShape(Capsule())
             .modifier(PressFeedback(isPressed: configuration.isPressed, sound: .tap))
-            .animation(.easeOut(duration: 0.12), value: hovering)
+            .animation(.easeOut(duration: 0.15), value: hovering)
             .onHover { hovering = $0 && isEnabled }
     }
 }
 
-/// Secondary buttons: an outlined capsule that fills slightly on hover.
+/// Secondary buttons: a glass capsule that brightens on hover.
 struct QuietButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View { QuietButtonBody(configuration: configuration) }
 }
@@ -55,14 +63,15 @@ private struct QuietButtonBody: View {
 
     var body: some View {
         let small = controlSize == .small || controlSize == .mini
+        let large = controlSize == .large || controlSize == .extraLarge
         configuration.label
-            .font(.system(size: small ? 12 : 13, weight: .medium))
+            .font(.system(size: large ? 15 : small ? 12 : 13, weight: .medium))
             .lineLimit(1)
             .fixedSize()
-            .padding(.horizontal, small ? 10 : 14)
-            .frame(height: small ? 26 : 32)
-            .background(Capsule().fill(Theme.rim.opacity(configuration.isPressed ? 0.12 : hovering ? 0.08 : 0.04)))
-            .overlay(Capsule().strokeBorder(Theme.rim.opacity(0.14), lineWidth: 1))
+            .padding(.horizontal, large ? 22 : small ? 10 : 14)
+            .frame(height: large ? 44 : small ? 26 : 32)
+            .background(Capsule().fill(Theme.rim.opacity(configuration.isPressed ? 0.14 : hovering ? 0.1 : 0.06)))
+            .overlay(Capsule().strokeBorder(Theme.rimGradient, lineWidth: 1))
             .contentShape(Capsule())
             .opacity(isEnabled ? 1 : 0.4)
             .modifier(PressFeedback(isPressed: configuration.isPressed, sound: .tap))
@@ -72,10 +81,13 @@ private struct QuietButtonBody: View {
 }
 
 extension ButtonStyle where Self == PrimaryButtonStyle {
+    /// The primary button in the colour of the section it sits in.
     static var brand: PrimaryButtonStyle { PrimaryButtonStyle() }
     static var danger: PrimaryButtonStyle { PrimaryButtonStyle(fill: Theme.danger, glow: Color(hex: 0xF43F5E), text: .white) }
-    /// Kept for call sites written per module; every module now shares the one accent.
-    static func tinted(_ module: Module) -> PrimaryButtonStyle { PrimaryButtonStyle() }
+    /// The primary button in a specific section's colour.
+    static func tinted(_ module: Module) -> PrimaryButtonStyle {
+        PrimaryButtonStyle(fill: module.buttonGradient, glow: module.accent)
+    }
 }
 
 extension ButtonStyle where Self == QuietButtonStyle {
@@ -108,11 +120,17 @@ struct IconButton: View {
 
 // MARK: - Toggles
 
-/// Round checkmark: lime with a dark tick when on, a hairline ring when off.
+/// Round checkmark in the section's colour with a dark tick when on, a hairline ring when off.
 struct CheckToggleStyle: ToggleStyle {
-    @Environment(\.isEnabled) private var isEnabled
+    func makeBody(configuration: Configuration) -> some View { CheckToggleBody(configuration: configuration) }
+}
 
-    func makeBody(configuration: Configuration) -> some View {
+private struct CheckToggleBody: View {
+    var configuration: ToggleStyleConfiguration
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.pageModule) private var module
+
+    var body: some View {
         Button {
             configuration.isOn.toggle()
             SoundFX.shared.play(configuration.isOn ? .check : .uncheck, haptic: .alignment)
@@ -120,7 +138,8 @@ struct CheckToggleStyle: ToggleStyle {
             HStack(spacing: 8) {
                 ZStack {
                     Circle().strokeBorder(Theme.rim.opacity(configuration.isOn ? 0 : 0.3), lineWidth: 1.5)
-                    Circle().fill(Theme.lime).scaleEffect(configuration.isOn ? 1 : 0.5).opacity(configuration.isOn ? 1 : 0)
+                    Circle().fill(module.buttonGradient).scaleEffect(configuration.isOn ? 1 : 0.5).opacity(configuration.isOn ? 1 : 0)
+                        .shadow(color: module.accent.opacity(configuration.isOn ? 0.45 : 0), radius: 4)
                     Image(systemName: "checkmark")
                         .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(Theme.ink)
@@ -138,16 +157,27 @@ struct CheckToggleStyle: ToggleStyle {
     }
 }
 
-/// The system switch, tinted with the accent. Kept as a style so call sites stay unchanged.
+/// The system switch in the section's colour, label on the left like System Settings.
 struct GlowSwitchStyle: ToggleStyle {
-    var tint: LinearGradient = Theme.brand
+    /// Kept so call sites can name a section; the switch takes that section's colour.
+    var tint: LinearGradient? = nil
+    var module: Module? = nil
 
     func makeBody(configuration: Configuration) -> some View {
-        // Label on the left, switch pinned to the trailing edge, like System Settings.
+        GlowSwitchBody(configuration: configuration, module: module)
+    }
+}
+
+private struct GlowSwitchBody: View {
+    var configuration: ToggleStyleConfiguration
+    var module: Module?
+    @Environment(\.pageModule) private var page
+
+    var body: some View {
         HStack(alignment: .center, spacing: 12) {
             configuration.label
             Spacer(minLength: 12)
-            Toggle("", isOn: configuration.$isOn).labelsHidden().toggleStyle(.switch).tint(Theme.leaf)
+            Toggle("", isOn: configuration.$isOn).labelsHidden().toggleStyle(.switch).tint((module ?? page).accent)
         }
     }
 }
@@ -184,21 +214,22 @@ struct PillPicker<Value: Hashable>: View {
     }
 }
 
-// MARK: - Sudo switch
+// MARK: - Admin switch
 
-/// Lock, "Sudo", and a small system switch. Amber when armed.
+/// Includes system-level items when on. Shows a fingerprint when Touch ID replaces the password.
+/// Amber while armed.
 struct SudoSwitch: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
         let on = model.sudo
         HStack(spacing: 7) {
-            Image(systemName: on ? "lock.open.fill" : "lock.fill")
-                .font(.system(size: 11, weight: .semibold))
+            Image(systemName: model.touchIDForAdmin ? "touchid" : (on ? "lock.open.fill" : "lock.fill"))
+                .font(.system(size: model.touchIDForAdmin ? 13 : 11, weight: .semibold))
                 .foregroundStyle(on ? Theme.sudo : .secondary)
                 .contentTransition(.symbolEffect(.replace))
-            Text("Sudo").font(.system(size: 13, weight: .medium))
-            Toggle("Sudo", isOn: Binding(get: { on }, set: { _ in
+            Text("Admin").font(.system(size: 13, weight: .medium))
+            Toggle("Admin", isOn: Binding(get: { on }, set: { _ in
                 guard model.machine.isAdmin else { SoundFX.shared.play(.error); return }
                 let binding = model.sudoBinding
                 binding.wrappedValue.toggle()
@@ -211,15 +242,16 @@ struct SudoSwitch: View {
             .tint(Theme.sudo)
         }
         .padding(.leading, 12).padding(.trailing, 8)
-        .frame(height: 30)
-        .background(Capsule().fill(on ? Theme.sudo.opacity(0.14) : Theme.rim.opacity(0.05)))
-        .overlay(Capsule().strokeBorder(on ? Theme.sudo.opacity(0.4) : Theme.rim.opacity(0.12), lineWidth: 1))
+        .frame(height: 32)
+        .background(Capsule().fill(on ? Theme.sudo.opacity(0.16) : Theme.rim.opacity(0.06)))
+        .overlay(Capsule().strokeBorder(on ? AnyShapeStyle(Theme.sudo.opacity(0.45)) : AnyShapeStyle(Theme.rimGradient), lineWidth: 1))
+        .shadow(color: Theme.sudo.opacity(on ? 0.35 : 0), radius: 10)
         .animation(Theme.snappy, value: on)
         .disabled(!model.machine.isAdmin)
         .help(model.machine.isAdmin
               ? (model.touchIDForAdmin
-                 ? "Sudo mode: include system-level items. Spruce asks for your fingerprint once, then not again for the next few minutes."
-                 : "Sudo mode: include system-level items. macOS asks for your password once, then not again for the next few minutes.")
+                 ? "Admin mode: include system-level items. Spruce asks for your fingerprint once, then not again for the next few minutes."
+                 : "Admin mode: include system-level items. macOS asks for your password once, then not again for the next few minutes.")
               : "\(model.machine.userName) is a standard account on this Mac, so Spruce cleans everything you own but can't touch system folders.")
     }
 }

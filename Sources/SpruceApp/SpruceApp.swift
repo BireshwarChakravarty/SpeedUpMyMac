@@ -22,7 +22,7 @@ struct SpruceApp: App {
                 .environment(model)
                 .frame(minWidth: 940, minHeight: 620)
                 .preferredColorScheme(alwaysDark ? .dark : nil)
-                .tint(Theme.leaf)
+                .tint(Theme.spruce)
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1240, height: 800)

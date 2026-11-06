@@ -136,7 +136,7 @@ struct UninstallerView: View {
                         Text(app.name).font(Theme.title)
                         Text("\(app.version) · \(app.bundleID)").font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
                         HStack(spacing: 6) {
-                            if app.isAppStore { Chip(text: "App Store", color: Theme.leaf, symbol: "bag") }
+                            if app.isAppStore { Chip(text: "App Store", color: Theme.spruce, symbol: "bag") }
                             if !app.userRemovable { SudoBadge() }
                             Text(app.lastUsed.map { "Used \(Format.relative($0))" } ?? "Never opened").font(.caption).foregroundStyle(.tertiary)
                         }
@@ -261,6 +261,8 @@ struct UninstallerView: View {
             InfoNote(text: "Only reverse-DNS names (com.vendor.app) that no installed app — or anything Spotlight can find — claims. Nothing is pre-selected; everything goes to the Trash.")
             if !model.orphans.isEmpty {
                 VStack(spacing: 2) {
+                    orphanSelectionBar
+                    RowDivider(inset: 0).padding(.vertical, 4)
                     ForEach(Array(model.orphans.enumerated()), id: \.element.id) { index, o in
                         HStack(spacing: 10) {
                             Toggle("", isOn: Binding(get: { chosenOrphans.contains(o.path) },
@@ -285,6 +287,32 @@ struct UninstallerView: View {
     }
 }
 
+extension UninstallerView {
+    /// "Select All" above the orphaned files: a checkbox that selects or clears every row, with a
+    /// count of what's chosen.
+    fileprivate var orphanSelectionBar: some View {
+        let all = Set(model.orphans.map(\.path))
+        let allChosen = !all.isEmpty && all.isSubset(of: chosenOrphans)
+        let chosen = model.orphans.filter { chosenOrphans.contains($0.path) }
+        return HStack(spacing: 10) {
+            Toggle(isOn: Binding(get: { allChosen }, set: { on in
+                withAnimation(Theme.snappy) { chosenOrphans = on ? all : [] }
+            })) {
+                Text(allChosen ? "Deselect All" : "Select All").fontWeight(.medium)
+            }
+            .keyboardShortcut("a", modifiers: [.command, .shift])
+            .help(allChosen ? "Clear every row (⇧⌘A)" : "Select every orphaned file (⇧⌘A)")
+            Spacer()
+            Text(chosen.isEmpty ? "\(model.orphans.count) found"
+                 : "\(chosen.count) of \(model.orphans.count) selected · \(Format.bytes(chosen.reduce(0) { $0 + $1.bytes }))")
+                .font(.system(size: 12).monospacedDigit())
+                .foregroundStyle(.secondary)
+                .contentTransition(.numericText())
+        }
+        .padding(.vertical, 2)
+    }
+}
+
 private struct AppRow: View {
     var app: InstalledApp
     var selected: Bool
@@ -302,7 +330,7 @@ private struct AppRow: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
-                if !app.userRemovable { Image(systemName: "lock.fill").font(.caption).foregroundStyle(Theme.sudo).help("Needs Sudo mode") }
+                if !app.userRemovable { Image(systemName: "lock.fill").font(.caption).foregroundStyle(Theme.sudo).help("Needs Admin mode") }
                 Text(Format.bytes(app.bytes)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             }
             .padding(.horizontal, 8).padding(.vertical, 5)
@@ -332,7 +360,7 @@ struct VerdictCard: View {
                     .font(.system(.headline)).foregroundStyle(Theme.review)
                 Text(model.sudo || !verdict.remaining.contains(where: \.system)
                      ? "These were in use or protected. Quit anything related and try again, or remove them from Finder."
-                     : "These are system-level. Turn on Sudo mode and uninstall again to finish the job.")
+                     : "These are system-level. Turn on Admin mode and uninstall again to finish the job.")
                     .font(.caption).foregroundStyle(.secondary)
                 ForEach(verdict.remaining.prefix(8)) { l in PathText(path: l.path) }
             }

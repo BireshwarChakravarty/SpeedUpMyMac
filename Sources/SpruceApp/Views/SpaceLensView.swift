@@ -96,7 +96,7 @@ struct SpaceLensView: View {
                         VStack(spacing: 2) {
                             ForEach(node.children) { child in
                                 HStack {
-                                    Image(systemName: child.isDirectory ? "folder.fill" : "doc").foregroundStyle(Theme.leaf)
+                                    Image(systemName: child.isDirectory ? "folder.fill" : "doc").foregroundStyle(Theme.spruce)
                                     Text(child.name).lineLimit(1)
                                     Spacer()
                                     SizeText(bytes: child.bytes)

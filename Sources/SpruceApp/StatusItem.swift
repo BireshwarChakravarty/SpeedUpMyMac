@@ -11,7 +11,7 @@ final class StatusItemController: NSObject, NSWindowDelegate, NSDraggingDestinat
 
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private let model: AppModel
-    private var panel: RootPanel?
+    private var panel: SprucePanel?
     /// The point under the menu bar icon the panel hangs from, so it grows downwards.
     private var anchorTop: CGFloat = 0
 
@@ -23,7 +23,7 @@ final class StatusItemController: NSObject, NSWindowDelegate, NSDraggingDestinat
         self.model = model
         super.init()
         guard let button = item.button else { return }
-        button.image = NSImage(systemSymbolName: "number", accessibilityDescription: "Spruce")
+        button.image = StatusItemController.menuBarImage()
         button.target = self
         button.action = #selector(toggle)
         // The status item's own window forwards drag events to its delegate.
@@ -40,7 +40,7 @@ final class StatusItemController: NSObject, NSWindowDelegate, NSDraggingDestinat
     func show() {
         let panel = self.panel ?? makePanel()
         self.panel = panel
-        if let host = panel.contentView { panel.setContentSize(host.fittingSize) }
+        if let host = panel.contentView?.subviews.first { panel.setContentSize(host.fittingSize) }
         if let button = item.button, let window = button.window {
             let icon = window.convertToScreen(button.convert(button.bounds, to: nil))
             anchorTop = icon.minY - 6
@@ -60,33 +60,82 @@ final class StatusItemController: NSObject, NSWindowDelegate, NSDraggingDestinat
         item.button?.highlight(false)
     }
 
-    private func makePanel() -> RootPanel {
-        let panel = RootPanel(contentRect: NSRect(x: 0, y: 0, width: 340, height: 480),
-                              styleMask: [.nonactivatingPanel, .titled, .fullSizeContentView],
+    private func makePanel() -> SprucePanel {
+        let panel = SprucePanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 480),
+                              styleMask: [.borderless, .nonactivatingPanel],
                               backing: .buffered, defer: true)
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
         panel.isMovableByWindowBackground = true
         panel.level = .floating
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
-            panel.standardWindowButton(button)?.isHidden = true
-        }
         let dark = UserDefaults.standard.object(forKey: alwaysDarkKey) as? Bool ?? true
+        if dark { panel.appearance = NSAppearance(named: .darkAqua) }
+
+        // Real glass: the desktop and windows behind blur through, with rounded corners.
+        let glass = NSVisualEffectView()
+        glass.material = .popover
+        glass.blendingMode = .behindWindow
+        glass.state = .active
+        glass.maskImage = StatusItemController.roundedMask(radius: 22)
+
         let root = MenuBarView(close: { [weak self] in self?.hide() })
             .environment(model)
             .preferredColorScheme(dark ? .dark : nil)
-            .tint(Theme.leaf)
+            .tint(Theme.spruce)
             .fixedSize()
             .onGeometryChange(for: CGSize.self, of: \.size) { [weak self] size in self?.fit(size) }
         let host = NSHostingView(rootView: root)
-        panel.contentView = host
+        host.translatesAutoresizingMaskIntoConstraints = false
+        glass.addSubview(host)
+        NSLayoutConstraint.activate([
+            host.leadingAnchor.constraint(equalTo: glass.leadingAnchor),
+            host.trailingAnchor.constraint(equalTo: glass.trailingAnchor),
+            host.topAnchor.constraint(equalTo: glass.topAnchor),
+            host.bottomAnchor.constraint(equalTo: glass.bottomAnchor),
+        ])
+        panel.contentView = glass
         panel.setContentSize(host.fittingSize)
         panel.delegate = self
         panel.onEscape = { [weak self] in self?.hide() }
         return panel
+    }
+
+    /// A stretchable rounded-rectangle mask for the glass.
+    private static func roundedMask(radius: CGFloat) -> NSImage {
+        let edge = radius * 2 + 1
+        let image = NSImage(size: NSSize(width: edge, height: edge), flipped: false) { rect in
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
+            return true
+        }
+        image.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
+        image.resizingMode = .stretch
+        return image
+    }
+
+    /// The menu bar icon: the app's three chevrons as a template image, so macOS tints it.
+    static func menuBarImage() -> NSImage {
+        let image = NSImage(size: NSSize(width: 18, height: 16), flipped: true) { rect in
+            let path = NSBezierPath()
+            path.lineWidth = 2
+            path.lineCapStyle = .round
+            path.lineJoinStyle = .round
+            for (top, half, drop) in [(CGFloat(2), CGFloat(4.6), CGFloat(3.9)), (6.2, 6.3, 5.3), (10.4, 8, 4.6)] {
+                path.move(to: NSPoint(x: rect.midX - half, y: top + drop))
+                path.line(to: NSPoint(x: rect.midX, y: top))
+                path.line(to: NSPoint(x: rect.midX + half, y: top + drop))
+            }
+            NSColor.black.setStroke()
+            path.stroke()
+            return true
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = "Spruce"
+        return image
     }
 
     /// Sizes the panel to its content, hanging from the menu bar as the content grows or shrinks.
@@ -96,6 +145,7 @@ final class StatusItemController: NSObject, NSWindowDelegate, NSDraggingDestinat
         frame.origin.x = panel.frame.minX
         frame.origin.y = (anchorTop > 0 ? anchorTop : panel.frame.maxY) - frame.height
         panel.setFrame(frame, display: true, animate: false)
+        panel.invalidateShadow()
     }
 
     /// For the CI tour's log.
@@ -131,7 +181,7 @@ final class StatusItemController: NSObject, NSWindowDelegate, NSDraggingDestinat
 }
 
 /// A floating panel that closes on Esc and can take keyboard focus without activating Spruce.
-final class RootPanel: NSPanel {
+final class SprucePanel: NSPanel {
     var onEscape: (() -> Void)?
     override var canBecomeKey: Bool { true }
     override func cancelOperation(_ sender: Any?) { onEscape?() }

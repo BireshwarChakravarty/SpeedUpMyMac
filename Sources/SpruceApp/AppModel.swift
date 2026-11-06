@@ -215,7 +215,7 @@ final class AppModel {
 
     func summarize(_ r: CleanReport, verb: String = "Freed", celebrate title: String? = nil) {
         var text = "\(verb) \(Format.bytes(r.freedBytes)) · \(r.removed.count) item(s)"
-        if !r.needsSudo.isEmpty { text += " · \(r.needsSudo.count) need Sudo mode" }
+        if !r.needsSudo.isEmpty { text += " · \(r.needsSudo.count) need Admin mode" }
         if !r.failures.isEmpty { text += " · \(r.failures.count) failed" }
         let failed = r.removed.isEmpty && !r.failures.isEmpty
         report(text, error: failed)
@@ -459,7 +459,7 @@ final class AppModel {
             ? "Complete removal: everything below is deleted permanently, including \(app.name)'s data and settings."
             : nil
         if needsAdmin && !sudo {
-            let skip = machine.isAdmin ? "Some items need Sudo mode and will be skipped." : "Some items are system-level; this account can't remove them."
+            let skip = machine.isAdmin ? "Some items need Admin mode and will be skipped." : "Some items are system-level; this account can't remove them."
             note = [note, skip].compactMap { $0 }.joined(separator: " ")
         }
         receipt = Receipt(title: complete ? "Remove \(app.name) completely" : "Uninstall \(app.name)", lines: lines,

@@ -10,10 +10,10 @@ struct ContentView: View {
         @Bindable var model = model
         let module = model.selection ?? .smartScan
         ZStack {
-            Theme.base.ignoresSafeArea()
+            ModuleBackdrop(module: module)
             HStack(spacing: 0) {
                 Sidebar()
-                    .frame(width: 228)
+                    .frame(width: 236)
                     .padding(8)
                 VStack(spacing: 0) {
                     TopBar(module: module, soundOn: $soundOn)
@@ -25,6 +25,7 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .animation(.easeOut(duration: 0.2), value: module)
                 }
+                .environment(\.pageModule, module)
             }
             VStack(spacing: 10) {
                 Spacer()
@@ -39,7 +40,7 @@ struct ContentView: View {
                 }
             }
             .padding(.bottom, 20)
-            .padding(.leading, 244)
+            .padding(.leading, 252)
             .animation(.spring(response: 0.4, dampingFraction: 0.85), value: model.busy)
             .animation(.spring(response: 0.4, dampingFraction: 0.85), value: model.status)
             .animation(.spring(response: 0.4, dampingFraction: 0.85), value: model.sentinelOffer?.app.path)
@@ -88,7 +89,7 @@ struct ContentView: View {
     }
 }
 
-/// The toolbar row: the page title on the left, sound and Sudo on the right. Drags the window.
+/// The toolbar row: the page title on the left, sound and Admin on the right. Drags the window.
 struct TopBar: View {
     var module: Module
     @Binding var soundOn: Bool
@@ -99,6 +100,12 @@ struct TopBar: View {
                 .font(.system(size: 15, weight: .semibold))
                 .id(module)
                 .transition(.opacity)
+            Text(module.subtitle)
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .id("sub-\(module.rawValue)")
+                .transition(.opacity)
             Spacer()
             Button {
                 soundOn.toggle()
@@ -106,8 +113,9 @@ struct TopBar: View {
             } label: {
                 Image(systemName: soundOn ? "speaker.wave.2" : "speaker.slash")
                     .contentTransition(.symbolEffect(.replace))
-                    .frame(width: 14)
+                    .frame(width: 16)
             }
+            .controlSize(.regular)
             .help(soundOn ? "Sound effects on" : "Sound effects off")
             .accessibilityLabel(soundOn ? "Mute sound effects" : "Turn on sound effects")
             SudoSwitch()

@@ -174,7 +174,7 @@ struct StartupView: View {
                     .card()
                 }
             }
-            Text("Login items added through System Settings → General → Login Items are managed there. With Sudo mode on, `spruce startup btm` lists every Background Task Management entry.")
+            Text("Login items added through System Settings → General → Login Items are managed there. In Admin mode, `spruce startup btm` lists every Background Task Management entry.")
                 .font(.caption).foregroundStyle(.secondary)
         }
         .navigationTitle("Startup Items")
@@ -198,7 +198,7 @@ struct StartupView: View {
                 Button("Fix") { fixQuarantine(item) }
                     .controlSize(.small)
                     .disabled(item.domain != .userAgent && !model.sudo)
-                    .help(item.domain == .userAgent ? "Clear the quarantine flag so launchd loads it" : "Needs Sudo mode")
+                    .help(item.domain == .userAgent ? "Clear the quarantine flag so launchd loads it" : "Needs Admin mode")
             }
             if item.signing.suspicious {
                 Chip(text: item.signer ?? item.signing.rawValue, color: Theme.risky, symbol: "exclamationmark.triangle.fill")

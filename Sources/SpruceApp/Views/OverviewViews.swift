@@ -180,7 +180,7 @@ struct FleetCard: View {
                 VStack(alignment: .leading) {
                     HStack(spacing: 6) {
                         Text(snap.machine.name).font(.headline)
-                        if isThisMac { Chip(text: "This Mac", color: Theme.leaf, symbol: "location.fill") }
+                        if isThisMac { Chip(text: "This Mac", color: Theme.spruce, symbol: "location.fill") }
                     }
                     Text("\(snap.machine.chip) · macOS \(snap.machine.osVersion)").font(.caption).foregroundStyle(.secondary)
                 }
@@ -197,7 +197,7 @@ struct FleetCard: View {
             HStack {
                 Text("\(Format.bytes(snap.diskAvailable)) free of \(Format.bytes(snap.diskTotal))").font(.caption)
                 Spacer()
-                Text("\(snap.reclaimableBytes.map(Format.bytes) ?? "?") reclaimable").font(.caption).foregroundStyle(Theme.leaf)
+                Text("\(snap.reclaimableBytes.map(Format.bytes) ?? "?") reclaimable").font(.caption).foregroundStyle(Theme.spruce)
             }
             Text("Updated \(Format.relative(snap.updatedAt))\(snap.lastClean.map { " · cleaned " + Format.relative($0) } ?? "") · freed \(Format.bytes(snap.totalFreed)) all-time")
                 .font(.caption2).foregroundStyle(.secondary)
@@ -392,51 +392,115 @@ struct MenuBarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 14) {
-                ScoreRing(score: model.health?.score ?? 0, size: 56)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(model.machine.name).font(.headline).lineLimit(1)
-                    if let d = model.health?.disk {
-                        Text("\(Format.bytes(d.availableBytes)) free").font(.callout)
-                    }
-                    if let m = model.health?.memory {
-                        Text("Memory: \(m.pressure)").font(.caption).foregroundStyle(.secondary)
-                    }
+            HStack(spacing: 12) {
+                SpruceMark().frame(width: 34, height: 34)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Spruce").font(.system(size: 15, weight: .semibold))
+                    Text(model.health.map { "\(model.machine.name) · Health \($0.score)" } ?? model.machine.name)
+                        .font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer(minLength: 0)
                 CloseButton(action: close)
             }
-            if let smart = model.smart {
-                HStack(spacing: 4) {
-                    CountingBytes(bytes: smart.quickWinBytes).font(.system(.title3).weight(.semibold)).foregroundStyle(Theme.accentText)
-                    Text("ready to clean").foregroundStyle(.secondary)
+            if let health = model.health {
+                HStack(spacing: 8) {
+                    PanelGauge(module: .cleanup, label: "Disk free", value: Format.bytes(health.disk.availableBytes),
+                          fraction: health.disk.usedFraction)
+                    PanelGauge(module: .spaceLens, label: "Memory used", value: health.memory.freePercent.map { "\(100 - $0)%" } ?? "—",
+                          fraction: health.memory.freePercent.map { Double(100 - $0) / 100 } ?? 0)
+                    PanelGauge(module: .health, label: "Health", value: "\(health.score)", fraction: Double(health.score) / 100)
                 }
             }
-            HStack {
-                Button("Smart Scan") { Task { await model.runSmartScan() } }.disabled(model.busy != nil)
-                Button("Clean now") {
-                    close()
-                    AppDelegate.showMainWindow()
-                    model.selection = .smartScan
-                    model.cleanNow()
-                }
-                .buttonStyle(.brand)
-                .disabled(model.smart == nil || model.busy != nil)
-            }
-            if let busy = model.busy, model.quickScanning == nil { Text(busy).font(.caption).foregroundStyle(.secondary) }
-
+            readyRow
             QuickUninstallPanel(close: close)
-
+                .environment(\.pageModule, .uninstaller)
             HStack {
                 Button("Open Spruce") { close(); AppDelegate.showMainWindow() }
                 Spacer()
                 Button("Quit") { NSApp.terminate(nil) }
             }
             .buttonStyle(.borderless)
+            .foregroundStyle(.secondary)
         }
         .padding(16)
-        .frame(width: 340)
+        .frame(width: 360)
         .buttonStyle(.quiet)
+    }
+
+    @ViewBuilder private var readyRow: some View {
+        HStack(spacing: 10) {
+            if let name = model.busy, model.quickScanning == nil {
+                GradientSpinner(size: 14)
+                Text(name).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
+                Spacer(minLength: 0)
+            } else if let smart = model.smart {
+                CountingBytes(bytes: smart.quickWinBytes).font(.system(size: 20, weight: .bold, design: .rounded))
+                Text(smart.quickWinBytes > 0 ? "ready to clean, all safe" : "nothing to clean")
+                    .font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2)
+                Spacer(minLength: 0)
+                Button("Spruce Up") {
+                    close()
+                    AppDelegate.showMainWindow()
+                    model.selection = .smartScan
+                    model.cleanNow()
+                }
+                .buttonStyle(.brand)
+                .disabled(smart.quickWinBytes == 0)
+            } else {
+                Text("Find what's safe to clean").font(.system(size: 13)).foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                Button("Smart Scan") { Task { await model.runSmartScan() } }.buttonStyle(.brand)
+            }
+        }
+        .padding(.leading, 14).padding(.trailing, 8).padding(.vertical, 8)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.spruce.opacity(0.12)))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.spruce.opacity(0.28), lineWidth: 1))
+        .environment(\.pageModule, .smartScan)
+    }
+}
+
+/// A small labelled meter for the menu bar panel.
+private struct PanelGauge: View {
+    var module: Module
+    var label: String
+    var value: String
+    var fraction: Double
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(label).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
+            Text(value).font(.system(size: 16, weight: .bold, design: .rounded).monospacedDigit()).lineLimit(1).minimumScaleFactor(0.7)
+            GrowingBar(fraction: fraction, fill: module.barGradient, height: 5)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.rim.opacity(0.06)))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.rimGradient, lineWidth: 1))
+    }
+}
+
+/// The Uninstaller's drop target: a rose tile with a down arrow that bobs gently, and lifts when
+/// an app hovers over it.
+private struct DropTile: View {
+    var targeted: Bool
+    @State private var bob = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 13, style: .continuous)
+            .fill(Module.uninstaller.buttonGradient)
+            .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .strokeBorder(LinearGradient(colors: [.white.opacity(0.6), .white.opacity(0)], startPoint: .top, endPoint: .center), lineWidth: 1))
+            .overlay(Image(systemName: "arrow.down.to.line").font(.system(size: 20, weight: .bold)).foregroundStyle(Theme.ink))
+            .frame(width: 46, height: 46)
+            .shadow(color: Module.uninstaller.accent.opacity(targeted ? 0.7 : 0.45), radius: targeted ? 16 : 10, y: 5)
+            .scaleEffect(targeted ? 1.14 : 1)
+            .offset(y: bob && !targeted ? -4 : 0)
+            .animation(Theme.snappy, value: targeted)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: 1.3).repeatForever(autoreverses: true)) { bob = true }
+            }
     }
 }
 
@@ -465,7 +529,10 @@ struct QuickUninstallPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("Uninstaller", systemImage: "trash").font(.system(size: 15, weight: .semibold))
+            HStack(spacing: 8) {
+                IconTile(module: .uninstaller, size: 22)
+                Text("Uninstaller").font(.system(size: 14, weight: .semibold))
+            }
             Group {
                 if let name = model.quickScanning {
                     dropZone {
@@ -476,14 +543,10 @@ struct QuickUninstallPanel: View {
                     result(quick)
                 } else {
                     dropZone {
-                        Image(systemName: "arrow.down")
-                            .font(.system(size: 20, weight: .medium))
-                            .frame(width: 38, height: 38)
-                            .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(.secondary, lineWidth: 1.6))
-                            .foregroundStyle(targeted ? Theme.accentText : .secondary)
-                            .scaleEffect(targeted ? 1.12 : 1)
-                        Text("Drag an app here").font(.system(size: 15, weight: .semibold))
-                        Text("or choose one to scan").font(.callout).foregroundStyle(.secondary)
+                        DropTile(targeted: targeted)
+                        Text(targeted ? "Drop to scan it" : "Drag an app here").font(.system(size: 15, weight: .semibold))
+                            .contentTransition(.opacity)
+                        Text("or drop it on the menu bar icon").font(.system(size: 12)).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -498,8 +561,6 @@ struct QuickUninstallPanel: View {
             HStack {
                 Spacer()
                 Button(action: choose) { Label("Choose app…", systemImage: "plus.square") }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
                     .disabled(model.quickScanning != nil)
                 Spacer()
             }
@@ -508,8 +569,8 @@ struct QuickUninstallPanel: View {
                 .frame(maxWidth: .infinity)
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.rim.opacity(0.05)))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.rim.opacity(0.1)))
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.rim.opacity(0.05)))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.rimGradient, lineWidth: 1))
         .animation(Theme.spring, value: model.quickUninstall?.app.path)
         .animation(Theme.spring, value: model.quickScanning)
     }
@@ -517,11 +578,13 @@ struct QuickUninstallPanel: View {
     private func dropZone<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         VStack(spacing: 8) { content() }
             .frame(maxWidth: .infinity, minHeight: 150)
-            .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(targeted ? Theme.lime.opacity(0.08) : .clear))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(targeted ? Theme.lime : Theme.rim.opacity(0.28),
-                              style: StrokeStyle(lineWidth: 1.6, dash: [7, 5])))
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(RadialGradient(colors: [Module.uninstaller.accent.opacity(targeted ? 0.24 : 0.12), .clear],
+                                     center: UnitPoint(x: 0.5, y: 0.32), startRadius: 0, endRadius: 170)))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(targeted ? Module.uninstaller.accent : Theme.rim.opacity(0.3),
+                              style: StrokeStyle(lineWidth: targeted ? 2 : 1.5, dash: [8, 6])))
+            .scaleEffect(targeted ? 1.02 : 1)
             .contentShape(Rectangle())
     }
 
@@ -551,7 +614,7 @@ struct QuickUninstallPanel: View {
                 }
             }
             HStack(alignment: .firstTextBaseline) {
-                CountingBytes(bytes: quick.totalBytes, duration: 0.6).font(.system(size: 24, weight: .semibold))
+                CountingBytes(bytes: quick.totalBytes, duration: 0.6).font(.system(size: 24, weight: .bold, design: .rounded))
                 Spacer()
                 Button("Details") { close(); model.showInUninstaller(quick.app) }
                 Button {

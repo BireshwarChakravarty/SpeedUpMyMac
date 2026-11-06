@@ -27,7 +27,7 @@ struct ScanRing: View {
             Circle().stroke(Theme.track, lineWidth: width)
             Circle()
                 .trim(from: 0, to: target)
-                .stroke(LinearGradient(colors: [Color(hex: 0xD9F99D), Theme.lime, Theme.leaf], startPoint: .top, endPoint: .bottom),
+                .stroke(LinearGradient(colors: [Color(hex: 0xD9F99D), Theme.mint, Theme.spruce], startPoint: .top, endPoint: .bottom),
                         style: StrokeStyle(lineWidth: width, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .animation(.timingCurve(0.2, 0.8, 0.2, 1, duration: phase == .scanning ? 0.4 : 1.2), value: target)
@@ -35,7 +35,7 @@ struct ScanRing: View {
                 // A short bright arc orbiting the track, so the ring reads as working between updates.
                 Circle()
                     .trim(from: 0, to: 0.08)
-                    .stroke(Theme.lime.opacity(0.9), style: StrokeStyle(lineWidth: width, lineCap: .round))
+                    .stroke(Theme.mint.opacity(0.9), style: StrokeStyle(lineWidth: width, lineCap: .round))
                     .rotationEffect(.degrees(spin ? 360 : 0))
                     .animation(.linear(duration: 1.4).repeatForever(autoreverses: false), value: spin)
                     .onAppear { spin = true }
@@ -76,7 +76,7 @@ struct ConfettiBurst: View {
 
     init(seed: Int) {
         var g = SeededRandom(seed: UInt64(bitPattern: Int64(seed)))
-        let palette = [Theme.lime, Color(hex: 0xD9F99D), Theme.leaf, .white]
+        let palette = [Theme.mint, Theme.spruce, Color(hex: 0x38BDF8), Color(hex: 0xF472B6), Color(hex: 0xFBBF24), .white]
         _bits = State(initialValue: (0..<70).map { _ in
             Bit(angle: g.next(in: 0...(2 * .pi)), speed: g.next(in: 180...520), spin: g.next(in: -6...6),
                 size: g.next(in: 4...8), delay: g.next(in: 0...0.08),
@@ -137,7 +137,7 @@ struct CelebrationOverlay: View {
             VStack(spacing: 8) {
                 Image(systemName: celebration.symbol == "sparkles" ? "checkmark.circle.fill" : celebration.symbol)
                     .font(.system(size: 38, weight: .medium))
-                    .foregroundStyle(Theme.ink, Theme.lime)
+                    .foregroundStyle(Theme.ink, Theme.mint)
                     .symbolRenderingMode(.palette)
                     .symbolEffect(.bounce, value: shown)
                 if celebration.bytes > 0 {
@@ -189,6 +189,7 @@ struct ScoreRing: View {
     var score: Int
     var size: CGFloat = 120
     var caption: String = "Health"
+    @Environment(\.pageModule) private var module
     @State private var shown: Double = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(reduceEffectsKey) private var reduceEffects = false
@@ -199,11 +200,13 @@ struct ScoreRing: View {
             Circle().stroke(Theme.track, lineWidth: width)
             Circle()
                 .trim(from: 0, to: shown)
-                .stroke(Theme.lime, style: StrokeStyle(lineWidth: width, lineCap: .round))
+                .stroke(AngularGradient(colors: [Color(hex: module.palette.hi), module.accent, Color(hex: module.palette.hi)], center: .center),
+                        style: StrokeStyle(lineWidth: width, lineCap: .round))
                 .rotationEffect(.degrees(-90))
+                .shadow(color: module.accent.opacity(0.45), radius: size * 0.04)
             VStack(spacing: 0) {
                 CountingText(value: Double(score), duration: 1.0) { "\(Int($0.rounded()))" }
-                    .font(.system(size: size * 0.3, weight: .semibold))
+                    .font(.system(size: size * 0.3, weight: .bold, design: .rounded))
                 if size >= 80 {
                     Text(caption).font(.system(size: size * 0.1)).foregroundStyle(.secondary)
                 }
@@ -222,21 +225,23 @@ struct ScoreRing: View {
     }
 }
 
-/// A thin horizontal bar that grows in from the left.
+/// A thin horizontal bar that grows in from the left, in the section's colour unless told otherwise.
 struct GrowingBar: View {
     var fraction: Double
-    var fill: LinearGradient = Theme.brand
+    var fill: LinearGradient? = nil
     var delay: Double = 0
     var height: CGFloat = 6
     @State private var shown: Double = 0
     @AppStorage(reduceEffectsKey) private var reduceEffects = false
+    @Environment(\.pageModule) private var module
 
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
                 Capsule().fill(Theme.track)
-                Capsule().fill(fill)
+                Capsule().fill(fill ?? module.barGradient)
                     .frame(width: max(height, geo.size.width * shown))
+                    .shadow(color: module.accent.opacity(fill == nil ? 0.35 : 0), radius: 4)
             }
         }
         .frame(height: height)

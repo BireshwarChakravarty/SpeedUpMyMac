@@ -8,9 +8,9 @@ struct MetricText: View {
 
     var body: some View {
         let parts = MetricText.split(value)
-        (Text(parts.0).font(.system(size: size, weight: .semibold))
-            + Text(parts.1.isEmpty ? "" : " " + parts.1).font(.system(size: size * 0.46, weight: .medium)).foregroundColor(.secondary))
-            .tracking(size > 40 ? -1 : 0)
+        (Text(parts.0).font(.system(size: size, weight: .bold, design: .rounded))
+            + Text(parts.1.isEmpty ? "" : " " + parts.1).font(.system(size: size * 0.46, weight: .semibold, design: .rounded)).foregroundColor(.secondary))
+            .tracking(size > 40 ? -1.2 : 0)
             .monospacedDigit()
             .lineLimit(1)
             .minimumScaleFactor(0.5)
@@ -45,25 +45,27 @@ struct BigBytes: View {
     }
 }
 
-/// Top of a module: the big metric with its caption, and the module's actions on the right.
+/// Top of a module: the section's icon, the big metric with its caption, and the module's actions
+/// on the right.
 struct HeroHeader<Actions: View>: View {
     var title: String
     var value: String
     var caption: String
     var symbol: String
     @ViewBuilder var actions: () -> Actions
+    @Environment(\.pageModule) private var module
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 20) {
-            VStack(alignment: .leading, spacing: 6) {
-                MetricText(value: value)
+        HStack(alignment: .center, spacing: 20) {
+            IconTile(module: module, size: 56)
+            VStack(alignment: .leading, spacing: 4) {
+                MetricText(value: value, size: 48)
                     .contentTransition(.numericText())
                     .animation(Theme.spring, value: value)
                 Text(caption).font(.system(size: 13)).foregroundStyle(.secondary).lineLimit(2)
             }
             Spacer(minLength: 12)
             HStack(spacing: 8) { actions() }
-                .padding(.bottom, 4)
         }
         .padding(.vertical, 8)
         .reveal()
@@ -78,7 +80,7 @@ struct SectionTitle: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(.secondary)
+            Text(title).font(.system(size: 15, weight: .semibold))
             Spacer()
             if let trailing { Text(trailing).font(.system(size: 13).monospacedDigit()).foregroundStyle(.tertiary) }
         }
@@ -138,8 +140,8 @@ struct SudoBadge: View {
         Image(systemName: "lock.fill")
             .font(.system(size: 10, weight: .semibold))
             .foregroundStyle(Theme.sudo)
-            .help("Needs Sudo mode")
-            .accessibilityLabel("Needs Sudo mode")
+            .help("Needs Admin mode")
+            .accessibilityLabel("Needs Admin mode")
     }
 }
 
@@ -166,13 +168,29 @@ struct EmptyState: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            Image(systemName: symbol).font(.system(size: 34, weight: .light)).foregroundStyle(.tertiary)
+            EmptyStateMark(symbol: symbol)
             Text(title).font(.system(size: 17, weight: .semibold))
             Text(message).font(.system(size: 13)).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 420)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 48)
         .padding(.horizontal, 24)
+    }
+}
+
+/// An empty state's symbol on a soft disc of the section's colour.
+private struct EmptyStateMark: View {
+    var symbol: String
+    @Environment(\.pageModule) private var module
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: 30, weight: .regular))
+            .foregroundStyle(module.accentText)
+            .frame(width: 72, height: 72)
+            .background(Circle().fill(module.accent.opacity(0.14)))
+            .overlay(Circle().strokeBorder(module.accent.opacity(0.25), lineWidth: 1))
+            .padding(.bottom, 4)
     }
 }
 
@@ -251,10 +269,5 @@ struct ModuleGlyph: View {
     var size: CGFloat = 24
     var bounce: Bool = false
 
-    var body: some View {
-        Image(systemName: module.symbol)
-            .font(.system(size: size * 0.6, weight: .regular))
-            .foregroundStyle(.secondary)
-            .frame(width: size, height: size)
-    }
+    var body: some View { IconTile(module: module, size: size) }
 }
