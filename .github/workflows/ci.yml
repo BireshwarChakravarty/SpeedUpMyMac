@@ -125,11 +125,22 @@ jobs:
               screencapture -x "$base.png" || echo "screencapture failed for $base"
               mv "$ready" "$base.done"
             done
+            # The app closed its window: "click the Dock icon". Opening a running app sends the same
+            # reopen event the Dock does.
+            if [ -e shots/closed ] && [ ! -e shots/reopen-sent ]; then
+              touch shots/reopen-sent
+              cat shots/closed
+              open "$PWD/dist/Root.app"
+            fi
             [ -e shots/finished ] && break
             kill -0 $APP 2>/dev/null || { echo "app exited early"; cat shots/app.log; break; }
             sleep 0.5
           done
           kill $APP 2>/dev/null || true
+          echo "reopen event received: $([ -e shots/reopen-event ] && echo yes || echo no)"
+          cat shots/reopen-result 2>/dev/null || echo "REOPEN FAILED: no result written"
+          echo "Root processes still running: $(pgrep -f 'Root.app/Contents/MacOS/Root' | wc -l | tr -d ' ')"
+          pkill -f 'Root.app/Contents/MacOS/Root' || true
           for png in shots/*.png; do
             [ -e "$png" ] || continue
             jpg="${png%.png}.jpg"

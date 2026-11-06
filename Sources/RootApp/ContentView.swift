@@ -3,6 +3,7 @@ import RootCore
 
 struct ContentView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.openWindow) private var openWindow
     @AppStorage(SoundFX.enabledKey) private var soundOn = true
 
     var body: some View {
@@ -56,8 +57,15 @@ struct ContentView: View {
         .buttonStyle(.quiet)
         .toggleStyle(.check)
         .sheet(item: $model.receipt) { receipt in ReceiptSheet(receipt: receipt) }
+        .alert("Use Touch ID instead of your password?", isPresented: $model.showTouchIDOffer) {
+            Button("Use Touch ID") { model.setTouchIDForAdmin(true) }
+            Button("Not Now", role: .cancel) {}
+        } message: {
+            Text("When Root needs admin rights, it will ask for your fingerprint. So will sudo in Terminal. Setting this up needs your password one last time. You can change it in Settings.")
+        }
         .onChange(of: model.receipt?.id) { _, id in if id != nil { SoundFX.shared.play(.whoosh) } }
         .onChange(of: model.sentinelOffer?.app.path) { _, path in if path != nil { SoundFX.shared.play(.success, haptic: .generic) } }
+        .onAppear { AppDelegate.openMainWindow = { [openWindow] in openWindow(id: "main") } }
         .task { if let folder = AppModel.tourFolder { await model.runTour(folder) } }
     }
 
@@ -116,6 +124,7 @@ struct WindowConfigurator: NSViewRepresentable {
         let view = NSView()
         DispatchQueue.main.async {
             guard let window = view.window else { return }
+            AppDelegate.register(window)
             window.isMovableByWindowBackground = true
             window.titlebarAppearsTransparent = true
             if AppModel.tourFolder != nil, let screen = window.screen ?? NSScreen.main {

@@ -51,14 +51,16 @@ The **Sudo** switch is at the top right of every page.
 
 - **Greyed out?** That account isn't an administrator on that Mac, which is expected on the M3. Point at the switch and it explains why.
 - **Check whether an account is an admin:** `id -Gn | grep -o admin` prints `admin` if it is.
-- **Use your fingerprint instead of typing the password:** go to **Tweaks**, then turn on **Touch ID for sudo**. Sudo mode must be on for this. That applies to the `root` command in Terminal; the app uses macOS's own administrator dialog.
+- **Use your fingerprint instead of the password:** the first time you turn Sudo on, a Mac with Touch ID offers **Use Touch ID**. You can also turn it on any time in **Settings → Admin access** (or **Tweaks → Touch ID instead of your password**). It needs your password one last time to set up; after that, Root asks for your fingerprint, and so does `sudo` in Terminal. If Touch ID isn't available (lid closed, external keyboard without Touch ID) or you cancel it, the usual password dialog appears instead. One fingerprint covers the next five minutes.
 
 ### Fewer permission prompts
 Root is built not to interrupt you:
-- **Admin password:** once, then nothing for about five minutes (see above).
+- **Admin password or fingerprint:** once, then nothing for about five minutes (see above).
 - **Desktop, Documents and Downloads:** without Full Disk Access, scans skip these instead of making macOS ask, and say so. Choosing one of them yourself in Space Lens is still allowed.
 - **Quitting an app before uninstalling it** uses the same mechanism as the Dock's Quit, so macOS never asks "allow Root to control…".
 - **Login Items** are only touched when the app is actually listed there.
+
+**Closed the window?** Click Root in the Dock, or **Open Root** in its menu bar panel, and it comes back.
 
 Grant **Full Disk Access** once (Smart Scan shows a card for it) and the folder questions stop for good.
 

@@ -110,6 +110,33 @@ struct SudoRunner: PrivilegeRunner {
     }
 }
 
+/// Runs a root script through `sudo`, authorized with Touch ID instead of a password, from an app
+/// with no terminal. This works once pam_tid is enabled for sudo (`Tweaks.touchIDScript`). Returns
+/// nil whenever Touch ID can't be used (not set up, no sensor, lid closed, cancelled) so the caller
+/// can fall back to the password dialog.
+///
+/// After one fingerprint, sudo's own timestamp covers the next five minutes for this app, as the
+/// password dialog's grace period does.
+public enum TouchIDSudo {
+    public typealias Exec = @Sendable (_ executable: String, _ arguments: [String], _ timeout: TimeInterval) -> ShellResult
+
+    public static let sudo = "/usr/bin/sudo"
+
+    public static func run(_ script: PrivilegedScript, enabled: Bool = Tweaks.touchIDForSudoEnabled(),
+                           exec: Exec = { Shell.run($0, $1, timeout: $2) }) -> ShellResult? {
+        guard enabled, !script.isEmpty else { return nil }
+        if exec(sudo, ["-n", "true"], 10).status != 0 {
+            // -S takes any password from stdin, which is /dev/null: Touch ID or nothing, never a
+            // prompt waiting on a terminal that isn't there.
+            guard exec(sudo, ["-S", "-p", "", "-v"], 120).status == 0 else { return nil }
+        }
+        let result = exec(sudo, ["-n", "/bin/sh", "-c", script.text], 1800)
+        // The timestamp ran out in between: ask again through the dialog rather than fail.
+        if result.status != 0 && result.stderr.contains("password is required") { return nil }
+        return result
+    }
+}
+
 /// Records the script instead of running it (dry runs and tests).
 public final class RecordingRunner: PrivilegeRunner, @unchecked Sendable {
     public private(set) var scripts: [PrivilegedScript] = []

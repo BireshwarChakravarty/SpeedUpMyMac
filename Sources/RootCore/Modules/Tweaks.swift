@@ -233,9 +233,16 @@ public enum Tweaks {
 
     public static let touchIDPamPath = "/etc/pam.d/sudo_local"
 
+    /// True when sudo accepts Touch ID: pam_tid in sudo_local, or added to /etc/pam.d/sudo by hand.
     public static func touchIDForSudoEnabled() -> Bool {
-        guard let text = try? String(contentsOfFile: touchIDPamPath, encoding: .utf8) else { return false }
-        return text.split(separator: "\n").contains { $0.trimmingCharacters(in: .whitespaces).hasPrefix("auth") && $0.contains("pam_tid.so") }
+        [touchIDPamPath, "/etc/pam.d/sudo"].contains { path in
+            guard let text = try? String(contentsOfFile: path, encoding: .utf8) else { return false }
+            return pamEnablesTouchID(text)
+        }
+    }
+
+    static func pamEnablesTouchID(_ text: String) -> Bool {
+        text.split(separator: "\n").contains { $0.trimmingCharacters(in: .whitespaces).hasPrefix("auth") && $0.contains("pam_tid.so") }
     }
 
     /// Script that enables/disables pam_tid in /etc/pam.d/sudo_local (survives macOS updates since Sonoma).

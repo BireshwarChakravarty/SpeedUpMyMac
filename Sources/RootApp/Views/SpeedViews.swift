@@ -247,7 +247,6 @@ struct StartupView: View {
 struct TweaksView: View {
     @Environment(AppModel.self) private var model
     @State private var applied = Set<String>()
-    @State private var touchID = false
 
     var body: some View {
         ModuleScroll {
@@ -280,15 +279,15 @@ struct TweaksView: View {
                         .rowHover()
                     }
                     if group == .system {
-                        Toggle(isOn: Binding(get: { touchID }, set: { on in setTouchID(on) })) {
+                        Toggle(isOn: Binding(get: { model.touchIDForAdmin }, set: { on in model.setTouchIDForAdmin(on) })) {
                             VStack(alignment: .leading, spacing: 1) {
-                                HStack(spacing: 6) { Text("Touch ID for sudo"); SudoBadge() }
-                                Text("Authorize sudo in Terminal with your fingerprint. Uses /etc/pam.d/sudo_local, which survives macOS updates.")
+                                HStack(spacing: 6) { Text("Touch ID instead of your password"); SudoBadge() }
+                                Text("Root's admin steps and sudo in Terminal ask for your fingerprint. Uses /etc/pam.d/sudo_local, which survives macOS updates.")
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                         }
                         .toggleStyle(GlowSwitchStyle())
-                        .disabled(!model.sudo)
+                        .disabled(!model.machine.isAdmin || (!model.hasTouchID && !model.touchIDForAdmin))
                     }
                 }
                 .card()
@@ -300,7 +299,7 @@ struct TweaksView: View {
 
     private func refresh() async {
         applied = await Task.detached { Set(Tweaks.all.filter(Tweaks.isApplied).map(\.id)) }.value
-        touchID = Tweaks.touchIDForSudoEnabled()
+        model.touchIDForAdmin = Tweaks.touchIDForSudoEnabled()
     }
 
     private func apply(_ tweaks: [Tweak]) {
@@ -318,15 +317,6 @@ struct TweaksView: View {
         Task {
             _ = await model.run("Reverting…") { Tweaks.revert(tweaks, sudo: sudo, runner: runner) }
             model.report("Restored previous settings")
-            await refresh()
-        }
-    }
-
-    private func setTouchID(_ on: Bool) {
-        let runner = model.runner
-        Task {
-            let ok = await model.run("Configuring Touch ID…") { (try? runner.run(Tweaks.touchIDScript(enable: on), reason: "configure Touch ID for sudo"))?.succeeded ?? false }
-            model.report(ok ? "Touch ID for sudo \(on ? "on" : "off")" : "Couldn't change Touch ID for sudo", error: !ok)
             await refresh()
         }
     }

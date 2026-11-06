@@ -278,6 +278,18 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            if model.machine.isAdmin {
+                Section("Admin access") {
+                    Toggle("Use Touch ID instead of your password", isOn: Binding(
+                        get: { model.touchIDForAdmin },
+                        set: { on in model.setTouchIDForAdmin(on) }))
+                        .disabled(!model.hasTouchID && !model.touchIDForAdmin)
+                    Text(model.hasTouchID
+                         ? "When Root needs admin rights, it asks for your fingerprint. If Touch ID isn't available (lid closed) or you cancel it, the password dialog appears instead. Also applies to sudo in Terminal."
+                         : "This Mac has no Touch ID sensor.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
             Section("Look & Sound") {
                 Toggle("Sound effects", isOn: $soundOn)
                 HStack {
@@ -400,8 +412,7 @@ struct MenuBarView: View {
             HStack {
                 Button("Smart Scan") { Task { await model.runSmartScan() } }.disabled(model.busy != nil)
                 Button("Clean now") {
-                    openWindow(id: "main")
-                    NSApp.activate(ignoringOtherApps: true)
+                    AppDelegate.showMainWindow()
                     model.selection = .smartScan
                     model.cleanNow()
                 }
@@ -411,13 +422,14 @@ struct MenuBarView: View {
             if let busy = model.busy { Text(busy).font(.caption).foregroundStyle(.secondary) }
             Divider()
             HStack {
-                Button("Open Root") { openWindow(id: "main"); NSApp.activate(ignoringOtherApps: true) }
+                Button("Open Root") { AppDelegate.showMainWindow() }
                 Spacer()
                 Button("Quit") { NSApp.terminate(nil) }
             }
             .buttonStyle(.borderless)
         }
         .padding(16)
+        .onAppear { AppDelegate.openMainWindow = { [openWindow] in openWindow(id: "main") } }
         .frame(width: 300)
         .buttonStyle(.quiet)
         .task { if model.health == nil { await model.refreshHealth() } }

@@ -7,6 +7,10 @@ import RootCore
 /// clean, maintenance, a startup item, an uninstall) go through without asking again. A fresh
 /// `osascript` per step was a fresh process, so it asked every single time.
 ///
+/// With Touch ID set up for sudo (Settings → Admin access), a fingerprint replaces the password:
+/// the script goes through `sudo` instead, and the password dialog only appears if Touch ID can't
+/// be used right now (cancelled, lid closed).
+///
 /// As before, the script is handed to the handler as a parameter (never spliced into AppleScript
 /// source, never written to disk), so there's no quoting to get wrong and nothing to swap.
 final class AdminSession: PrivilegeRunner, @unchecked Sendable {
@@ -31,7 +35,13 @@ final class AdminSession: PrivilegeRunner, @unchecked Sendable {
         guard Privilege.currentUserIsAdmin() else { throw PrivilegeError.notAdmin }
         guard !script.isEmpty else { return ShellResult(status: 0, stdout: "", stderr: "") }
         // One script at a time, always on the same thread: NSAppleScript isn't re-entrant.
-        return try queue.sync { try execute(script.text, prompt: "Root: \(reason)") }
+        return try queue.sync {
+            if let result = TouchIDSudo.run(script) {
+                markAuthorized()
+                return result
+            }
+            return try execute(script.text, prompt: "Root: \(reason)")
+        }
     }
 
     private func execute(_ text: String, prompt: String) throws -> ShellResult {

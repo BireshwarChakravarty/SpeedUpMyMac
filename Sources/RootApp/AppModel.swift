@@ -1,6 +1,7 @@
 import SwiftUI
 import RootCore
 import Observation
+import LocalAuthentication
 
 enum Module: String, CaseIterable, Identifiable, Hashable {
     case smartScan, cleanup, devPurge, uninstaller, spaceLens
@@ -152,6 +153,46 @@ final class AppModel {
 
     /// One admin session for the whole app, so a password covers the next few minutes of work.
     var runner: PrivilegeRunner { AdminSession.shared }
+
+    // MARK: Touch ID instead of the admin password
+
+    /// This Mac has a Touch ID sensor, built in or on a Magic Keyboard.
+    let hasTouchID: Bool = {
+        let context = LAContext()
+        var error: NSError?
+        _ = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+        return context.biometryType == .touchID   // set even when the lid is closed right now
+    }()
+
+    /// Admin steps ask for a fingerprint instead of the password (pam_tid for sudo).
+    var touchIDForAdmin = Tweaks.touchIDForSudoEnabled()
+    var showTouchIDOffer = false
+    private static let touchIDOfferedKey = "touchIDOffered"
+
+    /// Asked once, the first time Sudo mode goes on, on a Mac with Touch ID that isn't using it yet.
+    func offerTouchIDIfUseful() {
+        guard machine.isAdmin, hasTouchID, !touchIDForAdmin,
+              !UserDefaults.standard.bool(forKey: Self.touchIDOfferedKey) else { return }
+        UserDefaults.standard.set(true, forKey: Self.touchIDOfferedKey)
+        showTouchIDOffer = true
+    }
+
+    func setTouchIDForAdmin(_ on: Bool) {
+        let runner = self.runner
+        Task {
+            let ok = await run(on ? "Setting up Touch ID…" : "Turning off Touch ID…") {
+                let reason = on ? "use Touch ID instead of your password from now on" : "go back to the password for admin steps"
+                return (try? runner.run(Tweaks.touchIDScript(enable: on), reason: reason))?.succeeded ?? false
+            }
+            touchIDForAdmin = Tweaks.touchIDForSudoEnabled()
+            if ok {
+                report(on ? "Touch ID is on: your fingerprint replaces the admin password" : "Admin steps ask for your password again")
+                SoundFX.shared.play(on ? .unlock : .lock)
+            } else {
+                report("Couldn't change the Touch ID setting", error: true)
+            }
+        }
+    }
 
     // MARK: Helpers
 
@@ -472,35 +513,59 @@ final class AppModel {
     /// Set by CI (`ROOTAPP_TOUR=<folder>`) to screenshot every page of the real app; never in normal use.
     static let tourFolder = ProcessInfo.processInfo.environment["ROOTAPP_TOUR"]
 
-    /// Shows each page in turn and waits for CI to capture it: a `.ready` file asks, a `.done` file answers.
-    func runTour(_ folder: String) async {
-        var shot = 0
-        func capture(_ name: String) async {
-            try? await Task.sleep(for: .seconds(2.5))
-            shot += 1
-            let base = (folder as NSString).appendingPathComponent(String(format: "%02d-%@", shot, name))
-            FileManager.default.createFile(atPath: base + ".ready", contents: nil)
-            for _ in 0..<150 where !FileManager.default.fileExists(atPath: base + ".done") {
-                try? await Task.sleep(for: .milliseconds(100))
-            }
+    private var tourShot = 0
+    private var tourStarted = false
+
+    /// Asks CI to capture the screen: a `.ready` file asks, a `.done` file answers.
+    private func captureTour(_ folder: String, _ name: String) async {
+        try? await Task.sleep(for: .seconds(2.5))
+        tourShot += 1
+        let base = (folder as NSString).appendingPathComponent(String(format: "%02d-%@", tourShot, name))
+        FileManager.default.createFile(atPath: base + ".ready", contents: nil)
+        for _ in 0..<150 where !FileManager.default.fileExists(atPath: base + ".done") {
+            try? await Task.sleep(for: .milliseconds(100))
         }
-        await capture("first-launch")
+    }
+
+    /// Shows each page in turn for CI to capture, then closes the window and checks that reopening
+    /// Root (what a Dock click does) brings it back.
+    func runTour(_ folder: String) async {
+        guard !tourStarted else { return }   // the reopened window must not start it again
+        tourStarted = true
+        await captureTour(folder, "first-launch")
         await loadApps()
         await runSmartScan()
-        await capture("smart-scan-results")
+        await captureTour(folder, "smart-scan-results")
         for module in Module.allCases where module != .smartScan {
             selection = module
-            await capture(module.rawValue)
+            await captureTour(folder, module.rawValue)
         }
         selection = .smartScan
         cleanNow()
-        await capture("receipt")
+        await captureTour(folder, "receipt")
         receipt = nil
         celebrate(Celebration(bytes: smart?.quickWinBytes ?? 0, title: "Cleaned — clean to the root"))
         try? await Task.sleep(for: .milliseconds(600))
-        await capture("celebration")
-        FileManager.default.createFile(atPath: (folder as NSString).appendingPathComponent("finished"), contents: nil)
-        NSApp.terminate(nil)
+        await captureTour(folder, "celebration")
+
+        // Closing the window ends this view's task, so the rest runs on its own.
+        Task { @MainActor in
+            func note(_ name: String, _ text: String) {
+                FileManager.default.createFile(atPath: (folder as NSString).appendingPathComponent(name), contents: Data(text.utf8))
+            }
+            AppDelegate.mainWindows.forEach { $0.close() }
+            try? await Task.sleep(for: .seconds(1))
+            note("closed", "visible main windows after close: \(AppDelegate.mainWindows.filter(\.isVisible).count)\n")
+            var reopened = false
+            for _ in 0..<600 {
+                if AppDelegate.mainWindows.contains(where: \.isVisible) { reopened = true; break }
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+            note("reopen-result", reopened ? "REOPEN OK: the main window came back\n" : "REOPEN FAILED: no main window after reopen\n")
+            if reopened { await self.captureTour(folder, "reopened-from-dock") }
+            note("finished", "")
+            NSApp.terminate(nil)
+        }
     }
 
     func openFullDiskAccessSettings() {

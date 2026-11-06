@@ -203,6 +203,7 @@ struct SudoSwitch: View {
                 let binding = model.sudoBinding
                 binding.wrappedValue.toggle()
                 SoundFX.shared.play(model.sudo ? .unlock : .lock, haptic: .levelChange)
+                if model.sudo { model.offerTouchIDIfUseful() }
             }))
             .labelsHidden()
             .toggleStyle(.switch)
@@ -216,7 +217,9 @@ struct SudoSwitch: View {
         .animation(Theme.snappy, value: on)
         .disabled(!model.machine.isAdmin)
         .help(model.machine.isAdmin
-              ? "Sudo mode: include system-level items. macOS asks for your password once, then not again for the next few minutes."
+              ? (model.touchIDForAdmin
+                 ? "Sudo mode: include system-level items. Root asks for your fingerprint once, then not again for the next few minutes."
+                 : "Sudo mode: include system-level items. macOS asks for your password once, then not again for the next few minutes.")
               : "\(model.machine.userName) is a standard account on this Mac, so Root cleans everything you own but can't touch system folders.")
     }
 }
