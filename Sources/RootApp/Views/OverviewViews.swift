@@ -1,5 +1,6 @@
 import SwiftUI
 import RootCore
+import UniformTypeIdentifiers
 
 // MARK: - Health (Sensei / Stats)
 
@@ -383,18 +384,18 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Menu bar extra
+// MARK: - Menu bar panel
 
 struct MenuBarView: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.openWindow) private var openWindow
+    var close: () -> Void = {}
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 14) {
-                ScoreRing(score: model.health?.score ?? 0, size: 64)
+                ScoreRing(score: model.health?.score ?? 0, size: 56)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(model.machine.name).font(.headline)
+                    Text(model.machine.name).font(.headline).lineLimit(1)
                     if let d = model.health?.disk {
                         Text("\(Format.bytes(d.availableBytes)) free").font(.callout)
                     }
@@ -402,6 +403,8 @@ struct MenuBarView: View {
                         Text("Memory: \(m.pressure)").font(.caption).foregroundStyle(.secondary)
                     }
                 }
+                Spacer(minLength: 0)
+                CloseButton(action: close)
             }
             if let smart = model.smart {
                 HStack(spacing: 4) {
@@ -412,6 +415,7 @@ struct MenuBarView: View {
             HStack {
                 Button("Smart Scan") { Task { await model.runSmartScan() } }.disabled(model.busy != nil)
                 Button("Clean now") {
+                    close()
                     AppDelegate.showMainWindow()
                     model.selection = .smartScan
                     model.cleanNow()
@@ -419,19 +423,173 @@ struct MenuBarView: View {
                 .buttonStyle(.brand)
                 .disabled(model.smart == nil || model.busy != nil)
             }
-            if let busy = model.busy { Text(busy).font(.caption).foregroundStyle(.secondary) }
-            Divider()
+            if let busy = model.busy, model.quickScanning == nil { Text(busy).font(.caption).foregroundStyle(.secondary) }
+
+            QuickUninstallPanel(close: close)
+
             HStack {
-                Button("Open Root") { AppDelegate.showMainWindow() }
+                Button("Open Root") { close(); AppDelegate.showMainWindow() }
                 Spacer()
                 Button("Quit") { NSApp.terminate(nil) }
             }
             .buttonStyle(.borderless)
         }
         .padding(16)
-        .onAppear { AppDelegate.openMainWindow = { [openWindow] in openWindow(id: "main") } }
-        .frame(width: 300)
+        .frame(width: 340)
         .buttonStyle(.quiet)
-        .task { if model.health == nil { await model.refreshHealth() } }
+    }
+}
+
+/// The round grey ✕ in the corner of the panel.
+struct CloseButton: View {
+    var action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "xmark")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(.secondary)
+                .frame(width: 22, height: 22)
+                .background(Circle().fill(Theme.rim.opacity(0.12)))
+        }
+        .buttonStyle(.plain)
+        .help("Close (Esc)")
+        .accessibilityLabel("Close")
+    }
+}
+
+/// Drag an app here (or onto the menu bar icon), see everything it left on this Mac, remove it.
+struct QuickUninstallPanel: View {
+    @Environment(AppModel.self) private var model
+    var close: () -> Void
+    @State private var targeted = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Uninstaller", systemImage: "trash").font(.system(size: 15, weight: .semibold))
+            Group {
+                if let name = model.quickScanning {
+                    dropZone {
+                        ProgressView().controlSize(.small)
+                        Text("Scanning \(name)…").font(.callout).foregroundStyle(.secondary)
+                    }
+                } else if let quick = model.quickUninstall {
+                    result(quick)
+                } else {
+                    dropZone {
+                        Image(systemName: "arrow.down")
+                            .font(.system(size: 20, weight: .medium))
+                            .frame(width: 38, height: 38)
+                            .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(.secondary, lineWidth: 1.6))
+                            .foregroundStyle(targeted ? Theme.accentText : .secondary)
+                            .scaleEffect(targeted ? 1.12 : 1)
+                        Text("Drag an app here").font(.system(size: 15, weight: .semibold))
+                        Text("or choose one to scan").font(.callout).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .dropDestination(for: URL.self) { urls, _ in
+                guard let app = urls.first(where: { $0.pathExtension == "app" }) else { return false }
+                Task { await model.quickScan(app.path) }
+                return true
+            } isTargeted: { on in
+                withAnimation(Theme.snappy) { targeted = on }
+            }
+
+            HStack {
+                Spacer()
+                Button(action: choose) { Label("Choose app…", systemImage: "plus.square") }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .disabled(model.quickScanning != nil)
+                Spacer()
+            }
+            Text("Nothing is removed without your confirmation.")
+                .font(.caption).foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity)
+        }
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.rim.opacity(0.05)))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.rim.opacity(0.1)))
+        .animation(Theme.spring, value: model.quickUninstall?.app.path)
+        .animation(Theme.spring, value: model.quickScanning)
+    }
+
+    private func dropZone<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        VStack(spacing: 8) { content() }
+            .frame(maxWidth: .infinity, minHeight: 150)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(targeted ? Theme.lime.opacity(0.08) : .clear))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(targeted ? Theme.lime : Theme.rim.opacity(0.28),
+                              style: StrokeStyle(lineWidth: 1.6, dash: [7, 5])))
+            .contentShape(Rectangle())
+    }
+
+    private func result(_ quick: AppModel.QuickUninstall) -> some View {
+        let complete = model.settings.uninstallCompletely
+        let systemApp = quick.app.isAppleApp && !InstalledApp.deletableAppleApps.contains(quick.app.bundleID)
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                Image(nsImage: NSWorkspace.shared.icon(forFile: quick.app.path))
+                    .resizable().frame(width: 48, height: 48)
+                    .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(quick.app.name).font(.headline).lineLimit(1)
+                    Text(quick.leftovers.isEmpty ? "No other files found"
+                         : "\(quick.leftovers.count) related item\(quick.leftovers.count == 1 ? "" : "s") on this Mac")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                Button { model.quickUninstall = nil } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary) }
+                    .buttonStyle(.plain).help("Scan another app")
+            }
+            ForEach(kinds(quick).prefix(4), id: \.name) { row in
+                HStack {
+                    Text(row.name).font(.callout).foregroundStyle(.secondary).lineLimit(1)
+                    Spacer()
+                    Text(Format.bytes(row.bytes)).font(.callout.monospacedDigit())
+                }
+            }
+            HStack(alignment: .firstTextBaseline) {
+                CountingBytes(bytes: quick.totalBytes, duration: 0.6).font(.system(size: 24, weight: .semibold))
+                Spacer()
+                Button("Details") { close(); model.showInUninstaller(quick.app) }
+                Button {
+                    close()
+                    model.removeQuickUninstall()
+                } label: {
+                    Label(complete ? "Remove…" : "Uninstall…", systemImage: complete ? "flame.fill" : "trash")
+                }
+                .buttonStyle(.brand)
+                .disabled(systemApp)
+            }
+            if systemApp {
+                Text("Part of macOS. The system volume is sealed, so it can't be removed.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 150, alignment: .top)
+    }
+
+    private struct KindTotal { var name: String; var bytes: Int64 }
+
+    /// Sizes grouped by kind (Caches, Preferences, …), the app bundle first.
+    private func kinds(_ quick: AppModel.QuickUninstall) -> [KindTotal] {
+        var totals: [String: Int64] = [:]
+        for item in quick.leftovers { totals[item.kind, default: 0] += item.bytes }
+        return [KindTotal(name: "\(quick.app.name).app", bytes: quick.app.bytes)]
+            + totals.sorted { $0.value > $1.value }.map { KindTotal(name: $0.key, bytes: $0.value) }
+    }
+
+    private func choose() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.applicationBundle]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.prompt = "Scan"
+        panel.message = "Choose an app to see everything it keeps on this Mac."
+        NSApp.activate()
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        StatusItemController.shared?.show()
+        Task { await model.quickScan(url.path) }
     }
 }

@@ -29,7 +29,19 @@ struct UninstallerView: View {
         }
         .animation(Theme.spring, value: mode)
         .navigationTitle("Uninstaller")
-        .task { if model.apps.isEmpty { await model.loadApps() } }
+        .task {
+            if model.apps.isEmpty { await model.loadApps() }
+            takeFocus()
+        }
+        .onChange(of: model.uninstallFocus) { takeFocus() }
+    }
+
+    /// An app picked in the menu bar panel opens here, selected.
+    private func takeFocus() {
+        guard let app = model.uninstallFocus else { return }
+        model.uninstallFocus = nil
+        mode = 0
+        selectedApp = model.apps.first { $0.path == app.path } ?? app
     }
 
     // MARK: Apps

@@ -365,6 +365,57 @@ final class AppModel {
         apps = await run("Reading installed apps…") { Uninstaller.installedApps() }
     }
 
+    // MARK: Quick uninstall (menu bar panel)
+
+    struct QuickUninstall {
+        var app: InstalledApp
+        var leftovers: [Leftover]
+        var traces: [UninstallTrace]
+        /// What "Remove Completely" takes: the leftovers pre-selected the same way as on the Uninstaller page.
+        var chosen: [Leftover]
+        var totalBytes: Int64 { app.bytes + chosen.reduce(0) { $0 + $1.bytes } }
+    }
+
+    /// The app dropped on (or chosen in) the menu bar panel, with everything Root found for it.
+    var quickUninstall: QuickUninstall?
+    var quickScanning: String?
+    /// Selected on the Uninstaller page when it next appears ("Details" in the menu bar panel).
+    var uninstallFocus: InstalledApp?
+
+    func quickScan(_ path: String) async {
+        guard path.hasSuffix(".app"),
+              let app = await Task.detached(operation: { Uninstaller.describe(path) }).value else {
+            report("That isn't an app", error: true)
+            return
+        }
+        quickUninstall = nil
+        quickScanning = app.name
+        defer { quickScanning = nil }
+        if apps.isEmpty { await loadApps() }   // other apps' shared files must never match
+        let found = await leftovers(for: app)
+        let complete = settings.uninstallCompletely
+        let traces = complete ? await self.traces(for: app, leftovers: found) : []
+        quickUninstall = QuickUninstall(app: app, leftovers: found, traces: traces,
+                                        chosen: found.filter { complete || !$0.isUserData })
+        SoundFX.shared.play(.success)
+    }
+
+    /// Opens the receipt for the quick-scanned app in the main window. Nothing goes until you confirm.
+    func removeQuickUninstall() {
+        guard let quick = quickUninstall else { return }
+        AppDelegate.showMainWindow()
+        selection = .uninstaller
+        uninstallFocus = quick.app
+        confirmUninstall(quick.app, leftovers: quick.chosen, traces: quick.traces)
+        quickUninstall = nil
+    }
+
+    func showInUninstaller(_ app: InstalledApp) {
+        AppDelegate.showMainWindow()
+        uninstallFocus = app
+        selection = .uninstaller
+    }
+
     func leftovers(for app: InstalledApp) async -> [Leftover] {
         let level = settings.leftoverLevel, others = apps
         return await run("Finding \(app.name)'s files…") { Uninstaller.leftovers(for: app, level: level, otherApps: others) }
@@ -547,6 +598,16 @@ final class AppModel {
         celebrate(Celebration(bytes: smart?.quickWinBytes ?? 0, title: "Cleaned — clean to the root"))
         try? await Task.sleep(for: .milliseconds(600))
         await captureTour(folder, "celebration")
+
+        // The menu bar panel: empty, then with an app dropped on it.
+        StatusItemController.shared?.show()
+        await captureTour(folder, "menu-bar-panel")
+        if let sample = apps.filter({ $0.userRemovable && !$0.isAppleApp }).min(by: { $0.bytes < $1.bytes }) {
+            await quickScan(sample.path)
+            await captureTour(folder, "menu-bar-uninstall")
+        }
+        quickUninstall = nil
+        StatusItemController.shared?.hide()
 
         // Closing the window ends this view's task, so the rest runs on its own.
         Task { @MainActor in

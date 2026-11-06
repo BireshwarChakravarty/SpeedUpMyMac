@@ -7,8 +7,14 @@ let alwaysDarkKey = "alwaysDark"
 @main
 struct RootApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @State private var model = AppModel()
+    @State private var model: AppModel
     @AppStorage(alwaysDarkKey) private var alwaysDark = true
+
+    init() {
+        let model = AppModel()
+        _model = State(initialValue: model)
+        AppDelegate.model = model
+    }
 
     var body: some Scene {
         WindowGroup("Root", id: "main") {
@@ -39,22 +45,15 @@ struct RootApp: App {
             }
         }
 
-        MenuBarExtra {
-            MenuBarView().environment(model).preferredColorScheme(alwaysDark ? .dark : nil)
-        } label: {
-            Image(systemName: "number")
-        }
-        .menuBarExtraStyle(.window)
-
         SwiftUI.Settings {
             SettingsView().environment(model).frame(width: 540)
         }
     }
 }
 
-/// Clicking Root in the Dock brings its window back. SwiftUI only does that when no window is
-/// visible, and Root's menu bar panel counts as one, so once you closed the main window the Dock
-/// icon did nothing. Opening Root again from Finder or Launchpad sends the same "reopen" event.
+/// Clicking Root in the Dock brings its window back, whatever else is on screen. (SwiftUI's own
+/// handling counted the menu bar panel as a visible window, so the Dock icon did nothing.) Opening
+/// Root again from Finder or Launchpad sends the same "reopen" event.
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     /// The main windows SwiftUI has made, registered by `WindowConfigurator` (weak references).
@@ -62,7 +61,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// SwiftUI's `openWindow(id: "main")`, handed over by the first view that has it.
     static var openMainWindow: (() -> Void)?
 
+    /// The app's one model, shared with the menu bar panel (which lives outside SwiftUI's scenes).
+    static var model: AppModel?
+
     static func register(_ window: NSWindow) { windows.add(window) }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        if let model = AppDelegate.model { StatusItemController.install(model: model) }
+    }
 
     static var mainWindows: [NSWindow] { windows.allObjects }
 
