@@ -716,7 +716,7 @@ final class MiscTests: XCTestCase {
     func testTouchIDSudoAuthenticatesOnceThenRuns() {
         let ok = ShellResult(status: 0, stdout: "0\n", stderr: "")
         let fake = FakeSudo(["-S -p  -v": ok, "run": ok])
-        let r = TouchIDSudo.run(rootScript(), enabled: true, exec: fake.exec)
+        let r = TouchIDSudo.run(rootScript(), enabled: true, exec: { [fake] in fake.exec($0, $1, $2) })
         XCTAssertEqual(r?.stdout, "0\n")
         XCTAssertEqual(fake.calls.map { $0.first! }, ["-n", "-S", "-n"])
         XCTAssertEqual(fake.calls[2].prefix(3), ["-n", "/bin/sh", "-c"])
@@ -725,23 +725,23 @@ final class MiscTests: XCTestCase {
     func testTouchIDSudoSkipsPromptWhileTimestampIsFresh() {
         let ok = ShellResult(status: 0, stdout: "", stderr: "")
         let fake = FakeSudo(["-n true": ok, "run": ok])
-        XCTAssertNotNil(TouchIDSudo.run(rootScript(), enabled: true, exec: fake.exec))
+        XCTAssertNotNil(TouchIDSudo.run(rootScript(), enabled: true, exec: { [fake] in fake.exec($0, $1, $2) }))
         XCTAssertFalse(fake.calls.contains { $0.contains("-v") })
     }
 
     func testTouchIDSudoFallsBackToPasswordDialog() {
         // Cancelled, no sensor, or lid closed: sudo -v fails, the caller shows the password dialog.
         let fake = FakeSudo([:])
-        XCTAssertNil(TouchIDSudo.run(rootScript(), enabled: true, exec: fake.exec))
+        XCTAssertNil(TouchIDSudo.run(rootScript(), enabled: true, exec: { [fake] in fake.exec($0, $1, $2) }))
         XCTAssertFalse(fake.calls.contains { $0.contains("/bin/sh") }, "never runs the script unauthorized")
         // Not set up: sudo isn't touched at all.
         let untouched = FakeSudo([:])
-        XCTAssertNil(TouchIDSudo.run(rootScript(), enabled: false, exec: untouched.exec))
+        XCTAssertNil(TouchIDSudo.run(rootScript(), enabled: false, exec: { [untouched] in untouched.exec($0, $1, $2) }))
         XCTAssertTrue(untouched.calls.isEmpty)
         // The timestamp expired between the check and the run.
         let expired = FakeSudo(["-n true": ShellResult(status: 0, stdout: "", stderr: ""),
                                 "run": ShellResult(status: 1, stdout: "", stderr: "sudo: a password is required\n")])
-        XCTAssertNil(TouchIDSudo.run(rootScript(), enabled: true, exec: expired.exec))
+        XCTAssertNil(TouchIDSudo.run(rootScript(), enabled: true, exec: { [expired] in expired.exec($0, $1, $2) }))
     }
 
     /// With the real sudo, where it needs no password (CI runners): the script runs as root.

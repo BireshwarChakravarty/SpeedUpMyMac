@@ -61,6 +61,10 @@ The latest green run is https://github.com/BireshwarChakravarty/SpeedUpMyMac/act
 2. Get the job's `logs_url` (GitHub MCP `get_job_logs`, with `return_content: false`) and `curl` it to disk.
 3. Decode the JPEGs between the `@@SHOT name` and `@@END` lines. Strip the timestamp prefix and any non-base64 characters, then fix the padding. The last shot sometimes arrives corrupted.
 
+## Touch ID and the Dock (6 Nov 2026)
+- **Touch ID instead of the admin password.** `TouchIDSudo` (RootCore) runs root scripts through `sudo -S -p '' -v` then `sudo -n /bin/sh -c`, authorized by pam_tid, with no terminal. `AdminSession` tries it first and falls back to the password dialog whenever it returns nil (not set up, lid closed, cancelled). Turned on from the one-time offer when Sudo mode first goes on, Settings → Admin access, or Tweaks. Tests: fake-sudo cases, plus a real passwordless-sudo run on CI (`id -u` = 0). The fingerprint prompt itself can't run on CI (no sensor).
+- **Dock click reopens the window.** SwiftUI skipped it because the menu bar panel counts as a visible window. `AppDelegate.applicationShouldHandleReopen` now raises, un-minimizes or reopens the main window. The CI tour closes the window, runs `open Root.app` (the same reopen event as a Dock click), and checks the window is back: `REOPEN OK`, screenshot `16-reopened-from-dock`.
+
 ## Next up / open items
 - Space Lens: the "Map your disk" card sits low on the page; align it to the top.
 - The remaining pages (Dev Purge, Maintenance, Startup, Fleet, History, Settings, menu bar) use the shared components but haven't had page-specific polish like Smart Scan and Cleanup.
