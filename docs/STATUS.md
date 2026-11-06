@@ -54,7 +54,7 @@ macOS 27.2 shipped on 26 Oct 2026 (build 26B123). Changes Spruce adapts to, all 
 - Why: the M3 is a work laptop managed by Iru (Kandji), which removes Gatekeeper's **Open Anyway**. A notarized Developer ID app is the legitimate route; IT may still need to allow it.
 
 ## Latest build
-The latest green run is https://github.com/BireshwarChakravarty/SpeedUpMyMac/actions/runs/41014078042. Its **Spruce** artifact was built with Xcode 27.2 on macOS 27, signed with the "Root Signing" certificate **with the hardened runtime** (designated requirement unchanged: `identifier "io.rootapp.Root" and certificate leaf = H"021d6e02…"`, so existing permissions carry over), and the hardened app passed the full 15-page screenshot tour on macOS 27 and 26. Notarize was skipped because the Developer ID secrets don't exist yet. Start a new build any time from Actions → CI → Run workflow.
+The latest green run is https://github.com/BireshwarChakravarty/SpeedUpMyMac/actions/runs/42280110726: the first **Spruce** build, with the new design. Built with Xcode 27.2 on macOS 27 and with the newest Xcode on macOS 26, signed with the "Root Signing" certificate (hardened runtime); 74 tests pass; the 18-shot tour (every page, receipt, celebration, menu bar panel empty and with an app, Dock reopen) passes on both. Not notarized yet (no Developer ID secrets). The new bundle id means Full Disk Access is granted once more on each Mac.
 
 ## How to see the real UI (from a cloud session)
 1. Push. The `Screenshot tour` step runs at the end of the macOS job.
