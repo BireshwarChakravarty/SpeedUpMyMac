@@ -1,6 +1,6 @@
-# Root: user guide
+# Spruce: user guide
 
-Root deep-cleans, speeds up and protects every Mac you own, from one app.
+Spruce deep-cleans, speeds up and protects every Mac you own, from one app.
 Nothing is ever removed without a **receipt**: a list of exactly what goes, where it goes, and the admin script if one is needed.
 
 ---
@@ -8,11 +8,11 @@ Nothing is ever removed without a **receipt**: a list of exactly what goes, wher
 ## 1. Install
 
 ### Download
-1. Open the repo's **Actions** tab on GitHub, open the latest green **CI** run, and download the **Root** artifact. It's built with the macOS 27.2 SDK and runs on macOS 14 Sonoma and later. **Root-built-on-macOS-26** is the same app built with the Tahoe SDK, if you ever need it.
-2. Safari unzips it to a folder in **Downloads**. If you see another `Root.zip` inside, double-click that too, until **Root.app** appears.
+1. Open the repo's **Actions** tab on GitHub, open the latest green **CI** run, and download the **Spruce** artifact. It's built with the macOS 27.2 SDK and runs on macOS 14 Sonoma and later. **Spruce-built-on-macOS-26** is the same app built with the Tahoe SDK, if you ever need it.
+2. Safari unzips it to a folder in **Downloads**. If you see another `Spruce.zip` inside, double-click that too, until **Spruce.app** appears.
 
 ### Put it in Applications
-- **On your M4 and M6 (admin):** drag **Root.app** into **Applications** in the Finder sidebar.
+- **On your M4 and M6 (admin):** drag **Spruce.app** into **Applications** in the Finder sidebar.
 - **On the M3 (no admin):** drag it into the **Applications** folder inside your home folder (`~/Applications`). Create that folder if it isn't there.
 
 ### First launch
@@ -20,69 +20,76 @@ Nothing is ever removed without a **receipt**: a list of exactly what goes, wher
 
 **Builds that aren't notarized** are blocked the first time. Unblock it once:
 
-1. Double-click Root. When macOS says it can't be opened, click **Done**.
-2. Open **System Settings → Privacy & Security**, scroll down, click **Open Anyway** next to Root, and confirm.
+1. Double-click Spruce. When macOS says it can't be opened, click **Done**.
+2. Open **System Settings → Privacy & Security**, scroll down, click **Open Anyway** next to Spruce, and confirm.
 
 If there's no **Open Anyway** button on your own Mac, run this once in Terminal:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/Root.app
+xattr -dr com.apple.quarantine /Applications/Spruce.app
 ```
 
-**On a work Mac managed by your company** (Iru/Kandji, Jamf, Intune…), the company may have removed **Open Anyway** on purpose. Don't work around that: use a notarized build, or ask IT to approve Root. A notarized app from a named Developer ID is what most IT teams can allow with one rule.
+**On a work Mac managed by your company** (Iru/Kandji, Jamf, Intune…), the company may have removed **Open Anyway** on purpose. Don't work around that: use a notarized build, or ask IT to approve Spruce. A notarized app from a named Developer ID is what most IT teams can allow with one rule.
+
+### Coming from Root
+Spruce is the new name for Root. The first time Spruce opens, it moves Root's settings, history, logs, tweak backups, scheduled clean and the fleet folder over by itself. Then:
+
+1. Quit Root if it's running, and drag **Root.app** to the Trash (or uninstall it with Spruce, which also clears its menu bar item and old CLI link).
+2. Grant **Full Disk Access** to Spruce. It's a new app to macOS, so the old permission doesn't carry over. This happens once.
+3. Use `spruce` instead of `root` in Terminal. `scripts/build-app.sh --install` removes the old `root` link, but only if it pointed into Root.app.
 
 ### Give it Full Disk Access
-Without it, Root can't see Mail, Safari, other apps' containers or the Trash.
-Go to **System Settings → Privacy & Security → Full Disk Access**, click **+** and add Root.
+Without it, Spruce can't see Mail, Safari, other apps' containers or the Trash.
+Go to **System Settings → Privacy & Security → Full Disk Access**, click **+** and add Spruce.
 The Smart Scan and Health pages also have a button that opens this setting.
 
-**On macOS 27 this matters more.** macOS 27 no longer asks before an app reads another app's container. It just says no. Without Full Disk Access, Root skips the cleanup items inside other apps' containers (sandboxed app caches and logs, Slack, Teams, Mail downloads) and says so on the Cleanup page. For the `root` command, add your terminal app (Terminal, iTerm, Ghostty…) instead.
+**On macOS 27 this matters more.** macOS 27 no longer asks before an app reads another app's container. It just says no. Without Full Disk Access, Spruce skips the cleanup items inside other apps' containers (sandboxed app caches and logs, Slack, Teams, Mail downloads) and says so on the Cleanup page. For the `spruce` command, add your terminal app (Terminal, iTerm, Ghostty…) instead.
 
 ---
 
-## 2. Sudo mode
+## 2. Admin mode
 
-The **Sudo** switch is at the top right of every page.
+The **Admin** switch is at the top right of every page.
 
 | State | What happens |
 |---|---|
-| **Off** (grey lock) | Root cleans everything your account owns. System folders are listed but skipped. |
-| **On** (amber, open lock) | System-level items are included too. When a job needs them, Root shows the exact script, then macOS asks for your password. After that, Root doesn't ask again for **about five minutes**, so a clean, a maintenance run and an uninstall in a row need one password. |
+| **Off** (grey lock, or a fingerprint once Touch ID is set up) | Spruce cleans everything your account owns. System folders are listed but skipped. |
+| **On** (amber, open lock) | System-level items are included too. When a job needs them, Spruce shows the exact script, then macOS asks for your password. After that, Spruce doesn't ask again for **about five minutes**, so a clean, a maintenance run and an uninstall in a row need one password. |
 
 - **Greyed out?** That account isn't an administrator on that Mac, which is expected on the M3. Point at the switch and it explains why.
 - **Check whether an account is an admin:** `id -Gn | grep -o admin` prints `admin` if it is.
-- **Use your fingerprint instead of the password:** the first time you turn Sudo on, a Mac with Touch ID offers **Use Touch ID**. You can also turn it on any time in **Settings → Admin access** (or **Tweaks → Touch ID instead of your password**). It needs your password one last time to set up; after that, Root asks for your fingerprint, and so does `sudo` in Terminal. If Touch ID isn't available (lid closed, external keyboard without Touch ID) or you cancel it, the usual password dialog appears instead. One fingerprint covers the next five minutes.
+- **Use your fingerprint instead of the password:** the first time you turn Admin mode on, a Mac with Touch ID offers **Use Touch ID**. You can also turn it on any time in **Settings → Admin access** (or **Tweaks → Touch ID instead of your password**). It needs your password one last time to set up; after that, Spruce asks for your fingerprint, and so does `sudo` in Terminal. If Touch ID isn't available (lid closed, external keyboard without Touch ID) or you cancel it, the usual password dialog appears instead. One fingerprint covers the next five minutes.
 
 ### Fewer permission prompts
-Root is built not to interrupt you:
+Spruce is built not to interrupt you:
 - **Admin password or fingerprint:** once, then nothing for about five minutes (see above).
 - **Desktop, Documents and Downloads:** without Full Disk Access, scans skip these instead of making macOS ask, and say so. Choosing one of them yourself in Space Lens is still allowed.
-- **Quitting an app before uninstalling it** uses the same mechanism as the Dock's Quit, so macOS never asks "allow Root to control…".
+- **Quitting an app before uninstalling it** uses the same mechanism as the Dock's Quit, so macOS never asks "allow Spruce to control…".
 - **Login Items** are only touched when the app is actually listed there.
 
-**Closed the window?** Click Root in the Dock, or **Open Root** in its menu bar panel, and it comes back.
+**Closed the window?** Click Spruce in the Dock, or **Open Spruce** in its menu bar panel, and it comes back.
 
 Grant **Full Disk Access** once (Smart Scan shows a card for it) and the folder questions stop for good.
 
 ### Keep permissions across updates (one-time setup)
-By default each build gets a throwaway signature, so macOS treats every update as a new app and asks for Full Disk Access again. Give Root a permanent signature once:
+By default each build gets a throwaway signature, so macOS treats every update as a new app and asks for Full Disk Access again. Give Spruce a permanent signature once:
 
-1. On your Mac, run `bash ~/Downloads/make-signing-identity.sh` (the script is `scripts/make-signing-identity.sh` in the repo). It creates a "Root Signing" certificate in `~/.root-signing` and your login keychain.
+1. On your Mac, run `bash ~/Downloads/make-signing-identity.sh` (the script is `scripts/make-signing-identity.sh` in the repo). It creates a "Root Signing" certificate (the name dates from before the rename; it signs Spruce) in `~/.root-signing` and your login keychain.
 2. It opens GitHub's **New repository secret** page and copies each value to your clipboard in turn: paste `ROOT_SIGNING_P12`, then `ROOT_SIGNING_PASSWORD`. If you use the GitHub CLI (`gh`), it sets both itself.
-3. From the next build on, every Root is signed with that certificate. Grant Full Disk Access to the first signed build, and later updates keep it.
+3. From the next build on, every Spruce is signed with that certificate. Grant Full Disk Access to the first signed build, and later updates keep it.
 
-The certificate is self-signed: it keeps permissions stable, but it isn't Apple notarization, so a fresh download may still need **Open Anyway** once. Keep `~/.root-signing` safe; anyone with it could sign an app that macOS treats as Root.
-- **From Terminal:** `root sudo on` turns it on permanently, and `--sudo` applies it to a single command.
+The certificate is self-signed: it keeps permissions stable, but it isn't Apple notarization, so a fresh download may still need **Open Anyway** once. Keep `~/.root-signing` safe; anyone with it could sign an app that macOS treats as Spruce.
+- **From Terminal:** `spruce sudo on` turns it on permanently, and `--sudo` applies it to a single command.
 
 ### Notarized builds: no Gatekeeper warning (one-time setup)
-Notarization means Apple has scanned the app and vouches for it. A notarized Root opens on any Mac with no **Open Anyway** step, and it's the version a company's IT can approve. It needs a membership in the **Apple Developer Program** (US$99 a year).
+Notarization means Apple has scanned the app and vouches for it. A notarized Spruce opens on any Mac with no **Open Anyway** step, and it's the version a company's IT can approve. It needs a membership in the **Apple Developer Program** (US$99 a year).
 
 1. Join at [developer.apple.com/programs](https://developer.apple.com/programs/) as an individual. Approval usually takes a day or two.
 2. On one of your own Macs (not a managed work laptop), run `bash ~/Downloads/make-developer-id.sh` (the script is `scripts/make-developer-id.sh` in the repo). It makes a certificate request and opens Apple's certificate page: choose **Developer ID Application**, profile type **G2 Sub-CA**, upload the request it shows you, and download the certificate.
 3. Run `bash ~/Downloads/make-developer-id.sh ~/Downloads/developerID_application.cer`. It asks for your Apple ID and an **app-specific password** (make one at [account.apple.com](https://account.apple.com) → Sign-In and Security → App-Specific Passwords; never your real password), checks them with Apple, and adds five GitHub secrets: `DEVELOPER_ID_P12`, `DEVELOPER_ID_PASSWORD`, `NOTARY_APPLE_ID`, `NOTARY_PASSWORD`, `NOTARY_TEAM_ID`.
 4. On GitHub, open **Actions → CI → Run workflow**. The build is signed with your Developer ID, sent to Apple, and the approval is stapled into the app. The log's **Notarize** step ends with `source=Notarized Developer ID`.
 
-The switch from the "Root Signing" certificate to the Developer ID changes Root's identity once, so grant **Full Disk Access** one more time to the first notarized build. Later builds keep it. Keep `~/.root-developer-id` safe: it holds your Developer ID private key.
+The switch from the "Root Signing" certificate to the Developer ID changes Spruce's identity once, so grant **Full Disk Access** one more time to the first notarized build. Later builds keep it. Keep `~/.spruce-developer-id` safe: it holds your Developer ID private key.
 
 ---
 
@@ -97,7 +104,7 @@ The switch from the "Root Signing" certificate to the Developer ID changes Root'
 | **Space Lens** | A sunburst map of your disk (click to drill in), large and old files, and duplicate files. |
 | **Processes** | Quit, pause, or move a resource hog onto the efficiency cores. |
 | **Maintenance** | Runs only tasks whose check found a real problem. On macOS 27 it adds **Clean up Gatekeeper records** (`spctl` purge), which forgets launch approvals for apps that are gone. |
-| **Startup Items** | Every launch agent and daemon, with signature checks. Disabling one is reversible. On macOS 27, launchd silently skips a job whose plist still carries the download quarantine flag; Root marks those **Won't load** and **Fix** clears the flag. |
+| **Startup Items** | Every launch agent and daemon, with signature checks. Disabling one is reversible. On macOS 27, launchd silently skips a job whose plist still carries the download quarantine flag; Spruce marks those **Won't load** and **Fix** clears the flag. |
 | **Tweaks** | Reversible macOS tweaks. Presets: *balanced*, *privacy*, *snappy*. **Revert all** restores your previous settings. |
 | **Health** | Disk, memory, battery, thermals, SIP, Gatekeeper, FileVault, firewall and a health score. |
 | **Fleet** | All your Macs on one page, synced through iCloud Drive, or any folder you choose for the work Mac. |
@@ -109,7 +116,7 @@ Keyboard: **⌘R** runs Smart Scan, and **⌘1** to **⌘9** jump between pages.
 
 ## 4. Uninstaller: complete removal
 
-**Remove completely, leave no trace** is on by default. When you uninstall an app, Root does the following:
+**Remove completely, leave no trace** is on by default. When you uninstall an app, Spruce does the following:
 
 1. **Stops it first.** It quits the app, terminates its helper processes and unloads its background jobs, so nothing recreates files mid-removal.
 2. **Deletes every file it made**, permanently rather than into the Trash, including its data and settings:
@@ -132,10 +139,10 @@ Keyboard: **⌘R** runs Smart Scan, and **⌘1** to **⌘9** jump between pages.
    - on macOS 27, Gatekeeper's record of the app (`spctl` purge, run after the files are gone).
 4. **Verifies the result.** It rescans and shows either **"Gone without a trace"** or exactly what's left and why.
 
-Some items need Sudo mode: system daemons, root-owned files and receipts. With Sudo on, all of them run in **one** password prompt.
+Some items need Admin mode: system daemons, root-owned files and receipts. In Admin mode, all of them run in **one** prompt (password or fingerprint).
 Turn complete removal off, on the Uninstaller page or in Settings, to send apps to the Trash and keep their personal data instead.
 
-The matching level picker controls how hard Root looks:
+The matching level picker controls how hard Spruce looks:
 
 - **Strict:** exact bundle ID or app name only.
 - **Enhanced** (default): adds partial matches.
@@ -145,6 +152,17 @@ Because Deep finds more, check its list before you confirm.
 
 Apps that are part of macOS can't be removed: the system volume is sealed.
 
+**Orphaned files** (the second tab) finds leftovers from apps you deleted long ago. Nothing is pre-selected; **Select All** at the top of the list (⇧⌘A) picks every row, and the count beside it shows how many and how much. Everything goes to the Trash.
+
+### From the menu bar
+Click the chevrons in the menu bar. The panel stays open while you work in other apps, so you can:
+
+- **Drag an app** from Finder or the Applications folder into the Uninstaller box, or drop it straight on the menu bar icon. Spruce lists what that app keeps on this Mac and the total size.
+- Click **Remove…** to open the usual receipt in the main window. Nothing is removed until you confirm there. **Details** opens the app on the Uninstaller page.
+- See disk space, memory and health at a glance, and **Spruce Up** whatever the last scan found.
+
+Close the panel with ✕, Esc, or by clicking the menu bar icon again.
+
 ---
 
 ## 5. Look & sound
@@ -152,36 +170,38 @@ Apps that are part of macOS can't be removed: the system volume is sealed.
 Settings (**⌘,**) → **Look & Sound**:
 
 - **Sound effects** and **volume**. Every sound is synthesized inside the app. The speaker button in the top bar mutes them instantly.
-- **Always use the dark aurora theme.** Turn this off to follow your system appearance.
-- **Reduce visual effects** gives a static background with no particles. Root also respects macOS **Reduce Motion**.
+- **Always use the dark theme.** Turn this off to follow your system appearance; every page is designed for light mode too.
+- **Reduce visual effects** keeps the Smart Scan orb still and drops the particles. Spruce also respects macOS **Reduce Motion**.
 
 On a Force Touch trackpad, toggles and switches also give haptic feedback.
+
+Each section has its own colour: its icon in the sidebar, its main button, and the soft light behind the page. Smart Scan is spruce green, Cleanup sky blue, the Uninstaller rose, Space Lens violet, and so on.
 
 ---
 
 ## 6. Command line
 
-The CLI is bundled at `Root.app/Contents/Helpers/root`. `scripts/build-app.sh --install` puts it on your PATH.
+The CLI is bundled at `Spruce.app/Contents/Helpers/spruce`. `scripts/build-app.sh --install` puts it on your PATH.
 
 ```bash
-root scan                 # what's reclaimable
-root clean                # clean safe items (add --sudo for system items)
-root uninstall "Zoom"     # complete removal, no traces (--keep-data to keep its data)
-root purge                # dev build artifacts
-root status               # health score, disk, memory, security
-root doctor               # permissions and tools check
-root fleet                # all your Macs
-root schedule weekly      # unattended safe clean, never uses sudo
+spruce scan                 # what's reclaimable
+spruce clean                # clean safe items (add --sudo for system items)
+spruce uninstall "Zoom"     # complete removal, no traces (--keep-data to keep its data)
+spruce purge                # dev build artifacts
+spruce status               # health score, disk, memory, security
+spruce doctor               # permissions and tools check
+spruce fleet                # all your Macs
+spruce schedule weekly      # unattended safe clean, never uses sudo
 ```
 
 Flags: `-n` / `--dry-run` previews without removing, `-y` / `--yes` skips the confirmation, and `-j` / `--json` prints machine-readable output.
 
 ---
 
-## 7. Safety rules Root never breaks
+## 7. Safety rules Spruce never breaks
 
 - No removal happens without a receipt you confirm.
 - Protected places are never touched: system folders, Keychains, Mail, Messages, Photos, iCloud Drive, `~/.ssh` and more. Your own **Never touch** list in Settings adds to these.
 - Symlink tricks are caught: every path is resolved and re-checked just before removal.
-- Root runs only a script built from quoted arguments, and you can read that script in the receipt first.
-- On a standard account (the M3), Root never asks for admin rights; it cleans what you own.
+- Spruce runs only a script built from quoted arguments, and you can read that script in the receipt first.
+- On a standard account (the M3), Spruce never asks for admin rights; it cleans what you own.

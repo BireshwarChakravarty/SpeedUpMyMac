@@ -1,16 +1,16 @@
-<p align="center"><img src="Assets/AppIcon-1024.png" width="160" alt="Root icon"></p>
+<p align="center"><img src="Assets/AppIcon-1024.png" width="160" alt="Spruce icon"></p>
 
-<h1 align="center">Root</h1>
-<p align="center"><b>Clean every Mac down to the root.</b><br>
+<h1 align="center">Spruce</h1>
+<p align="center"><b>Spruce up every Mac you own.</b><br>
 Cleanup · Dev purge · Uninstaller · Space Lens · Speed · Maintenance · Startup audit · Tweaks · Health · Fleet</p>
 
 ---
 
-Root pulls the best parts of CleanMyMac, Mole, Pearcleaner, AppCleaner, OnyX, DaisyDisk, DevCleaner, App Tamer, KnockKnock, Sensei and RemoveMacAI into one free, native macOS app plus a CLI. Every deletion is itemised on a **receipt** before it happens, and every action is logged.
+Spruce pulls the best parts of CleanMyMac, Mole, Pearcleaner, AppCleaner, OnyX, DaisyDisk, DevCleaner, App Tamer, KnockKnock, Sensei and RemoveMacAI into one free, native macOS app plus a CLI. Every deletion is itemised on a **receipt** before it happens, and every action is logged.
 
-- **Sudo toggle.** Everything that can run as you does. Turning on Sudo mode adds system-level cleaning, maintenance and tweaks, and you authorize once per batch after seeing the exact script that will run as root. On a **standard (non-admin) account** the toggle is disabled and Root still cleans everything you own.
+- **Admin switch.** Everything that can run as you does. Turning on Admin mode adds system-level cleaning, maintenance and tweaks, and you authorize once per batch after seeing the exact script that will run as root. On a **standard (non-admin) account** the toggle is disabled and Spruce still cleans everything you own.
 - **Works across all your Macs.** Each Mac publishes a small status file to a synced folder (iCloud Drive by default, or any Dropbox/Drive/SMB folder), and the **Fleet** view shows them side by side: chip, admin or standard account, free space, reclaimable space, health score and last clean.
-- **Honest.** Root doesn't "free RAM", repair permissions on modern macOS, or ask you to disable SIP. Maintenance tasks check for a real symptom before they recommend themselves.
+- **Honest.** Spruce doesn't "free RAM", repair permissions on modern macOS, or ask you to disable SIP. Maintenance tasks check for a real symptom before they recommend themselves.
 
 Research and design rationale: [`docs/RESEARCH.md`](docs/RESEARCH.md) · [`docs/DESIGN.md`](docs/DESIGN.md)
 
@@ -43,33 +43,33 @@ git clone https://github.com/bireshwarchakravarty/SpeedUpMyMac.git
 cd SpeedUpMyMac && scripts/build-app.sh --install
 ```
 
-This needs Xcode or the Command Line Tools (`xcode-select --install`). Then open **Root**, grant it **Full Disk Access** (System Settings → Privacy & Security → Full Disk Access) so it can see Mail, Safari, other apps' containers and the Trash, and optionally run `root touchid on` to use Touch ID for sudo.
+This needs Xcode or the Command Line Tools (`xcode-select --install`). Then open **Spruce**, grant it **Full Disk Access** (System Settings → Privacy & Security → Full Disk Access) so it can see Mail, Safari, other apps' containers and the Trash, and optionally run `spruce touchid on` to use Touch ID for sudo.
 
 ### On a Mac where you're *not* an admin (M3)
 
 You need neither admin rights nor a Developer ID:
 
 1. If the Command Line Tools are already installed there, run the same two commands. The app installs to `~/Applications` and the CLI to `~/.local/bin`.
-2. Otherwise build on your M4, copy `dist/Root.zip` over, and unpack it into your own Applications folder:
+2. Otherwise build on your M4, copy `dist/Spruce.zip` over, and unpack it into your own Applications folder:
 
 ```bash
-ditto -x -k ~/Downloads/Root.zip ~/Applications
+ditto -x -k ~/Downloads/Spruce.zip ~/Applications
 ```
 
 ```bash
-xattr -dr com.apple.quarantine ~/Applications/Root.app
+xattr -dr com.apple.quarantine ~/Applications/Spruce.app
 ```
 
 Removing the quarantine flag from your own copy needs no admin rights. Copying with `scp`/`rsync` doesn't add the flag in the first place.
 
-On the standard account the Sudo toggle shows as unavailable. Cleanup, Dev Purge, user-owned app uninstalls, orphans, Space Lens, process control, user-level maintenance, user tweaks, startup agents in your session, Health, Fleet and scheduled cleaning all still work. A managed work Mac may block Full Disk Access via MDM. Root then skips the protected folders and says so.
+On the standard account the Admin switch shows as unavailable. Cleanup, Dev Purge, user-owned app uninstalls, orphans, Space Lens, process control, user-level maintenance, user tweaks, startup agents in your session, Health, Fleet and scheduled cleaning all still work. A managed work Mac may block Full Disk Access via MDM. Spruce then skips the protected folders and says so.
 
 ### Fleet setup
 
-Each Mac publishes to `iCloud Drive/Root/machines/` automatically. On a Mac without your personal iCloud, point it at any synced folder:
+Each Mac publishes to `iCloud Drive/Spruce/machines/` automatically. On a Mac without your personal iCloud, point it at any synced folder:
 
 ```bash
-root fleet folder ~/Dropbox/Root
+spruce fleet folder ~/Dropbox/Spruce
 ```
 
 Put `shared-settings.json` (`{"ignorePaths": […], "purgeRoots": […]}`) in that folder to share an ignore list and project roots across every Mac.
@@ -77,42 +77,42 @@ Put `shared-settings.json` (`{"ignorePaths": […], "purgeRoots": […]}`) in th
 ## CLI
 
 ```bash
-root status
+spruce status
 ```
 
 ```bash
-root clean --dry-run
+spruce clean --dry-run
 ```
 
 ```bash
-root clean --sudo --include-review
+spruce clean --sudo --include-review
 ```
 
 ```bash
-root purge
+spruce purge
 ```
 
 ```bash
-root uninstall "Some App" --level deep
+spruce uninstall "Some App" --level deep
 ```
 
 ```bash
-root optimize --list
+spruce optimize --list
 ```
 
 ```bash
-root tweaks apply balanced
+spruce tweaks apply balanced
 ```
 
 ```bash
-root fleet
+spruce fleet
 ```
 
 ```bash
-root schedule weekly
+spruce schedule weekly
 ```
 
-`root help` lists everything. `-n/--dry-run` previews, `-y/--yes` skips prompts, `-j/--json` prints machine-readable output, and `-s/--sudo` includes system items. Root refuses to run *as* root and asks for admin rights only for the steps that need them.
+`spruce help` lists everything. `-n/--dry-run` previews, `-y/--yes` skips prompts, `-j/--json` prints machine-readable output, and `-s/--sudo` includes system items. Spruce refuses to run *as* root and asks for admin rights only for the steps that need them.
 
 ## Safety model
 
@@ -129,12 +129,12 @@ root schedule weekly
 swift build && swift test
 ```
 
-The engine (`RootCore`) and CLI build on Linux too, so the 60 tests also run there in CI. The SwiftUI app target builds on macOS only.
+The engine (`SpruceCore`) and CLI build on Linux too, so the 60 tests also run there in CI. The SwiftUI app target builds on macOS only.
 
 ```
-Sources/RootCore   engine: catalog, scanner, safety, cleaner, privilege, modules
-Sources/root       CLI
-Sources/RootApp    SwiftUI app (macOS 14+, Liquid Glass on macOS 26)
+Sources/SpruceCore engine: catalog, scanner, safety, cleaner, privilege, modules
+Sources/spruce     CLI
+Sources/SpruceApp  SwiftUI app (macOS 14+, Liquid Glass on macOS 26)
 Assets/               icon SVG, layered Icon Composer sources, .icns
 scripts/              build-app.sh, build-icon.sh
 ```

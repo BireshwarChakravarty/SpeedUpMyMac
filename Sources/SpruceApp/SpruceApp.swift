@@ -1,7 +1,7 @@
 import SwiftUI
 import SpruceCore
 
-/// "Always dark" in Settings: the aurora was designed for a night sky.
+/// "Always dark" in Settings: Spruce is designed dark-first, and every page also works in light mode.
 let alwaysDarkKey = "alwaysDark"
 
 @main

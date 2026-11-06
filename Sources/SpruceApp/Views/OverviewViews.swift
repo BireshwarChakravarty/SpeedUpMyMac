@@ -299,8 +299,8 @@ struct SettingsView: View {
                     Image(systemName: "speaker.wave.3.fill").foregroundStyle(.secondary)
                 }
                 .disabled(!soundOn)
-                Toggle("Always use the dark aurora theme", isOn: $alwaysDark)
-                Toggle("Reduce visual effects (static background, no particles)", isOn: $reduceEffects)
+                Toggle("Always use the dark theme", isOn: $alwaysDark)
+                Toggle("Reduce visual effects (still orb, no particles)", isOn: $reduceEffects)
             }
             Section("Uninstaller") {
                 Toggle("Remove apps completely — leave no trace", isOn: binding(\.uninstallCompletely))
