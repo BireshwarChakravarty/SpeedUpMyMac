@@ -14,6 +14,8 @@ Spruce pulls the best parts of CleanMyMac, Mole, Pearcleaner, AppCleaner, OnyX, 
 
 Research and design rationale: [`docs/RESEARCH.md`](docs/RESEARCH.md) · [`docs/DESIGN.md`](docs/DESIGN.md)
 
+What's new: see [CHANGELOG.md](CHANGELOG.md). Coming from Root? The [guide](docs/GUIDE.md#coming-from-root) covers the move.
+
 ## Modules
 
 | | Module | What it does | Inspired by |

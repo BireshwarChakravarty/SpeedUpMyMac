@@ -26,7 +26,7 @@ public struct FleetSnapshot: Codable, Identifiable, Sendable {
 /// "Works across all my Macs": no server, just a synced folder (iCloud Drive by default; any
 /// Dropbox/Drive/SMB folder works — useful on a work Mac without your personal iCloud).
 public enum Fleet {
-    public static let version = "1.0.0"
+    public static let version = "2.0.0"
 
     public static func folder(_ settings: Settings) -> String {
         let dir = (settings.resolvedFleetFolder as NSString).appendingPathComponent("machines")

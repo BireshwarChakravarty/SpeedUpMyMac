@@ -9,7 +9,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-VERSION="1.0.0"
+VERSION="2.0.0"
 BUILD="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 DIST="dist"
 APP="$DIST/Spruce.app"
