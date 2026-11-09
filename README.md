@@ -21,8 +21,10 @@ What's new: see [CHANGELOG.md](CHANGELOG.md). Coming from Root? The [guide](docs
 | | Module | What it does | Inspired by |
 |---|---|---|---|
 | ✨ | **Smart Scan** | One button: junk, idle build folders, health, maintenance, startup audit → "Clean now" | CleanMyMac Smart Care |
+| 📈 | **Status** | Live CPU, memory, load, disk, network and security, plus 5-minute to 90-day history kept locally; full-disk forecast | Stats, iStat Menus |
 | 🧹 | **Cleanup** | 50 curated targets: app/browser/container caches, logs, crash reports, Xcode, Homebrew, npm/yarn/pnpm/pip/cargo/go, Mail downloads, iOS firmware, installers, Trash; system caches/logs with sudo | Mole, CleanMyMac, BleachBit |
 | 🔨 | **Dev Purge** | `node_modules`, `target`, `.build`, `Pods`, venvs, `.next`… in your project roots; skips git-tracked and recently active projects | Mole purge, npkill, DevCleaner |
+| 📦 | **Installers** | Old `.dmg`/`.pkg`/`.xip`/`.iso` files you've already used, matched to installed apps; to the Trash | — |
 | 🗑 | **Uninstaller** | App + leftovers (strict / enhanced / deep matching, container metadata, launch agents unloaded first), orphaned files, Trash Sentinel | Pearcleaner, AppCleaner |
 | 🔭 | **Space Lens** | Sunburst disk map with a collector, large & old files, SHA-256 duplicate finder | DaisyDisk, GrandPerspective, Gemini |
 | ⚡ | **Processes** | Top CPU/memory; quit, pause (SIGSTOP), push to efficiency cores | App Tamer |
@@ -31,7 +33,7 @@ What's new: see [CHANGELOG.md](CHANGELOG.md). Coming from Root? The [guide](docs
 | 🎛 | **Tweaks** | 26 reversible `defaults` tweaks with presets *Balanced / Privacy / Snappy*; Touch ID for sudo | RemoveMacAI, TinkerTool |
 | ❤️ | **Health** | Score, storage incl. purgeable/snapshots, memory pressure, swap, battery health, SMART, SIP/Gatekeeper/FileVault/Firewall/XProtect | Sensei, Stats |
 | 💻 | **Fleet** | All your Macs on one screen | — |
-| 🕘 | **History** | Every removal with its paths | Mole op log |
+| 🕘 | **Activity** | Every removal with its paths | Mole op log |
 
 ## Install
 

@@ -38,40 +38,52 @@ The app was called Burnish, then Root. Settings, history, logs, the fleet folder
 - **The root script is built only from validated, shell-quoted paths and fixed commands.** It never comes from free-form input. That's a deliberate contrast with Pearcleaner's helper, which runs any string it's given.
 - **Future:** the `PrivilegeRunner` protocol has room for an `SMAppService.daemon` helper now that Spruce can be signed with a Developer ID.
 
-## Visual design: "a colour world per section"
+## Visual design: "warm and calm, with bright tool accents"
 
-Chosen after an audit of the best-looking Mac apps (CleanMyMac, Sensei, Raycast, Linear, Things 3, Flighty, iStat Menus, Pearcleaner and Apple's own macOS 26/27 apps); the audit and mockups are in `docs/redesign/proposal.html`.
+**Layout:** a hidden title bar over a warm coffee ground (warm paper in light mode) with a faint
+corner glow and film grain, the same on every page. On the left, a slim rail: the Spruce mark,
+one icon per group (Overview, Clean, Apps, Speed, Protect, Fleet) and Settings at the bottom; the
+selected group is a solid tile in its accent. Across the top, the group's pages as pill tabs
+(monospaced, live counts beside the name), with sound and the Admin switch on the right.
 
-**Layout:** a hidden title bar; a floating glass sidebar with a coloured icon tile for each section (like System Settings) and live counts; this Mac at the bottom with the Spruce mark. Each page is lit from above by its section's colour, cross-fading as you move between sections. Content sits on solid surfaces with a hairline highlight along the top edge (a soft shadow in light mode). Glass is reserved for chrome: sidebar, toolbar, toasts and the menu bar panel.
+**Tool screens:** each tool starts and finishes on the same composition: a matte sphere in the
+tool's accent, a Cal Sans title with one line under it, and pill actions (a white primary pill
+and a dark secondary one). Results replace the title with a large monospaced reading such as
+"443 MB found". Lists and dashboards sit on flat cards: a warm-white fill a few percent over the
+ground and a hairline edge.
 
-**Section colours** (`Module.palette`, light / middle / deep): Smart Scan spruce green, Cleanup sky, Dev Purge indigo, Uninstaller rose, Space Lens violet, Processes amber, Maintenance orange, Startup gold, Tweaks slate, Health red, Fleet blue, History graphite. A section's colour drives its icon tile, its primary button (light→middle gradient, dark `ink` text, soft glow), checkmarks, switches, bars and rings, through the `pageModule` environment value.
+**Section accents** (`Module.palette`, light / middle / deep): Smart Scan teal, Status green,
+Cleanup blue, Dev Purge gold, Installers ginger, Uninstaller coral, Space Lens lilac, Processes
+amber, Maintenance violet, Startup moss, Tweaks apricot, Health red, Fleet blue, Activity stone.
+Accents mark labels, icons, charts, checkmarks, switches and the selected rail tile; they never
+tint the background. The `pageModule` environment value carries the current section's accent.
 
-**Typography:**
-- *SF Pro Rounded* (bold) for every number: hero metrics, tiles, gauges, the orb
-- *SF Pro* for titles and body text
-- *SF Mono* for paths and the privileged-script preview
+**Typography** (bundled, SIL Open Font License):
+- *Geist Mono* for every number, for labels (uppercase with tracking) and for tabs
+- *Geist* for body text and buttons
+- *Cal Sans* for page and tool titles
 
 **Colour tokens:**
 
 | Token | Light | Dark | Use |
 |---|---|---|---|
-| `mint` / `spruce` | `#7DF5D0` / `#2DD4A0` | same | Spruce's own colour: the orb, Smart Scan, brand |
-| `accentText` | `#0B7A5E` | `#7DF5D0` | Spruce's colour as text |
-| `safe` | `#15803D` | `#4ADE80` | Safe-to-remove items |
-| `review` | `#B45309` | `#FBBF24` | Needs a look (orphans, large files) |
-| `risky` | `#DC2626` | `#F87171` | Destructive or irreversible |
-| `sudo` | `#B45309` | `#F5A524` | Admin mode armed, system-scope rows |
-| `ink` | `#04140F` | `#04140F` | Text on every button gradient |
-| `base` | `#F2F5F4` | `#101615` | Window background (neutrals lean slightly green) |
+| `base` | `#F4EFE6` | `#17120A` | Window ground |
+| `text` | `#221B11` | `#EDE6DA` | Warm text; secondary text is the same colour at lower opacity |
+| `cardFill` | white 66% | `#F2ECE0` 7% | Cards and tiles |
+| `hairline` | espresso 12% | `#F2ECE0` 10% | Card edges and dividers |
+| `inverse` / `onInverse` | `#221B11` / `#F4EFE6` | white / `#0F0B05` | The primary pill |
+| `safe` · `review` · `risky` | green · amber · red | | State, separate from section accents |
+| `sudo` | `#B45309` | `#F0B24A` | Admin mode armed |
 
 **Signature moments:**
-- **Smart Scan's glass orb** (`GlassOrb`): specks of junk drift into the orb while it scans, the ring fills with progress, then shows health; afterwards the orb holds roughly one speck per doubling of junk. A clean Mac's orb is clear and bright.
-- **Spruce Up**: the swept-glass sound, a confetti burst in the section colours, and the freed space counting down.
-- **The menu bar panel**: real glass (`NSVisualEffectView`) that stays open while you drag an app from Finder onto its rose drop tile (or onto the menu bar icon), with disk, memory and health gauges.
-- **Admin with Touch ID**: the switch shows a fingerprint and glows amber while unlocked.
-- **Space Lens** is a sunburst drawn with SwiftUI `Canvas`; **the receipt sheet** lists every item, its size and destination, and the script that will run as root.
+- **Smart Scan:** the sphere breathes while it scans; the result reads "… found" in large mono, with Spruce Up as the white pill and a health chip below.
+- **Status:** live cards for CPU, memory, load, disk, network and security, and History charts from 5 minutes to 90 days.
+- **The menu bar panel:** a small dashboard (health, live CPU, memory, disk and network tiles, Spruce Up) that stays open while you drag an app onto its drop box, or onto the menu bar icon, to uninstall it.
+- **Admin with Touch ID:** the switch shows a fingerprint and glows amber while unlocked.
 
-Motion and sound: numbers count, cards rise in, pages cross-fade, and sounds are synthesized in-app with trackpad haptics. Everything respects *Reduce Motion*, and Settings can mute sound or reduce effects.
+Motion and sound: numbers count, cards rise in, pages cross-fade, and sounds are synthesized
+in-app with trackpad haptics. Everything respects *Reduce Motion*, and Settings can mute sound or
+reduce effects.
 
 ## Icon
 

@@ -72,11 +72,16 @@ The latest green run is https://github.com/BireshwarChakravarty/SpeedUpMyMac/act
 - **Menu bar:** own floating glass panel (`StatusItemController`, NSVisualEffectView, borderless) with drag-to-uninstall (drop zone or the menu bar icon), gauges and Spruce Up.
 - **Orphaned files:** Select All / Deselect All with a selection count (⇧⌘A).
 
+## Look, Status and Installers (9 Nov 2026)
+- **Look:** warm coffee ground with grain; icon rail with pill tabs; tool start and result screens built from `ToolHero` (matte `SectionSphere`, Cal Sans title, pill actions); Geist Mono numbers; bundled Geist, Geist Mono and Cal Sans (`Resources/Fonts`, registered through `ATSApplicationFontsPath`). The glass orb is gone. The removal log is called Activity.
+- **Status:** `MetricSampler`, `MetricStore` (SQLite, 90 days) and `DiskForecast` in SpruceCore; `MetricsMonitor` in the app (2 s while a live view is open, 30 s otherwise). Now and History tabs; the menu bar panel shows the same live tiles.
+- **Installers:** `InstallerSweep` in SpruceCore; the Installers page in the Clean group.
+
 ## Next up / open items
 - Space Lens: the "Map your disk" card sits low on the page; align it to the top.
 - The remaining pages (Dev Purge, Maintenance, Startup, Fleet, History, Settings, menu bar) use the shared components but haven't had page-specific polish like Smart Scan and Cleanup.
 - Uninstaller: check the detail page with an app selected. The screenshot tour doesn't select one yet.
 - Install and try it on each Mac (M4, M6, M3). On first launch: **Open Anyway** (until notarized), then **Full Disk Access** (again, because of the new bundle id).
-- Pages other than Smart Scan and the menu bar pick up the new system through shared components; check each in the CI screenshots and give the busiest ones (Space Lens, Uninstaller detail) page-specific polish.
+- Give Maintenance and Space Lens tool-style start screens, and the Uninstaller a full-width list with expandable leftovers.
 - Notarization: the user joins the Apple Developer Program and runs `scripts/make-developer-id.sh`; then a CI run produces the first notarized build. Its Notarize step hasn't run for real yet.
 - No pull request has been opened (none was requested).

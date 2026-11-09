@@ -95,20 +95,24 @@ The switch from the "Root Signing" certificate to the Developer ID changes Spruc
 
 ## 3. What each page does
 
-| Page | What it does |
-|---|---|
-| **Smart Scan** | Tap the orb. One scan covers junk, idle build folders, health, security, maintenance and startup items. **Clean now** cleans only the safe items. |
-| **Cleanup** | 50 cleanup rules: caches, logs, browser junk, installers, Trash and more. Items rated *Safe* are pre-selected; *Review* and *Risky* items never are. |
-| **Dev Purge** | Removes `node_modules`, `target`, `.build`, Pods, venvs and similar folders from projects you haven't touched lately. Folders tracked by git are never touched. |
-| **Uninstaller** | Removes apps **completely**, with no traces left (see below). Also finds files left behind by apps you deleted long ago. |
-| **Space Lens** | A sunburst map of your disk (click to drill in), large and old files, and duplicate files. |
-| **Processes** | Quit, pause, or move a resource hog onto the efficiency cores. |
-| **Maintenance** | Runs only tasks whose check found a real problem. On macOS 27 it adds **Clean up Gatekeeper records** (`spctl` purge), which forgets launch approvals for apps that are gone. |
-| **Startup Items** | Every launch agent and daemon, with signature checks. Disabling one is reversible. On macOS 27, launchd silently skips a job whose plist still carries the download quarantine flag; Spruce marks those **Won't load** and **Fix** clears the flag. |
-| **Tweaks** | Reversible macOS tweaks. Presets: *balanced*, *privacy*, *snappy*. **Revert all** restores your previous settings. |
-| **Health** | Disk, memory, battery, thermals, SIP, Gatekeeper, FileVault, firewall and a health score. |
-| **Fleet** | All your Macs on one page, synced through iCloud Drive, or any folder you choose for the work Mac. Each Mac keeps one card even if you reinstall Spruce, and old duplicates clear themselves the next time that Mac opens Spruce. To remove a card by hand, point at it and click ✕ (or right-click → **Remove from Fleet**). |
-| **History** | Every removal, with its paths. |
+The rail on the left switches between groups; each group's pages are tabs at the top.
+
+| Group | Page | What it does |
+|---|---|---|
+| Overview | **Smart Scan** | One scan covers junk, idle build folders, health, security, maintenance and startup items. **Spruce Up** cleans only the safe items. |
+| Overview | **Status** | **Now:** live CPU, memory, load, disk (with when it'll be full), network and security. **History:** charts from 5 minutes to 90 days. Spruce samples every 30 seconds while it runs (the menu bar counts) and keeps 90 days on this Mac only. |
+| Clean | **Cleanup** | 50 cleanup rules: caches, logs, browser junk, installers, Trash and more. Items rated *Safe* are pre-selected; *Review* and *Risky* items never are. |
+| Clean | **Dev Purge** | Removes `node_modules`, `target`, `.build`, Pods, venvs and similar folders from projects you haven't touched lately. Folders tracked by git are never touched. |
+| Clean | **Installers** | Old `.dmg`, `.pkg`, `.xip` and `.iso` files in Downloads, Desktop, Documents, Mail downloads and /Users/Shared. Installers for apps you already have, and anything older than a week, are pre-selected; ISO images and mounted disk images never are. Everything goes to the Trash. |
+| Clean | **Space Lens** | A sunburst map of your disk (click to drill in), large and old files, and duplicate files. |
+| Apps | **Uninstaller** | Removes apps **completely**, with no traces left (see below). Also finds files left behind by apps you deleted long ago. |
+| Speed | **Processes** | Quit, pause, or move a resource hog onto the efficiency cores. |
+| Speed | **Maintenance** | Runs only tasks whose check found a real problem. On macOS 27 it adds **Clean up Gatekeeper records** (`spctl` purge). |
+| Speed | **Startup Items** | Every launch agent and daemon, with signature checks. Disabling one is reversible. Items macOS 27 won't load are marked **Won't load**; **Fix** clears the flag. |
+| Speed | **Tweaks** | Reversible macOS tweaks. Presets: *balanced*, *privacy*, *snappy*. **Revert all** restores your previous settings. |
+| Protect | **Health** | Disk, memory, battery, thermals, SIP, Gatekeeper, FileVault, firewall and a health score. |
+| Fleet | **Fleet** | All your Macs on one page, synced through iCloud Drive, or any folder you choose for the work Mac. Each Mac keeps one card even if you reinstall Spruce; to remove a card, point at it and click ✕ (or right-click → **Remove from Fleet**). |
+| Fleet | **Activity** | Every removal, with its paths. |
 
 Keyboard: **⌘R** runs Smart Scan, and **⌘1** to **⌘9** jump between pages.
 
@@ -170,12 +174,12 @@ Close the panel with ✕, Esc, or by clicking the menu bar icon again.
 Settings (**⌘,**) → **Look & Sound**:
 
 - **Sound effects** and **volume**. Every sound is synthesized inside the app. The speaker button in the top bar mutes them instantly.
-- **Always use the dark theme.** Turn this off to follow your system appearance; every page is designed for light mode too.
+- **Always use the dark theme.** Turn this off to follow your system appearance; every page also works on the warm-paper light theme.
 - **Reduce visual effects** keeps the Smart Scan orb still and drops the particles. Spruce also respects macOS **Reduce Motion**.
 
 On a Force Touch trackpad, toggles and switches also give haptic feedback.
 
-Each section has its own colour: its icon in the sidebar, its main button, and the soft light behind the page. Smart Scan is spruce green, Cleanup sky blue, the Uninstaller rose, Space Lens violet, and so on.
+Each section has its own accent colour, used for its labels, charts and the selected icon in the rail: teal for Smart Scan, blue for Cleanup, coral for the Uninstaller, violet for Maintenance, and so on.
 
 ---
 
