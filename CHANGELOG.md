@@ -30,6 +30,9 @@ of history, and an **Installers** sweep.
   - The primary button is a high-contrast pill.
 - **Bundled fonts:** Geist for text and numbers, Geist Mono for labels and tabs, Cal Sans for titles (all SIL Open Font License).
 - **History is now called Activity,** to make room for metric history.
+- **Uninstaller is one full-width list.** Open a row to see the app's files, tick several apps and remove them with one receipt from the bar at the bottom.
+- **Maintenance and Space Lens open on a start screen,** like Cleanup and Installers. Maintenance no longer runs its checks as soon as you open it.
+- **The menu bar panel fits small screens.** It stops at the bottom of the screen and scrolls, instead of running off it.
 
 ## [2.0.0] — 2026-11-06 · Spruce
 

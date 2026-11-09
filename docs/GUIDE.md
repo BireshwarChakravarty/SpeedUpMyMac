@@ -105,7 +105,7 @@ The rail on the left switches between groups; each group's pages are tabs at the
 | Clean | **Dev Purge** | Removes `node_modules`, `target`, `.build`, Pods, venvs and similar folders from projects you haven't touched lately. Folders tracked by git are never touched. |
 | Clean | **Installers** | Old `.dmg`, `.pkg`, `.xip` and `.iso` files in Downloads, Desktop, Documents, Mail downloads and /Users/Shared. Installers for apps you already have, and anything older than a week, are pre-selected; ISO images and mounted disk images never are. Everything goes to the Trash. |
 | Clean | **Space Lens** | A sunburst map of your disk (click to drill in), large and old files, and duplicate files. |
-| Apps | **Uninstaller** | Removes apps **completely**, with no traces left (see below). Also finds files left behind by apps you deleted long ago. |
+| Apps | **Uninstaller** | Removes apps **completely**, with no traces left (see below). One list of every app: open a row to see its files, or tick several and remove them together. Also finds files left behind by apps you deleted long ago. |
 | Speed | **Processes** | Quit, pause, or move a resource hog onto the efficiency cores. |
 | Speed | **Maintenance** | Runs only tasks whose check found a real problem. On macOS 27 it adds **Clean up Gatekeeper records** (`spctl` purge). |
 | Speed | **Startup Items** | Every launch agent and daemon, with signature checks. Disabling one is reversible. Items macOS 27 won't load are marked **Won't load**; **Fix** clears the flag. |
@@ -119,6 +119,8 @@ Keyboard: **⌘R** runs Smart Scan, and **⌘1** to **⌘9** jump between pages.
 ---
 
 ## 4. Uninstaller: complete removal
+
+The Uninstaller lists every app in one column. Click a row to open it and see the files the app keeps outside its bundle, with a checkbox for each. Tick the circle on several rows to remove them together: the bar at the bottom shows how many are selected and their size, and **Remove** opens one receipt for all of them.
 
 **Remove completely, leave no trace** is on by default. When you uninstall an app, Spruce does the following:
 

@@ -358,7 +358,7 @@ struct ToolHero<Actions: View>: View {
                     Text(title).font(Theme.display(30))
                 }
                 if let subtitle {
-                    Text(subtitle).font(Theme.display(15)).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                    Text(subtitle).font(Theme.sans(15)).foregroundStyle(.secondary).multilineTextAlignment(.center)
                         .frame(maxWidth: 520)
                 }
             }

@@ -84,6 +84,33 @@ struct MaintenanceView: View {
 
     var body: some View {
         ModuleScroll {
+            if probes.isEmpty {
+                start
+            } else {
+                results
+            }
+        }
+        .navigationTitle("Maintenance")
+    }
+
+    /// Before the first check: what Maintenance does, and one button.
+    private var start: some View {
+        VStack(spacing: 4) {
+            ToolHero(module: .maintenance, title: "Maintenance",
+                     subtitle: "Checks for real symptoms, then fixes only what needs it.") {
+                Button("Check") { Task { await probe() } }
+                    .buttonStyle(.brand)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(model.busy != nil)
+            }
+            Text("\(MaintenanceTask.allCases.count) tasks: DNS, Spotlight, Launch Services, fonts, permissions and more. Nothing runs until you choose it.")
+                .font(Theme.mono(11)).foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center).frame(maxWidth: 460)
+                .frame(maxWidth: .infinity)
+        }
+    }
+
+    @ViewBuilder private var results: some View {
             HeroHeader(title: "Maintenance", value: "\(probes.values.filter(\.isRecommended).count) recommended",
                        caption: "Each task checks for a real symptom first — no ritual cache rebuilding", symbol: "wrench.and.screwdriver") {
                 HStack {
@@ -123,9 +150,6 @@ struct MaintenanceView: View {
                 }
             }
             .card()
-        }
-        .navigationTitle("Maintenance")
-        .task { await probe() }
     }
 
     private func probe() async {

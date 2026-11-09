@@ -9,8 +9,33 @@ struct MenuBarView: View {
     var close: () -> Void = {}
 
     private var monitor: MetricsMonitor { .shared }
+    @State private var contentHeight: CGFloat = 0
+
+    /// The tallest the panel may be: the screen under the menu bar, less a margin. On a small
+    /// screen the panel stops there and scrolls.
+    private var maxHeight: CGFloat {
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
+        return max(320, (screen?.visibleFrame.height ?? 800) - 24)
+    }
 
     var body: some View {
+        let limit = maxHeight
+        ScrollView {
+            content
+                .onGeometryChange(for: CGFloat.self, of: \.size.height) { contentHeight = $0 }
+        }
+        .scrollDisabled(contentHeight <= limit)
+        .scrollIndicators(contentHeight > limit ? .automatic : .hidden)
+        .frame(width: 360, height: min(contentHeight, limit))
+        .foregroundStyle(Theme.text)
+        .background(Theme.base.opacity(0.55))
+        .buttonStyle(.quiet)
+        .onAppear { MetricsMonitor.shared.watch() }
+        .onDisappear { MetricsMonitor.shared.unwatch() }
+    }
+
+    private var content: some View {
         let live = Array(monitor.live.suffix(24))
         let latest = monitor.latest
         VStack(alignment: .leading, spacing: 12) {
@@ -59,10 +84,7 @@ struct MenuBarView: View {
         .padding(16)
         .frame(width: 360)
         .foregroundStyle(Theme.text)
-        .background(Theme.base.opacity(0.55))
         .buttonStyle(.quiet)
-        .onAppear { MetricsMonitor.shared.watch() }
-        .onDisappear { MetricsMonitor.shared.unwatch() }
     }
 
     private var header: some View {

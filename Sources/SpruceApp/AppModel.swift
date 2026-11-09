@@ -75,6 +75,13 @@ struct Celebration: Identifiable, Equatable {
     var symbol: String = "sparkles"
 }
 
+/// One app to uninstall, with the files and traces chosen for it.
+struct UninstallPlan {
+    var app: InstalledApp
+    var leftovers: [Leftover]
+    var traces: [UninstallTrace]
+}
+
 /// What a post-uninstall rescan found.
 struct UninstallVerdict: Equatable {
     var app: String
@@ -481,58 +488,82 @@ final class AppModel {
     }
 
     func confirmUninstall(_ app: InstalledApp, leftovers: [Leftover], traces: [UninstallTrace]) {
+        confirmUninstall([UninstallPlan(app: app, leftovers: leftovers, traces: traces)])
+    }
+
+    /// One receipt for one or more apps: every app, its chosen files and traces, and a single admin
+    /// script. Confirming removes them one after another, then rescans each to prove it's gone.
+    func confirmUninstall(_ plans: [UninstallPlan]) {
+        guard !plans.isEmpty else { return }
         let complete = settings.uninstallCompletely
         let gone = complete ? "Delete" : "Move to Trash"
-        var lines = [ReceiptLine(path: app.path, title: "\(app.name).app", bytes: app.bytes,
-                                 destination: app.userRemovable ? gone : "Delete as admin")]
-        lines += leftovers.map { ReceiptLine(path: $0.path, title: $0.kind, bytes: $0.bytes,
-                                             destination: $0.system ? "Delete as admin" : (complete || $0.kind.contains("Cache") ? "Delete" : "Move to Trash")) }
-        lines += traces.map { ReceiptLine(path: "trace:\($0.kind.rawValue)", title: $0.title, bytes: 0,
-                                          destination: $0.needsAdmin ? "Clear as admin" : "Clear") }
-        let requests = Uninstaller.requests(app: app, leftovers: leftovers, sudo: sudo, complete: complete)
-        var preview = Cleaner(settings: settings, sudo: sudo, runner: nil).privilegedPreview(requests)
-        if sudo {
-            // Show the trace commands too: they run in the same prompt.
-            var tracesPreview = PrivilegedScript()
-            for t in traces where t.needsAdmin {
-                for item in t.items {
-                    switch t.kind {
-                    case .launchJobs where item.hasPrefix("system/"): tracesPreview.add("/bin/launchctl", ["bootout", item])
-                    case .receipts: tracesPreview.add("/usr/sbin/pkgutil", ["--forget", item])
-                    case .processes: tracesPreview.add("/bin/kill", ["-9", String(item.split(separator: ":").first ?? "")])
-                    default: break
+        let several = plans.count > 1
+        var lines: [ReceiptLine] = []
+        var script = PrivilegedScript()
+        var needsAdmin = false
+        for plan in plans {
+            let app = plan.app, leftovers = plan.leftovers, traces = plan.traces
+            lines.append(ReceiptLine(path: app.path, title: "\(app.name).app", bytes: app.bytes,
+                                     destination: app.userRemovable ? gone : "Delete as admin"))
+            lines += leftovers.map { ReceiptLine(path: $0.path, title: several ? "\(app.name) · \($0.kind)" : $0.kind, bytes: $0.bytes,
+                                                 destination: $0.system ? "Delete as admin" : (complete || $0.kind.contains("Cache") ? "Delete" : "Move to Trash")) }
+            lines += traces.map { ReceiptLine(path: "trace:\(app.bundleID):\($0.kind.rawValue)",
+                                              title: several ? "\(app.name) · \($0.title)" : $0.title, bytes: 0,
+                                              destination: $0.needsAdmin ? "Clear as admin" : "Clear") }
+            let requests = Uninstaller.requests(app: app, leftovers: leftovers, sudo: sudo, complete: complete)
+            var preview = Cleaner(settings: settings, sudo: sudo, runner: nil).privilegedPreview(requests)
+            if sudo {
+                // Show the trace commands too: they run in the same prompt.
+                var tracesPreview = PrivilegedScript()
+                for t in traces where t.needsAdmin {
+                    for item in t.items {
+                        switch t.kind {
+                        case .launchJobs where item.hasPrefix("system/"): tracesPreview.add("/bin/launchctl", ["bootout", item])
+                        case .receipts: tracesPreview.add("/usr/sbin/pkgutil", ["--forget", item])
+                        case .processes: tracesPreview.add("/bin/kill", ["-9", String(item.split(separator: ":").first ?? "")])
+                        default: break
+                        }
                     }
                 }
+                for line in preview.lines + Uninstaller.afterRemoval(traces, sudo: sudo).lines { tracesPreview.addTrusted(line) }
+                preview = tracesPreview
             }
-            for line in preview.lines + Uninstaller.afterRemoval(traces, sudo: sudo).lines { tracesPreview.addTrusted(line) }
-            preview = tracesPreview
+            for line in preview.lines { script.addTrusted(line) }
+            needsAdmin = needsAdmin || requests.contains { $0.scope == .system } || traces.contains(where: \.needsAdmin)
         }
-        let needsAdmin = requests.contains { $0.scope == .system } || traces.contains(where: \.needsAdmin)
+        let names = plans.map(\.app.name)
+        let label = several ? "\(plans.count) apps" : names[0]
         var note: String? = complete
-            ? "Complete removal: everything below is deleted permanently, including \(app.name)'s data and settings."
+            ? (several ? "Complete removal: everything below is deleted permanently, including each app's data and settings."
+                       : "Complete removal: everything below is deleted permanently, including \(label)'s data and settings.")
             : nil
         if needsAdmin && !sudo {
             let skip = machine.isAdmin ? "Some items need Admin mode and will be skipped." : "Some items are system-level; this account can't remove them."
             note = [note, skip].compactMap { $0 }.joined(separator: " ")
         }
-        receipt = Receipt(title: complete ? "Remove \(app.name) completely" : "Uninstall \(app.name)", lines: lines,
-                          script: preview.isEmpty ? nil : preview,
+        receipt = Receipt(title: complete ? "Remove \(label) completely" : "Uninstall \(label)", lines: lines,
+                          script: script.isEmpty ? nil : script,
                           confirmTitle: complete ? "Remove Completely" : "Uninstall", note: note) { [self] in
             let settings = self.settings, sudo = self.sudo, runner = self.runner, others = self.apps
             let level = settings.leftoverLevel
-            let (result, left) = await run("Removing \(app.name)…") { () -> (CleanReport, [Leftover]) in
-                let r = Uninstaller.uninstall(app, leftovers: leftovers, traces: traces, complete: complete,
-                                              settings: settings, sudo: sudo, runner: runner)
-                History.append(HistoryEntry(action: "uninstall", detail: app.name, report: r))
-                let left = Uninstaller.remaining(after: app, level: level, otherApps: others).filter { complete || !$0.isUserData }
-                return (r, left)
+            let (result, left) = await run("Removing \(label)…") { () -> (CleanReport, [Leftover]) in
+                var report = CleanReport()
+                var left: [Leftover] = []
+                for plan in plans {
+                    let r = Uninstaller.uninstall(plan.app, leftovers: plan.leftovers, traces: plan.traces, complete: complete,
+                                                  settings: settings, sudo: sudo, runner: runner)
+                    History.append(HistoryEntry(action: "uninstall", detail: plan.app.name, report: r))
+                    report.merge(r)
+                    left += Uninstaller.remaining(after: plan.app, level: level, otherApps: others).filter { complete || !$0.isUserData }
+                }
+                return (report, left)
             }
-            verdict = UninstallVerdict(app: app.name, remaining: left)
+            verdict = UninstallVerdict(app: several ? names.joined(separator: ", ") : label, remaining: left)
             if left.isEmpty && !result.removed.isEmpty {
                 status = nil
                 SoundFX.shared.play(.vanish)
-                celebrate(Celebration(bytes: result.freedBytes, title: "\(app.name) is gone", detail: "Verified — no trace left on this Mac",
-                                      symbol: "checkmark.seal.fill"))
+                celebrate(Celebration(bytes: result.freedBytes, title: several ? "\(label) are gone" : "\(label) is gone",
+                                      detail: "Verified — no trace left on this Mac", symbol: "checkmark.seal.fill"))
             } else {
                 summarize(result, verb: "Removed")
             }
@@ -687,6 +718,9 @@ final class AppModel {
         await runSmartScan()
         await captureTour(folder, "smart-scan-results")
         for module in Module.allCases where module != .smartScan {
+            if module == .uninstaller {
+                uninstallFocus = apps.filter { $0.userRemovable && !$0.isAppleApp }.max(by: { $0.bytes < $1.bytes })
+            }
             selection = module
             await captureTour(folder, module.rawValue)
         }

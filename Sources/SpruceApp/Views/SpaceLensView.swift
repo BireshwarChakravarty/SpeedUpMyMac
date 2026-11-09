@@ -56,6 +56,30 @@ struct SpaceLensView: View {
     // MARK: Disk map
 
     private var mapPane: some View {
+        Group {
+            if tree == nil { mapStart } else { mapContent }
+        }
+    }
+
+    /// Before the first scan: what the map is, and one button.
+    private var mapStart: some View {
+        VStack(spacing: 4) {
+            ToolHero(module: .spaceLens, title: "Space Lens",
+                     subtitle: "See what's taking up your disk, ring by ring.") {
+                Button("Scan \(Paths.abbreviate(root))") { scanTree() }
+                    .buttonStyle(.brand)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(model.busy != nil)
+            }
+            Text("Click a ring to drill in. Collect anything you don't need and remove it all at once.")
+                .font(Theme.mono(11)).foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center).frame(maxWidth: 460)
+                .frame(maxWidth: .infinity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private var mapContent: some View {
         HStack(alignment: .top, spacing: 16) {
             VStack {
                 if let node = focus ?? tree {
@@ -81,10 +105,6 @@ struct SpaceLensView: View {
                         }
                         .allowsHitTesting(hovered == nil)
                     }
-                } else {
-                    EmptyState(symbol: "circle.circle", title: "Map your disk",
-                               message: "A DaisyDisk-style sunburst of what's using space. Click a ring to drill in; drop items into the collector to remove them together.")
-                    Button("Scan \(Paths.abbreviate(root))") { scanTree() }.buttonStyle(.brand).disabled(model.busy != nil)
                 }
             }
             .frame(maxWidth: .infinity)

@@ -6,12 +6,16 @@ struct UninstallerView: View {
     @State private var mode = 0
     @State private var query = ""
     @State private var sort = 0
+    /// The app whose row is open, showing its files.
     @State private var selectedApp: InstalledApp?
     @State private var leftovers: [Leftover] = []
     @State private var traces: [UninstallTrace] = []
     @State private var chosenLeftovers = Set<String>()
     @State private var chosenOrphans = Set<String>()
     @State private var loadingDetail = false
+    /// Apps ticked for removal, by path.
+    @State private var picked = Set<String>()
+    @State private var preparing = false
 
     private var filteredApps: [InstalledApp] {
         let list = model.apps.filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) || $0.bundleID.localizedCaseInsensitiveContains(query) }
@@ -21,6 +25,8 @@ struct UninstallerView: View {
         default: return list
         }
     }
+
+    private var pickedApps: [InstalledApp] { model.apps.filter { picked.contains($0.path) } }
 
     var body: some View {
         VStack(spacing: 12) {
@@ -36,85 +42,207 @@ struct UninstallerView: View {
         .onChange(of: model.uninstallFocus) { takeFocus() }
     }
 
-    /// An app picked in the menu bar panel opens here, selected.
+    /// An app picked in the menu bar panel opens here, expanded.
     private func takeFocus() {
         guard let app = model.uninstallFocus else { return }
         model.uninstallFocus = nil
         mode = 0
+        query = ""
         selectedApp = model.apps.first { $0.path == app.path } ?? app
     }
 
     // MARK: Apps
 
     private var appsPane: some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(spacing: 10) {
-                HStack(spacing: 8) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                        TextField("Search apps", text: $query).textFieldStyle(.plain)
+        VStack(spacing: 10) {
+            appsToolbar
+            if let verdict = model.verdict {
+                VerdictCard(verdict: verdict)
+                    .overlay(alignment: .topTrailing) {
+                        IconButton(symbol: "xmark", help: "Dismiss") { withAnimation(Theme.snappy) { model.verdict = nil } }
+                            .padding(6)
                     }
-                    .padding(.horizontal, 10).padding(.vertical, 7)
-                    .background(Capsule().fill(Theme.rim.opacity(0.07)))
-                    Menu {
-                        Picker("Sort", selection: $sort) {
-                            Text("Name").tag(0)
-                            Text("Size").tag(1)
-                            Text("Least used").tag(2)
-                        }
-                        .pickerStyle(.inline)
-                    } label: {
-                        Image(systemName: "arrow.up.arrow.down")
-                    }
-                    .menuStyle(.borderlessButton)
-                    .menuIndicator(.hidden)
-                    .frame(width: 28)
-                }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 2) {
-                        ForEach(filteredApps) { app in
-                            AppRow(app: app, selected: selectedApp?.path == app.path) {
-                                SoundFX.shared.play(.select)
-                                withAnimation(Theme.spring) { selectedApp = app }
-                            }
+                    LazyVStack(spacing: 0) {
+                        if model.apps.isEmpty {
+                            HStack(spacing: 10) { GradientSpinner(); Text("Reading your Applications folders…").foregroundStyle(.secondary) }
+                                .padding(.vertical, 40)
+                        } else if filteredApps.isEmpty {
+                            Text("No app matches \u{201C}\(query)\u{201D}").foregroundStyle(.secondary).padding(.vertical, 40)
+                        }
+                        ForEach(Array(filteredApps.enumerated()), id: \.element.id) { index, app in
+                            if index > 0 { RowDivider(inset: 50) }
+                            appRow(app).id(app.path)
                         }
                     }
+                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .surface()
+                    .padding(.bottom, 8)
                 }
                 .scrollIndicators(.automatic)
-            }
-            .padding(12)
-            .frame(width: 340)
-            .surface()
-
-            Group {
-                if let app = selectedApp {
-                    appDetail(app).id(app.path).transition(.moduleSwap)
-                } else {
-                    VStack {
-                        EmptyState(symbol: "xmark.app", title: "Pick an app",
-                                   message: "Spruce finds its caches, preferences, containers, launch agents, helpers, crash reports, package receipts and command-line links — then removes it completely, so nothing comes back. Drag an app to the Trash and Spruce will notice, too.")
-                        if let verdict = model.verdict { VerdictCard(verdict: verdict) }
-                    }
-                    .card()
+                .onChange(of: selectedApp?.path) { _, path in
+                    guard let path else { return }
+                    withAnimation(Theme.spring) { proxy.scrollTo(path, anchor: .top) }
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .animation(Theme.spring, value: selectedApp?.path)
+            removalBar
         }
         .padding(.horizontal, 26)
-        .padding(.bottom, 22)
+        .padding(.bottom, 18)
         .onChange(of: selectedApp) { load() }
         .onChange(of: model.apps) {
-            // After an uninstall the app disappears from the list; clear the detail pane.
-            if let app = selectedApp, !model.apps.contains(where: { $0.path == app.path }) { selectedApp = nil }
+            // After an uninstall the app disappears from the list; close its row and untick it.
+            let paths = Set(model.apps.map(\.path))
+            picked = picked.intersection(paths)
+            if let app = selectedApp, !paths.contains(app.path) { selectedApp = nil }
         }
+    }
+
+    private var appsToolbar: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                TextField("Search apps", text: $query).textFieldStyle(.plain)
+                if !query.isEmpty {
+                    Button { query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary) }
+                        .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .background(Capsule().fill(Theme.chipFill))
+            .overlay(Capsule().strokeBorder(Theme.hairline, lineWidth: 1))
+            .frame(maxWidth: 360)
+            PillPicker(selection: $sort, options: [(0, "Name", nil), (1, "Size", nil), (2, "Least used", nil)])
+                .fixedSize()
+            Spacer()
+            Text("\(model.apps.count) apps · \(Format.bytes(model.apps.reduce(0) { $0 + $1.bytes }))")
+                .font(Theme.mono(11)).foregroundStyle(.secondary)
+        }
+    }
+
+    private func appRow(_ app: InstalledApp) -> some View {
+        let open = selectedApp?.path == app.path
+        let ticked = picked.contains(app.path)
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 10) {
+                Button {
+                    withAnimation(Theme.snappy) {
+                        if ticked { picked.remove(app.path) } else { picked.insert(app.path) }
+                    }
+                } label: {
+                    Image(systemName: ticked ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(ticked ? AnyShapeStyle(Module.uninstaller.accent) : AnyShapeStyle(HierarchicalShapeStyle.tertiary))
+                        .contentTransition(.symbolEffect(.replace))
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!app.canUninstall)
+                .help(app.canUninstall ? (ticked ? "Don't remove \(app.name)" : "Select \(app.name) for removal") : "Part of macOS")
+
+                Button {
+                    SoundFX.shared.play(.select)
+                    withAnimation(Theme.spring) { selectedApp = open ? nil : app }
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 10, weight: .bold)).foregroundStyle(.tertiary)
+                            .rotationEffect(.degrees(open ? 90 : 0))
+                            .frame(width: 12)
+                        Image(nsImage: NSWorkspace.shared.icon(forFile: app.path)).resizable().frame(width: 32, height: 32)
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 6) {
+                                Text(app.name).font(Theme.sans(13, .medium)).lineLimit(1)
+                                if app.isAppStore { Chip(text: "App Store", color: Theme.spruce, symbol: "bag") }
+                                if !app.userRemovable { SudoBadge() }
+                            }
+                            Text("v\(app.version) · \(app.lastUsed.map { "used \(Format.relative($0))" } ?? "never opened")")
+                                .font(Theme.mono(11)).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                        Spacer(minLength: 8)
+                        SizeText(bytes: app.bytes).frame(minWidth: 70, alignment: .trailing)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.vertical, 7)
+            .rowHover()
+
+            if open {
+                appDetail(app)
+                    .padding(.leading, 46).padding(.bottom, 12).padding(.top, 2)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    /// Ticked apps, their total, and one Remove for all of them.
+    private var removalBar: some View {
+        let apps = pickedApps
+        let total = apps.reduce(Int64(0)) { sum, app in
+            sum + app.bytes + (app.path == selectedApp?.path
+                ? leftovers.filter { chosenLeftovers.contains($0.path) }.reduce(0) { $0 + $1.bytes } : 0)
+        }
+        let complete = model.settings.uninstallCompletely
+        return HStack(spacing: 12) {
+            Image(systemName: apps.isEmpty ? "hand.tap" : "checkmark.circle.fill")
+                .foregroundStyle(apps.isEmpty ? AnyShapeStyle(HierarchicalShapeStyle.tertiary) : AnyShapeStyle(Module.uninstaller.accent))
+            Text(apps.isEmpty ? "Tick apps to remove several at once, or open one to see its files"
+                 : "\(apps.count) selected · \(Format.bytes(total))\(apps.count == 1 ? "" : " plus their files")")
+                .font(Theme.mono(11)).foregroundStyle(.secondary)
+                .contentTransition(.numericText())
+            Spacer()
+            if !apps.isEmpty {
+                Button("Clear") { withAnimation(Theme.snappy) { picked = [] } }
+            }
+            Button {
+                Task { await removePicked() }
+            } label: {
+                if preparing { ProgressView().controlSize(.small) }
+                else { Label(complete ? "Remove Completely" : "Remove", systemImage: complete ? "flame.fill" : "trash") }
+            }
+            .buttonStyle(.danger)
+            .disabled(apps.isEmpty || preparing || model.busy != nil)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 10)
+        .surface()
+    }
+
+    /// Builds one receipt for every ticked app. The open app keeps the files chosen in its row;
+    /// the others get the usual selection.
+    private func removePicked() async {
+        let apps = pickedApps.filter(\.canUninstall)
+        guard !apps.isEmpty else { return }
+        preparing = true
+        defer { preparing = false }
+        let complete = model.settings.uninstallCompletely
+        var plans: [UninstallPlan] = []
+        for app in apps {
+            if app.path == selectedApp?.path && !loadingDetail {
+                plans.append(UninstallPlan(app: app, leftovers: leftovers.filter { chosenLeftovers.contains($0.path) },
+                                           traces: complete ? traces : []))
+            } else {
+                let found = await model.leftovers(for: app).filter { complete || !$0.isUserData }
+                let appTraces = complete ? await model.traces(for: app, leftovers: found) : []
+                plans.append(UninstallPlan(app: app, leftovers: found, traces: appTraces))
+            }
+        }
+        model.confirmUninstall(plans)
     }
 
     private func load() {
         guard let app = selectedApp else { return }
         loadingDetail = true
+        leftovers = []
+        traces = []
         Task {
             let found = await model.leftovers(for: app)
+            guard selectedApp?.path == app.path else { return }
             leftovers = found
             chosenLeftovers = Set(found.filter { model.settings.uninstallCompletely || !$0.isUserData }.map(\.path))
             traces = model.settings.uninstallCompletely ? await model.traces(for: app, leftovers: found) : []
@@ -122,128 +250,113 @@ struct UninstallerView: View {
         }
     }
 
+    /// The open row: the app's files outside its bundle, what else gets cleared, and how hard to look.
     private func appDetail(_ app: InstalledApp) -> some View {
         let complete = model.settings.uninstallCompletely
         let total = app.bytes + leftovers.filter { chosenLeftovers.contains($0.path) }.reduce(0) { $0 + $1.bytes }
-        return ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 16) {
-                    ZStack {
-                        Image(nsImage: NSWorkspace.shared.icon(forFile: app.path)).resizable().frame(width: 72, height: 72)
-                            .shadow(color: .black.opacity(0.35), radius: 10, y: 6)
-                    }
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(app.name).font(Theme.title)
-                        Text("\(app.version) · \(app.bundleID)").font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
-                        HStack(spacing: 6) {
-                            if app.isAppStore { Chip(text: "App Store", color: Theme.spruce, symbol: "bag") }
-                            if !app.userRemovable { SudoBadge() }
-                            Text(app.lastUsed.map { "Used \(Format.relative($0))" } ?? "Never opened").font(.caption).foregroundStyle(.tertiary)
-                        }
-                    }
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 8) {
-                        CountingBytes(bytes: total, duration: 0.7).font(Theme.heroSmall)
-                        Button {
-                            model.confirmUninstall(app, leftovers: leftovers.filter { chosenLeftovers.contains($0.path) },
-                                                   traces: complete ? traces : [])
-                        } label: {
-                            Label(complete ? "Remove Completely" : "Uninstall", systemImage: complete ? "flame.fill" : "trash")
-                        }
-                        .buttonStyle(.danger)
-                        .disabled(!app.canUninstall || loadingDetail)
-                    }
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Text(app.bundleID).font(Theme.mono(11)).foregroundStyle(.tertiary).textSelection(.enabled).lineLimit(1)
+                Spacer()
+                IconButton(symbol: "magnifyingglass", help: "Show in Finder") { model.reveal(app.path) }
+                Button {
+                    model.confirmUninstall(app, leftovers: leftovers.filter { chosenLeftovers.contains($0.path) },
+                                           traces: complete ? traces : [])
+                } label: {
+                    Text(complete ? "Remove \(Format.bytes(total)) Completely" : "Uninstall \(Format.bytes(total))")
                 }
-                .card()
+                .buttonStyle(.danger)
+                .controlSize(.small)
+                .disabled(!app.canUninstall || loadingDetail || model.busy != nil)
+            }
 
-                if !app.canUninstall {
-                    InfoNote(text: "\(app.name) is part of macOS and can't be removed.", symbol: "apple.logo")
+            if !app.canUninstall {
+                InfoNote(text: "\(app.name) is part of macOS and can't be removed.", symbol: "apple.logo")
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                SectionTitle(title: "Files outside the app", symbol: "doc.on.doc",
+                             trailing: loadingDetail ? nil : "\(leftovers.count)")
+                if loadingDetail {
+                    HStack(spacing: 10) { GradientSpinner(); Text("Searching 60+ locations…").foregroundStyle(.secondary) }
+                        .padding(.vertical, 8)
+                } else if leftovers.isEmpty {
+                    Label("Nothing outside the bundle", systemImage: "checkmark.seal.fill").foregroundStyle(Theme.safe)
+                        .padding(.vertical, 4)
                 }
-
-                VStack(alignment: .leading, spacing: 10) {
-                    Toggle(isOn: Binding(get: { model.settings.uninstallCompletely }, set: { on in
-                        model.settings.uninstallCompletely = on
-                        model.settings.save()
-                        load()
-                    })) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Remove completely — leave no trace").font(.system(.headline))
-                            Text(complete
-                                 ? "Deletes the app and every file it made, including its data and settings, and clears background jobs, privacy permissions, Login Items, the Dock tile and installer receipts. Then rescans to prove it's gone."
-                                 : "Moves the app to the Trash and keeps its personal data (Application Support, containers) unless you tick it.")
-                                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                ForEach(Array(leftovers.enumerated()), id: \.element.id) { index, l in
+                    HStack(spacing: 10) {
+                        Toggle("", isOn: Binding(get: { chosenLeftovers.contains(l.path) },
+                                                 set: { on in if on { chosenLeftovers.insert(l.path) } else { chosenLeftovers.remove(l.path) } }))
+                            .labelsHidden()
+                        VStack(alignment: .leading, spacing: 1) {
+                            HStack(spacing: 6) {
+                                Text(l.kind).fontWeight(.medium)
+                                if l.isUserData { Chip(text: "personal data", color: Theme.review, symbol: nil) }
+                                if l.system { SudoBadge() }
+                            }
+                            PathText(path: l.path)
                         }
+                        Spacer()
+                        IconButton(symbol: "magnifyingglass", help: "Show in Finder") { model.reveal(l.path) }
+                        SizeText(bytes: l.bytes).frame(width: 74, alignment: .trailing)
                     }
-                    .toggleStyle(GlowSwitchStyle(tint: Module.uninstaller.gradient))
-                    PillPicker(selection: Binding(get: { model.settings.leftoverLevel }, set: { level in
-                        model.settings.leftoverLevel = level
-                        model.settings.save()
-                        load()
-                    }), options: [(MatchLevel.strict, "Strict", nil), (MatchLevel.enhanced, "Enhanced", nil), (MatchLevel.deep, "Deep", nil)])
-                    .help("How hard to look. Deep also matches the vendor's name, team ID and ~/.dotfolders.")
+                    .padding(.vertical, 3)
+                    .rowHover()
+                    .reveal(index: index, step: 0.025)
                 }
-                .card()
+            }
 
+            if complete && !traces.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
-                    SectionTitle(title: "Files outside the app", symbol: "doc.on.doc",
-                                 trailing: loadingDetail ? nil : "\(leftovers.count)")
-                    if loadingDetail {
-                        HStack(spacing: 10) { GradientSpinner(); Text("Searching 60+ locations…").foregroundStyle(.secondary) }
-                            .padding(.vertical, 8)
-                    } else if leftovers.isEmpty {
-                        Label("Nothing outside the bundle", systemImage: "checkmark.seal.fill").foregroundStyle(Theme.safe)
-                    }
-                    ForEach(Array(leftovers.enumerated()), id: \.element.id) { index, l in
-                        HStack(spacing: 10) {
-                            Toggle("", isOn: Binding(get: { chosenLeftovers.contains(l.path) },
-                                                     set: { on in if on { chosenLeftovers.insert(l.path) } else { chosenLeftovers.remove(l.path) } }))
-                                .labelsHidden()
+                    SectionTitle(title: "Traces that aren't files", symbol: "wand.and.stars", trailing: "\(traces.count)")
+                    ForEach(Array(traces.enumerated()), id: \.element.id) { index, t in
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: t.symbol).font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.secondary).frame(width: 20)
                             VStack(alignment: .leading, spacing: 1) {
                                 HStack(spacing: 6) {
-                                    Text(l.kind).fontWeight(.medium)
-                                    if l.isUserData { Chip(text: "personal data", color: Theme.review, symbol: nil) }
-                                    if l.system { SudoBadge() }
+                                    Text(t.title).fontWeight(.medium)
+                                    if t.needsAdmin { SudoBadge() }
                                 }
-                                PathText(path: l.path)
+                                Text(t.detail).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                             }
                             Spacer()
-                            IconButton(symbol: "magnifyingglass", help: "Show in Finder") { model.reveal(l.path) }
-                            SizeText(bytes: l.bytes).frame(width: 74, alignment: .trailing)
                         }
                         .padding(.vertical, 3)
                         .rowHover()
-                        .reveal(index: index, step: 0.025)
+                        .reveal(index: index, step: 0.03)
                     }
-                }
-                .card()
-
-                if complete && !traces.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        SectionTitle(title: "Traces that aren't files", symbol: "wand.and.stars", trailing: "\(traces.count)")
-                        ForEach(Array(traces.enumerated()), id: \.element.id) { index, t in
-                            HStack(alignment: .top, spacing: 10) {
-                                Image(systemName: t.symbol).font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(.secondary).frame(width: 20)
-                                VStack(alignment: .leading, spacing: 1) {
-                                    HStack(spacing: 6) {
-                                        Text(t.title).fontWeight(.medium)
-                                        if t.needsAdmin { SudoBadge() }
-                                    }
-                                    Text(t.detail).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-                                }
-                                Spacer()
-                            }
-                            .padding(.vertical, 3)
-                            .rowHover()
-                            .reveal(index: index, step: 0.03)
-                        }
-                    }
-                    .card()
                 }
             }
-            .padding(.bottom, 80)
+
+            HStack(alignment: .top, spacing: 16) {
+                Toggle(isOn: Binding(get: { model.settings.uninstallCompletely }, set: { on in
+                    model.settings.uninstallCompletely = on
+                    model.settings.save()
+                    load()
+                })) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Remove completely").fontWeight(.medium)
+                        Text(complete
+                             ? "Deletes the app and every file it made, and clears background jobs, privacy permissions, Login Items, the Dock tile and installer receipts. Then rescans to prove it's gone."
+                             : "Moves the app to the Trash and keeps its personal data unless you tick it.")
+                            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .toggleStyle(GlowSwitchStyle(tint: Module.uninstaller.gradient))
+                Spacer(minLength: 8)
+                PillPicker(selection: Binding(get: { model.settings.leftoverLevel }, set: { level in
+                    model.settings.leftoverLevel = level
+                    model.settings.save()
+                    load()
+                }), options: [(MatchLevel.strict, "Strict", nil), (MatchLevel.enhanced, "Enhanced", nil), (MatchLevel.deep, "Deep", nil)])
+                .fixedSize()
+                .help("How hard to look. Deep also matches the vendor's name, team ID and ~/.dotfolders.")
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.chipFill))
         }
-        .scrollIndicators(.automatic)
     }
 
     // MARK: Orphans
@@ -310,38 +423,6 @@ extension UninstallerView {
                 .contentTransition(.numericText())
         }
         .padding(.vertical, 2)
-    }
-}
-
-private struct AppRow: View {
-    var app: InstalledApp
-    var selected: Bool
-    var action: () -> Void
-    @State private var hovering = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(nsImage: NSWorkspace.shared.icon(forFile: app.path)).resizable().frame(width: 30, height: 30)
-                    .scaleEffect(hovering ? 1.1 : 1)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(app.name).lineLimit(1).fontWeight(selected ? .semibold : .regular)
-                    Text("v\(app.version) · \(app.lastUsed.map { "used \(Format.relative($0))" } ?? "never opened")")
-                        .font(Theme.mono(11)).foregroundStyle(.secondary).lineLimit(1)
-                }
-                Spacer()
-                if !app.userRemovable { Image(systemName: "lock.fill").font(.caption).foregroundStyle(Theme.sudo).help("Needs Admin mode") }
-                Text(Format.bytes(app.bytes)).font(Theme.mono(11)).foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 8).padding(.vertical, 5)
-            .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(selected ? AnyShapeStyle(Module.uninstaller.wash(0.28)) : AnyShapeStyle(Theme.rim.opacity(hovering ? 0.06 : 0))))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Theme.rimGradient, lineWidth: selected ? 1 : 0))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
-        .animation(Theme.snappy, value: hovering)
     }
 }
 
