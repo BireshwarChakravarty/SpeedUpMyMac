@@ -35,7 +35,7 @@ struct MenuBarView: View {
         .onDisappear { MetricsMonitor.shared.unwatch() }
     }
 
-    private var content: some View {
+    @ViewBuilder private var content: some View {
         let live = Array(monitor.live.suffix(24))
         let latest = monitor.latest
         VStack(alignment: .leading, spacing: 12) {
