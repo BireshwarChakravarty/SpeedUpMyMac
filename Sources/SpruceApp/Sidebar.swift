@@ -135,30 +135,29 @@ private struct RailButton: View {
     }
 }
 
-/// The app icon in miniature: three glass chevrons and a glint on deep spruce green.
+/// The app icon in miniature: four rounded bars stacked into a spruce, on deep forest green.
 struct SpruceMark: View {
-    var glint = true
-
     var body: some View {
         GeometryReader { geo in
             let s = min(geo.size.width, geo.size.height)
-            ZStack {
+            let k = s / 824
+            ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: s * 0.225, style: .continuous)
-                    .fill(LinearGradient(colors: [Color(hex: 0x1A6B58), Color(hex: 0x0D3F35), Color(hex: 0x05201B)],
-                                         startPoint: .top, endPoint: .bottom))
+                    .fill(LinearGradient(colors: [Color(hex: 0x17463A), Color(hex: 0x06170F)], startPoint: .top, endPoint: .bottom))
                 RoundedRectangle(cornerRadius: s * 0.225, style: .continuous)
-                    .fill(RadialGradient(colors: [Theme.mint.opacity(0.5), .clear], center: UnitPoint(x: 0.5, y: 0.12),
-                                         startRadius: 0, endRadius: s * 0.7))
-                ForEach(0..<3, id: \.self) { i in
-                    SpruceChevrons(only: i)
-                        .stroke(SpruceMark.chevronFills[i],
-                                style: StrokeStyle(lineWidth: s * 70 / 824, lineCap: .round, lineJoin: .round))
-                }
-                .shadow(color: .black.opacity(0.35), radius: s * 0.02, y: s * 0.012)
-                if glint {
-                    Circle().fill(.white).frame(width: s * 0.045, height: s * 0.045)
-                        .shadow(color: Theme.mint, radius: s * 0.05)
-                        .position(x: s * 0.5, y: s * (196 - 100) / 824)
+                    .fill(RadialGradient(colors: [Color(hex: 0x5FF0C4).opacity(0.4), .clear], center: UnitPoint(x: 0.5, y: 0.28),
+                                         startRadius: 0, endRadius: s * 0.6))
+                ForEach(SpruceMark.bars.indices, id: \.self) { i in
+                    let bar = SpruceMark.bars[i]
+                    Capsule()
+                        .fill(LinearGradient(colors: [Color(hex: bar.top), Color(hex: bar.bottom)], startPoint: .top, endPoint: .bottom))
+                        .overlay(alignment: .top) {
+                            Capsule().fill(.white.opacity(0.35))
+                                .frame(height: 16 * k).padding(.horizontal, 26 * k).padding(.top, 12 * k)
+                        }
+                        .frame(width: bar.width * k, height: 100 * k)
+                        .offset(x: (412 - bar.width / 2) * k, y: (162 + CGFloat(i) * 124) * k)
+                        .shadow(color: .black.opacity(0.35), radius: s * 0.02, y: s * 0.012)
                 }
                 RoundedRectangle(cornerRadius: s * 0.225, style: .continuous)
                     .strokeBorder(Theme.rimGradient, lineWidth: max(0.5, s * 0.008))
@@ -168,37 +167,13 @@ struct SpruceMark: View {
         .aspectRatio(1, contentMode: .fit)
     }
 
-    static let chevronFills: [LinearGradient] = [
-        LinearGradient(colors: [Color(hex: 0xF2FFFA), Color(hex: 0xA7F7DD)], startPoint: .top, endPoint: .bottom),
-        LinearGradient(colors: [Color(hex: 0xB4F8E2), Color(hex: 0x4FE0B2)], startPoint: .top, endPoint: .bottom),
-        LinearGradient(colors: [Color(hex: 0x6FEBC4), Color(hex: 0x1FB98C)], startPoint: .top, endPoint: .bottom),
+    /// The icon's bars, top to bottom, on its 824-unit body: width and gradient.
+    static let bars: [(width: CGFloat, top: UInt32, bottom: UInt32)] = [
+        (196, 0xF2FFFA, 0xBDF6E2),
+        (344, 0x9BF2D5, 0x5FE0B6),
+        (492, 0x49D9AB, 0x22B98C),
+        (640, 0x1DAE85, 0x0E7F62),
     ]
-}
-
-/// The icon's three chevrons (top to bottom), on its 1024-unit grid with the 824-unit body filling
-/// the rect. `only` draws a single chevron.
-struct SpruceChevrons: Shape {
-    var only: Int? = nil
-
-    static let chevrons: [[(CGFloat, CGFloat)]] = [
-        [(362, 418), (512, 292), (662, 418)],
-        [(307, 604), (512, 432), (717, 604)],
-        [(254, 790), (512, 574), (770, 790)],
-    ]
-
-    func path(in rect: CGRect) -> Path {
-        let k = min(rect.width, rect.height) / 824
-        func p(_ point: (CGFloat, CGFloat)) -> CGPoint {
-            CGPoint(x: rect.minX + (point.0 - 100) * k, y: rect.minY + (point.1 - 100) * k)
-        }
-        var path = Path()
-        for (index, chevron) in SpruceChevrons.chevrons.enumerated() where only == nil || only == index {
-            path.move(to: p(chevron[0]))
-            path.addLine(to: p(chevron[1]))
-            path.addLine(to: p(chevron[2]))
-        }
-        return path
-    }
 }
 
 struct MachineFooter: View {

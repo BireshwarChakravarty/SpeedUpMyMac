@@ -117,20 +117,14 @@ final class StatusItemController: NSObject, NSWindowDelegate, NSDraggingDestinat
         return image
     }
 
-    /// The menu bar icon: the app's three chevrons as a template image, so macOS tints it.
+    /// The menu bar icon: the app icon's four stacked bars as a template image, so macOS tints it.
     static func menuBarImage() -> NSImage {
         let image = NSImage(size: NSSize(width: 18, height: 16), flipped: true) { rect in
-            let path = NSBezierPath()
-            path.lineWidth = 2
-            path.lineCapStyle = .round
-            path.lineJoinStyle = .round
-            for (top, half, drop) in [(CGFloat(2), CGFloat(4.6), CGFloat(3.9)), (6.2, 6.3, 5.3), (10.4, 8, 4.6)] {
-                path.move(to: NSPoint(x: rect.midX - half, y: top + drop))
-                path.line(to: NSPoint(x: rect.midX, y: top))
-                path.line(to: NSPoint(x: rect.midX + half, y: top + drop))
+            NSColor.black.setFill()
+            for (index, width) in [CGFloat(5.5), 9.5, 13.5, 17.5].enumerated() {
+                let bar = NSRect(x: rect.midX - width / 2, y: 0.8 + CGFloat(index) * 4.1, width: width, height: 2.8)
+                NSBezierPath(roundedRect: bar, xRadius: 1.4, yRadius: 1.4).fill()
             }
-            NSColor.black.setStroke()
-            path.stroke()
             return true
         }
         image.isTemplate = true

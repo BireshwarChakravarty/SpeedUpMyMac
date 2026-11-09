@@ -161,7 +161,7 @@ Apps that are part of macOS can't be removed: the system volume is sealed.
 **Orphaned files** (the second tab) finds leftovers from apps you deleted long ago. Nothing is pre-selected; **Select All** at the top of the list (⇧⌘A) picks every row, and the count beside it shows how many and how much. Everything goes to the Trash.
 
 ### From the menu bar
-Click the chevrons in the menu bar. The panel stays open while you work in other apps, so you can:
+Click Spruce's icon (four stacked bars) in the menu bar. The panel stays open while you work in other apps, so you can:
 
 - **Drag an app** from Finder or the Applications folder into the Uninstaller box, or drop it straight on the menu bar icon. Spruce lists what that app keeps on this Mac and the total size.
 - Click **Remove…** to open the usual receipt in the main window. Nothing is removed until you confirm there. **Details** opens the app on the Uninstaller page.

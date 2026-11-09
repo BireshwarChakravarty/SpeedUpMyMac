@@ -23,6 +23,7 @@ of history, and an **Installers** sweep.
 
 ### Changed
 
+- **New icon:** four rounded bars stacked into a spruce tree, which also read as disk-usage bars. The menu bar icon and the logo inside the app use the same mark.
 - **New look:**
   - A warm, calm background with film grain, the same on every page.
   - A slim icon rail (Overview, Clean, Apps, Speed, Protect, Fleet, Settings), with each group's pages as pill tabs at the top.

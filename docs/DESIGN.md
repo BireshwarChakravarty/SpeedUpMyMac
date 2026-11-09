@@ -2,7 +2,7 @@
 
 ## Name
 
-**Spruce**, as in *spruce up*: to tidy and smarten. It says what the app does in plain English, it's short and easy to say aloud, and the icon carries both ideas: a spruce tree made of three upward chevrons, which also read as "speed up".
+**Spruce**, as in *spruce up*: to tidy and smarten. It says what the app does in plain English, it's short and easy to say aloud, and the icon carries both ideas: four rounded bars stacked into a spruce tree, which also read as the disk-usage bars of a cleaner.
 
 The CLI reads naturally: `spruce clean --sudo`, `spruce uninstall Zoom`, `spruce fleet`.
 
@@ -89,13 +89,14 @@ reduce effects.
 
 ![Spruce icon](../Assets/AppIcon-1024.png)
 
-File: `Assets/AppIcon.svg`. Layered sources for Icon Composer are in `Assets/IconLayers/` (background, chevrons, glint).
+File: `Assets/AppIcon.svg`. Layered sources for Icon Composer are in `Assets/IconLayers/` (background, bars, highlights).
 
 - **Shape:** the standard macOS rounded square (1024 canvas, 824 body, 100 px margin) with a soft drop shadow.
-- **Background:** deep spruce green (`#1A6B58 → #0D3F35 → #05201B`) lit from the top with mint.
-- **Chevrons** (the hero): three rounded strokes, lightest at the top, each with a glass highlight along its ridge. Together a spruce tree; each one an "up" arrow. In Icon Composer, set this layer to **Liquid Glass**.
-- **Glint:** a bright point above the tree: the "spruced up" sparkle, kept small so it isn't a generic AI sparkle.
-- **Menu bar:** the chevrons alone, drawn as a template image so macOS tints them.
+- **Background:** deep forest green (`#17463A → #06170F`) with a mint glow behind the top of the tree.
+- **Bars** (the hero): four capsules, 100 units tall, 196 / 344 / 492 / 640 wide, stacked 124 units apart. They run from pale mint at the top to deep spruce at the bottom. Together a spruce tree; on their own, disk-usage bars. Four plain shapes keep it readable down to 16 px. In Icon Composer, set this layer to **Liquid Glass**.
+- **Highlights:** a soft white line along the top of each bar.
+- **In the app:** the sidebar and menu bar panel show the same mark (`SpruceMark`).
+- **Menu bar:** the four bars alone, drawn as a template image so macOS tints them.
 
 `scripts/build-icon.sh` regenerates `AppIcon.icns` from the SVG on macOS (Quick Look → sips → iconutil). The committed `.icns` and `.iconset` were rendered from the SVG, so the app builds without that step.
 

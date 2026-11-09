@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="b0" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F2FFFA"/><stop offset="1" stop-color="#BDF6E2"/></linearGradient>
+    <linearGradient id="b1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9BF2D5"/><stop offset="1" stop-color="#5FE0B6"/></linearGradient>
+    <linearGradient id="b2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#49D9AB"/><stop offset="1" stop-color="#22B98C"/></linearGradient>
+    <linearGradient id="b3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1DAE85"/><stop offset="1" stop-color="#0E7F62"/></linearGradient>
+  </defs>
+  <g>
+      <rect x="414" y="262" width="196" height="100" rx="50" fill="url(#b0)"/>
+      <rect x="340" y="386" width="344" height="100" rx="50" fill="url(#b1)"/>
+      <rect x="266" y="510" width="492" height="100" rx="50" fill="url(#b2)"/>
+      <rect x="192" y="634" width="640" height="100" rx="50" fill="url(#b3)"/>
+  </g>
+</svg>
