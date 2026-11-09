@@ -8,6 +8,14 @@ struct CleanupView: View {
 
     var body: some View {
         ModuleScroll {
+            if model.scan == nil {
+                ToolHero(module: .cleanup, title: "Cleanup", subtitle: "Caches and logs your apps can rebuild, browser leftovers and the Trash.") {
+                    Button("Scan") { Task { await model.runCleanupScan() } }
+                        .buttonStyle(.brand)
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(model.busy != nil)
+                }
+            } else {
             HeroHeader(title: "Cleanup", value: model.scan == nil ? "—" : Format.bytes(selectedBytes),
                        caption: model.scan == nil ? "Caches, logs, browser junk, installers, Trash and more"
                            : "selected of \(Format.bytes(model.scan!.totalBytes)) found", symbol: "trash") {
@@ -66,8 +74,8 @@ struct CleanupView: View {
                 EmptyState(symbol: "magnifyingglass", title: "Scan to see what's reclaimable",
                            message: "Safe items are pre-selected. Items marked Review or Risky are listed but never selected for you.")
             }
+            }
         }
-        .task { if model.scan == nil { await model.runCleanupScan() } }
     }
 }
 

@@ -8,9 +8,9 @@ struct MetricText: View {
 
     var body: some View {
         let parts = MetricText.split(value)
-        (Text(parts.0).font(Theme.sans(size, .semibold))
-            + Text(parts.1.isEmpty ? "" : " " + parts.1).font(Theme.mono(size * 0.4, .medium)).foregroundColor(.secondary))
-            .tracking(size > 40 ? -1.5 : 0)
+        (Text(parts.0).font(Theme.mono(size, .bold))
+            + Text(parts.1.isEmpty ? "" : " " + parts.1).font(Theme.mono(size * 0.42, .medium)).foregroundColor(.secondary))
+            .tracking(size > 40 ? -1 : 0)
             .monospacedDigit()
             .lineLimit(1)
             .minimumScaleFactor(0.5)
@@ -57,12 +57,12 @@ struct HeroHeader<Actions: View>: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 22) {
-            SectionSphere(module: module, size: 58)
+            SectionSphere(module: module, size: 52)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title.uppercased())
-                    .font(Theme.mono(11, .semibold)).tracking(1.4)
+                    .font(Theme.mono(10, .bold)).tracking(1.2)
                     .foregroundStyle(module.accentText)
-                MetricText(value: value, size: 46)
+                MetricText(value: value, size: 40)
                     .contentTransition(.numericText())
                     .animation(Theme.spring, value: value)
                 Text(caption).font(Theme.sans(13)).foregroundStyle(.secondary).lineLimit(2)
@@ -190,7 +190,7 @@ private struct EmptyStateMark: View {
     @Environment(\.pageModule) private var module
 
     var body: some View {
-        SectionSphere(module: module, size: 96)
+        SectionSphere(module: module, size: 110)
             .padding(.bottom, 14)
     }
 }

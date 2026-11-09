@@ -108,8 +108,7 @@ private struct RailButton: View {
             ZStack {
                 if selected {
                     RoundedRectangle(cornerRadius: 15, style: .continuous)
-                        .fill(group.module.buttonGradient)
-                        .shadow(color: group.module.accent.opacity(0.4), radius: 8, y: 3)
+                        .fill(group.module.accent)
                         .matchedGeometryEffect(id: "rail", in: namespace)
                 } else if hovering {
                     RoundedRectangle(cornerRadius: 15, style: .continuous).fill(Theme.chipFill)

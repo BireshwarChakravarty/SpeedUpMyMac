@@ -39,25 +39,19 @@ struct InstallersView: View {
     }
 
     private var start: some View {
-        VStack(spacing: 14) {
-            SectionSphere(module: .installers, size: 150).padding(.bottom, 18)
-            Text("Installers").font(Theme.display(40))
-            Text("Sweep out the disk images and packages you've already used.")
-                .font(Theme.sans(15)).foregroundStyle(.secondary)
-            Button("Scan") { Task { await model.scanInstallers() } }
-                .buttonStyle(.brand)
-                .controlSize(.large)
-                .keyboardShortcut(.defaultAction)
-                .disabled(model.busy != nil)
-                .padding(.top, 10)
+        VStack(spacing: 4) {
+            ToolHero(module: .installers, title: "Installers",
+                     subtitle: "Disk images and packages you've already used.") {
+                Button("Scan") { Task { await model.scanInstallers() } }
+                    .buttonStyle(.brand)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(model.busy != nil)
+            }
             Text("Looks in Downloads, Desktop, Documents, Mail downloads and /Users/Shared. macOS may ask once for access to those folders.")
                 .font(Theme.mono(11)).foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center).frame(maxWidth: 460)
-                .padding(.top, 4)
+                .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 70)
-        .reveal()
     }
 
     private var list: some View {

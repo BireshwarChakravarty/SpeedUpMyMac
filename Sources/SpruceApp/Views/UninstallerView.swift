@@ -326,12 +326,12 @@ private struct AppRow: View {
                     .scaleEffect(hovering ? 1.1 : 1)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(app.name).lineLimit(1).fontWeight(selected ? .semibold : .regular)
-                    Text(app.lastUsed.map { "Used \(Format.relative($0))" } ?? "Never opened")
-                        .font(.caption).foregroundStyle(.secondary)
+                    Text("v\(app.version) · \(app.lastUsed.map { "used \(Format.relative($0))" } ?? "never opened")")
+                        .font(Theme.mono(11)).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer()
                 if !app.userRemovable { Image(systemName: "lock.fill").font(.caption).foregroundStyle(Theme.sudo).help("Needs Admin mode") }
-                Text(Format.bytes(app.bytes)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                Text(Format.bytes(app.bytes)).font(Theme.mono(11)).foregroundStyle(.secondary)
             }
             .padding(.horizontal, 8).padding(.vertical, 5)
             .background(RoundedRectangle(cornerRadius: 10, style: .continuous)

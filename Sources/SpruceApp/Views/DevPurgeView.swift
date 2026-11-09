@@ -10,6 +10,15 @@ struct DevPurgeView: View {
 
     var body: some View {
         ModuleScroll {
+            if !model.purgeScanned && model.artifacts.isEmpty {
+                ToolHero(module: .devPurge, title: "Dev Purge",
+                         subtitle: "node_modules, target, .build, Pods and venvs from projects you've set aside.") {
+                    Button("Scan Projects") { Task { await model.runPurgeScan() } }
+                        .buttonStyle(.brand)
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(model.busy != nil)
+                }
+            } else {
             HeroHeader(title: "Dev Purge", value: Format.bytes(selectedBytes),
                        caption: "node_modules, target, .build, Pods, venvs and friends in \(model.settings.purgeRoots.count) project roots",
                        symbol: "hammer") {
@@ -63,8 +72,8 @@ struct DevPurgeView: View {
                 }
                 .card()
             }
+            }
         }
         .navigationTitle("Dev Purge")
-        .task { if model.artifacts.isEmpty { await model.runPurgeScan() } }
     }
 }

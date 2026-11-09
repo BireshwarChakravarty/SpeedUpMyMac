@@ -15,13 +15,6 @@ struct SmartScanView: View {
             if let smart = model.smart, phase != .scanning {
                 summary(smart)
                 breakdown(smart)
-            } else if phase == .idle {
-                HStack(alignment: .top, spacing: 12) {
-                    feature(.cleanup, "Junk & caches", "50 cleanup rules. Safe items are pre-selected; nothing goes without a receipt.")
-                    feature(.devPurge, "Dev artifacts", "node_modules, target, .build and Pods in projects you haven't touched.")
-                    feature(.health, "Health & security", "Disk, memory, battery, SIP, FileVault, firewall and startup items.")
-                }
-                .reveal(delay: 0.05)
             }
         }
     }
@@ -29,55 +22,53 @@ struct SmartScanView: View {
     // MARK: Hero
 
     private var hero: some View {
-        HStack(alignment: .center, spacing: 40) {
-            GlassOrb(phase: phase, progress: model.scanProgress ?? 0, score: model.smart?.health.score,
-                     junkBytes: model.smart?.quickWinBytes ?? 0, size: 250)
-                .padding(.leading, 6)
-            VStack(alignment: .leading, spacing: 12) {
-                switch phase {
-                case .idle:
-                    Text("READY WHEN YOU ARE").font(Theme.mono(11, .semibold)).tracking(1.4).foregroundStyle(Theme.accentText)
-                    Text("Spruce up \(model.machine.name)").font(Theme.display(36)).lineLimit(2)
-                    Text("\(model.machine.chip) · macOS \(model.machine.osVersion) · \(model.machine.isAdmin ? "Administrator" : "Standard account")")
-                        .font(Theme.mono(12)).foregroundStyle(.secondary)
-                    Button("Start Scan") { Task { await model.runSmartScan() } }
+        Group {
+            switch phase {
+            case .idle:
+                ToolHero(module: .smartScan, title: "Smart Scan",
+                         subtitle: "Junk, idle build folders, health and startup items, checked in one pass.") {
+                    Button("Scan") { Task { await model.runSmartScan() } }
                         .buttonStyle(.brand)
-                        .controlSize(.large)
                         .keyboardShortcut(.defaultAction)
-                        .padding(.top, 8)
-                case .scanning:
-                    Text("SCANNING").font(Theme.mono(11, .semibold)).tracking(1.4).foregroundStyle(Theme.accentText)
-                    Text(model.scanStage)
-                        .font(Theme.display(30))
-                        .lineLimit(2)
-                        .contentTransition(.opacity)
-                        .animation(.easeOut(duration: 0.15), value: model.scanStage)
-                    Text("Nothing is removed until you confirm a receipt.").font(Theme.sans(14)).foregroundStyle(.secondary)
-                case .done:
-                    if let smart = model.smart {
-                        Text(smart.quickWinBytes > 0 ? "READY TO SPRUCE UP" : "SPOTLESS")
-                            .font(Theme.mono(11, .semibold)).tracking(1.4).foregroundStyle(Theme.accentText)
-                        BigBytes(bytes: smart.quickWinBytes, size: 88, duration: 1.2)
-                        Text(heroDetail(smart)).font(Theme.sans(15)).foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        HStack(spacing: 10) {
-                            Button("Spruce Up") { model.cleanNow() }
-                                .buttonStyle(.brand)
-                                .disabled(model.busy != nil || smart.quickWinBytes == 0)
-                            Button("Review \(reviewCount(smart)) items") { go(.cleanup) }
-                            Button { Task { await model.runSmartScan() } } label: { Image(systemName: "arrow.clockwise") }
-                                .help("Scan again (⌘R)")
-                                .disabled(model.busy != nil)
-                        }
-                        .controlSize(.large)
-                        .padding(.top, 8)
+                    Button("Status") { go(.status) }
+                }
+            case .scanning:
+                ToolHero(module: .smartScan, title: "Scanning…", subtitle: model.scanStage, pulsing: true) {
+                    Text("\(Int((model.scanProgress ?? 0) * 100))%")
+                        .font(Theme.mono(13, .medium)).foregroundStyle(.secondary)
+                        .contentTransition(.numericText())
+                }
+            case .done:
+                if let smart = model.smart {
+                    ToolHero(module: .smartScan, title: "",
+                             subtitle: heroDetail(smart),
+                             result: smart.quickWinBytes > 0 ? "\(Format.bytes(smart.quickWinBytes)) found" : "All clear") {
+                        Button("Spruce Up") { model.cleanNow() }
+                            .buttonStyle(.brand)
+                            .disabled(model.busy != nil || smart.quickWinBytes == 0)
+                        Button("Review \(reviewCount(smart)) items") { go(.cleanup) }
+                        Button("Rescan") { Task { await model.runSmartScan() } }
+                            .buttonStyle(.plain)
+                            .font(Theme.sans(14, .medium))
+                            .foregroundStyle(.secondary)
+                            .disabled(model.busy != nil)
                     }
+                    healthLine(smart.health)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.top, 20).padding(.bottom, 12)
-        .reveal()
+    }
+
+    /// One quiet line under the result: the health score and what's pulling it down.
+    private func healthLine(_ health: HealthReport) -> some View {
+        HStack(spacing: 8) {
+            Circle().fill(Theme.scoreColor(health.score)).frame(width: 8, height: 8)
+            Text("HEALTH \(health.score)").font(Theme.mono(11, .bold)).tracking(1.2)
+            Text(health.notes.first ?? "Nothing needs attention").font(Theme.mono(11)).foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 6)
+        .background(Capsule().fill(Theme.chipFill))
+        .frame(maxWidth: .infinity)
     }
 
     private func reviewCount(_ smart: SmartScanResult) -> Int {
@@ -86,8 +77,8 @@ struct SmartScanView: View {
     }
 
     private func heroDetail(_ smart: SmartScanResult) -> String {
-        guard smart.quickWinBytes > 0 else { return "No caches, logs or idle build folders worth removing. Nice." }
-        var text = "Caches, logs and idle build folders. All of it is safe to remove, and every file is listed before anything goes."
+        guard smart.quickWinBytes > 0 else { return "No caches, logs or idle build folders worth removing." }
+        var text = "Caches, logs and idle build folders, all safe to remove. Every file is listed before anything goes."
         if smart.sudoOnlyBytes > 0 && !model.sudo {
             text += model.machine.isAdmin ? " \(Format.bytes(smart.sudoOnlyBytes)) more in Admin mode." : " \(Format.bytes(smart.sudoOnlyBytes)) more needs an admin account."
         }

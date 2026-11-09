@@ -21,27 +21,28 @@ enum Theme {
     static let sudo = Color(light: 0xB45309, dark: 0xF0B24A)
     static let danger = LinearGradient(colors: [Color(hex: 0xF57A68), Color(hex: 0xE0473A)], startPoint: .top, endPoint: .bottom)
 
-    // Ground: deep forest charcoal (dark) / warm paper (light).
-    static let base = Color(light: 0xF3F1EA, dark: 0x13140F)
-    static let baseRaised = Color(light: 0xFBFAF6, dark: 0x1B1C16)
+    // Ground: warm coffee (dark) / warm paper (light).
+    static let base = Color(light: 0xF4EFE6, dark: 0x17120A)
+    static let baseRaised = Color(light: 0xFCF9F3, dark: 0x211A11)
     /// Solid fallback for places that need an opaque surface (sheets, the menu bar panel).
-    static let surface = Color(light: 0xFBFAF6, dark: 0x1D1E18)
-    static let sidebar = Color(light: 0xE9E6DC, dark: 0x1A1B15)
-    // Text: warm off-white (dark) / warm ink (light).
-    static let text = Color(light: 0x1F1E16, dark: 0xECEAE0)
+    static let surface = Color(light: 0xFCF9F3, dark: 0x231C13)
+    static let sidebar = Color(light: 0xEDE6DA, dark: 0x211A11)
+    // Text: warm off-white (dark) / warm espresso (light).
+    static let text = Color(light: 0x221B11, dark: 0xEDE6DA)
     // Lifted surfaces and lines: warm white over the ground.
-    static let cardFill = Color(light: 0xFFFFFF, dark: 0xF2F0E4, lightAlpha: 0.7, darkAlpha: 0.065)
-    static let cardHover = Color(light: 0xFFFFFF, dark: 0xF2F0E4, lightAlpha: 0.92, darkAlpha: 0.1)
-    static let chipFill = Color(light: 0x2A2A1E, dark: 0xF2F0E4, lightAlpha: 0.07, darkAlpha: 0.08)
-    static let hairline = Color(light: 0x2A2A1E, dark: 0xF2F0E4, lightAlpha: 0.12, darkAlpha: 0.1)
-    static let separator = Color(light: 0x2A2A1E, dark: 0xF2F0E4, lightAlpha: 0.1, darkAlpha: 0.08)
-    static let track = Color(light: 0x2A2A1E, dark: 0xF2F0E4, lightAlpha: 0.1, darkAlpha: 0.1)
+    static let cardFill = Color(light: 0xFFFFFF, dark: 0xF2ECE0, lightAlpha: 0.66, darkAlpha: 0.07)
+    static let cardHover = Color(light: 0xFFFFFF, dark: 0xF2ECE0, lightAlpha: 0.9, darkAlpha: 0.11)
+    static let chipFill = Color(light: 0x2A2114, dark: 0xF2ECE0, lightAlpha: 0.07, darkAlpha: 0.08)
+    static let hairline = Color(light: 0x2A2114, dark: 0xF2ECE0, lightAlpha: 0.12, darkAlpha: 0.1)
+    static let separator = Color(light: 0x2A2114, dark: 0xF2ECE0, lightAlpha: 0.1, darkAlpha: 0.08)
+    static let track = Color(light: 0x2A2114, dark: 0xF2ECE0, lightAlpha: 0.1, darkAlpha: 0.1)
+    static let inset = Color(light: 0x2A2114, dark: 0x000000, lightAlpha: 0.07, darkAlpha: 0.22)
     static let rim = Color(light: 0x000000, dark: 0xFFFFFF)
-    /// The high-contrast call to action: warm white on dark, warm ink on paper.
-    static let inverse = Color(light: 0x1F1E16, dark: 0xF6F4EA)
-    static let onInverse = Color(light: 0xF6F4EA, dark: 0x13140F)
+    /// The high-contrast call to action: white on dark, espresso on paper.
+    static let inverse = Color(light: 0x221B11, dark: 0xFFFFFF)
+    static let onInverse = Color(light: 0xF4EFE6, dark: 0x0F0B05)
     /// Text on mint and on every section's colour.
-    static let ink = Color(hex: 0x0B0D08)
+    static let ink = Color(hex: 0x0F0B05)
     /// Spruce's colour as text: deep green in light mode, where mint would be unreadable.
     static let accentText = Color(light: 0x0B7A5E, dark: 0x7DF5D0)
 
@@ -92,20 +93,20 @@ extension Module {
     /// Light, middle and deep shades of the section's colour.
     var palette: (hi: UInt32, mid: UInt32, lo: UInt32) {
         switch self {
-        case .smartScan: return (0x8CF7D6, 0x2DD4A0, 0x0E9F7A)
-        case .status: return (0xA7E3A1, 0x6FB06A, 0x3E7D3A)
-        case .cleanup: return (0x7DD3FC, 0x38BDF8, 0x0284C7)
-        case .devPurge: return (0xA5B4FC, 0x818CF8, 0x4F46E5)
-        case .installers: return (0xF2B48C, 0xD98C5F, 0xA65A30)
-        case .uninstaller: return (0xF9A8D4, 0xF472B6, 0xDB2777)
-        case .spaceLens: return (0xD8B4FE, 0xC084FC, 0x9333EA)
-        case .processes: return (0xFCD34D, 0xFBBF24, 0xD97706)
-        case .maintenance: return (0xFDBA74, 0xFB923C, 0xEA580C)
-        case .startup: return (0xFDE68A, 0xFCD34D, 0xCA8A04)
-        case .tweaks: return (0xCBD5E1, 0x94A3B8, 0x475569)
-        case .health: return (0xFCA5A5, 0xF87171, 0xDC2626)
-        case .fleet: return (0x93C5FD, 0x60A5FA, 0x2563EB)
-        case .history: return (0xD4D4D4, 0xA3A3A3, 0x525252)
+        case .smartScan: return (0x4FCBA6, 0x16A37F, 0x0B6E55)
+        case .status: return (0x74D39A, 0x3CB371, 0x23804B)
+        case .cleanup: return (0x8CC7F0, 0x4FA3E3, 0x2B73AE)
+        case .devPurge: return (0xF0C772, 0xE6A93C, 0xB07A1C)
+        case .installers: return (0xEDB591, 0xD98C5F, 0xA65E35)
+        case .uninstaller: return (0xF6A08A, 0xF0714E, 0xBD4A2C)
+        case .spaceLens: return (0xD3D0FF, 0xB7B2FF, 0x7F78E0)
+        case .processes: return (0xF6CC80, 0xF0B24A, 0xBF8424)
+        case .maintenance: return (0xB3ADF6, 0x8E84F0, 0x5E54C4)
+        case .startup: return (0x9ACC96, 0x6FB06A, 0x4A8346)
+        case .tweaks: return (0xFFE4D0, 0xFFD3B6, 0xD9A27E)
+        case .health: return (0xF5948A, 0xF0604E, 0xBE3C2C)
+        case .fleet: return (0x8DB0F5, 0x5B8DEF, 0x3461C4)
+        case .history: return (0xF2ECE0, 0xC9C0B0, 0x8F8676)
         }
     }
 
@@ -262,11 +263,11 @@ struct ModuleBackdrop: View {
     var body: some View {
         ZStack {
             Theme.base
-            LinearGradient(colors: [Color(light: 0xFBFAF4, dark: 0x1C1D16, lightAlpha: 0.5, darkAlpha: 0.55),
-                                    Color(light: 0xEBE7DC, dark: 0x0C0D09, lightAlpha: 0.6, darkAlpha: 0.8)],
+            LinearGradient(colors: [Color(light: 0xFCF9F3, dark: 0x2A2218, lightAlpha: 0.5, darkAlpha: 0.7),
+                                    Color(light: 0xEFE8DC, dark: 0x100B05, lightAlpha: 0.64, darkAlpha: 0.85)],
                            startPoint: .top, endPoint: .bottom)
-            RadialGradient(colors: [Theme.mint.opacity(scheme == .dark ? 0.06 : 0.08), .clear],
-                           center: .topTrailing, startRadius: 0, endRadius: 620)
+            RadialGradient(colors: [Color(hex: 0xD9A066).opacity(scheme == .dark ? 0.08 : 0.1), .clear],
+                           center: .topTrailing, startRadius: 0, endRadius: 600)
             Grain()
         }
         .ignoresSafeArea()
@@ -305,18 +306,70 @@ struct Grain: View {
     }
 }
 
-/// A soft sphere in a section's colour: the centrepiece of a page's empty and start states.
+/// A matte sphere in a section's colour: the centrepiece of a page's start and result screens.
 struct SectionSphere: View {
     var module: Module
-    var size: CGFloat = 120
+    var size: CGFloat = 150
+    /// Breathes gently while work is in progress.
+    var pulsing = false
+    @State private var breathe = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        Circle()
-            .fill(RadialGradient(colors: [Color(hex: module.palette.hi), module.accent, Color(hex: module.palette.lo).opacity(0.85)],
-                                 center: UnitPoint(x: 0.38, y: 0.32), startRadius: 0, endRadius: size * 0.62))
-            .overlay(Circle().strokeBorder(.white.opacity(0.14), lineWidth: 1))
-            .frame(width: size, height: size)
-            .background(Circle().fill(module.accent.opacity(0.22)).blur(radius: size * 0.3).frame(width: size * 1.5, height: size * 1.5))
-            .accessibilityHidden(true)
+        ZStack {
+            Circle().fill(RadialGradient(colors: [module.accent.opacity(0.88), module.accent.opacity(0.14)],
+                                         center: UnitPoint(x: 0.4, y: 0.35), startRadius: 4, endRadius: size * 0.85))
+            Circle().strokeBorder(.white.opacity(0.1), lineWidth: 1)
+        }
+        .frame(width: size, height: size)
+        .shadow(color: module.accent.opacity(0.35), radius: size * 0.27)
+        .scaleEffect(pulsing && breathe ? 1.05 : 1)
+        .opacity(pulsing && breathe ? 0.85 : 1)
+        .onAppear { updatePulse() }
+        .onChange(of: pulsing) { updatePulse() }
+        .accessibilityHidden(true)
+    }
+
+    private func updatePulse() {
+        guard pulsing, !reduceMotion else { breathe = false; return }
+        withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { breathe = true }
+    }
+}
+
+/// A tool's start or result screen: the sphere, a title and line (or a result in large mono),
+/// and the actions as pills.
+struct ToolHero<Actions: View>: View {
+    var module: Module
+    var title: String
+    var subtitle: String?
+    /// "4.87 GB found": replaces the title with a result set in large mono.
+    var result: String? = nil
+    var pulsing = false
+    @ViewBuilder var actions: () -> Actions
+
+    var body: some View {
+        VStack(spacing: 18) {
+            SectionSphere(module: module, size: 150, pulsing: pulsing)
+                .padding(.bottom, 6)
+            VStack(spacing: 8) {
+                if let result {
+                    Text(result).font(Theme.mono(46, .bold)).tracking(-0.5).lineLimit(1).minimumScaleFactor(0.5)
+                        .contentTransition(.numericText())
+                } else {
+                    Text(title).font(Theme.display(30))
+                }
+                if let subtitle {
+                    Text(subtitle).font(Theme.display(15)).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                        .frame(maxWidth: 520)
+                }
+            }
+            HStack(spacing: 12) { actions() }
+                .controlSize(.large)
+                .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 56)
+        .padding(.bottom, 24)
+        .reveal()
     }
 }

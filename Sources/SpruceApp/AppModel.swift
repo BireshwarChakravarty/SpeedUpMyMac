@@ -116,6 +116,7 @@ final class AppModel {
     var selectedTargets = Set<String>()
     var excludedItems = Set<String>()
     var artifacts: [ProjectArtifact] = []
+    var purgeScanned = false
     var selectedArtifacts = Set<String>()
     var apps: [InstalledApp] = []
     var orphans: [Leftover] = []
@@ -389,6 +390,7 @@ final class AppModel {
     func runPurgeScan() async {
         let roots = settings.purgeRoots, age = settings.purgeMinAgeDays
         artifacts = await run("Looking for build artifacts…") { ProjectPurge(roots: roots, minAgeDays: age).scan() }
+        purgeScanned = true
         selectedArtifacts = Set(artifacts.filter { !$0.recentlyActive }.map(\.path))
     }
 
