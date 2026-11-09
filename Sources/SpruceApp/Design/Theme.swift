@@ -93,6 +93,7 @@ extension Module {
     var palette: (hi: UInt32, mid: UInt32, lo: UInt32) {
         switch self {
         case .smartScan: return (0x8CF7D6, 0x2DD4A0, 0x0E9F7A)
+        case .status: return (0xA7E3A1, 0x6FB06A, 0x3E7D3A)
         case .cleanup: return (0x7DD3FC, 0x38BDF8, 0x0284C7)
         case .devPurge: return (0xA5B4FC, 0x818CF8, 0x4F46E5)
         case .installers: return (0xF2B48C, 0xD98C5F, 0xA65A30)
@@ -133,6 +134,7 @@ extension Module {
     var subtitle: String {
         switch self {
         case .smartScan: return "One scan, every corner of this Mac"
+        case .status: return "Live vitals and their history"
         case .cleanup: return "Caches, logs, browser junk, installers and Trash"
         case .devPurge: return "Build artifacts from projects you're not touching"
         case .installers: return "Disk images and packages you've already used"

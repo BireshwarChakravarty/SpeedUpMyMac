@@ -74,6 +74,7 @@ struct ContentView: View {
     private func detail(for module: Module) -> some View {
         switch module {
         case .smartScan: SmartScanView()
+        case .status: StatusView()
         case .cleanup: CleanupView()
         case .devPurge: DevPurgeView()
         case .installers: InstallersView()

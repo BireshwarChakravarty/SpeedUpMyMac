@@ -4,7 +4,7 @@ import Observation
 import LocalAuthentication
 
 enum Module: String, CaseIterable, Identifiable, Hashable {
-    case smartScan, cleanup, devPurge, installers, uninstaller, spaceLens
+    case smartScan, status, cleanup, devPurge, installers, uninstaller, spaceLens
     case processes, maintenance, startup, tweaks
     case health, fleet, history
 
@@ -13,6 +13,7 @@ enum Module: String, CaseIterable, Identifiable, Hashable {
     var title: String {
         switch self {
         case .smartScan: return "Smart Scan"
+        case .status: return "Status"
         case .cleanup: return "Cleanup"
         case .devPurge: return "Dev Purge"
         case .installers: return "Installers"
@@ -31,6 +32,7 @@ enum Module: String, CaseIterable, Identifiable, Hashable {
     var symbol: String {
         switch self {
         case .smartScan: return "sparkles"
+        case .status: return "waveform.path.ecg"
         case .cleanup: return "trash.slash"
         case .devPurge: return "hammer"
         case .installers: return "shippingbox"
@@ -47,7 +49,7 @@ enum Module: String, CaseIterable, Identifiable, Hashable {
     }
 
     static let groups: [(String?, [Module])] = [
-        (nil, [.smartScan]),
+        (nil, [.smartScan, .status]),
         ("Clean", [.cleanup, .devPurge, .installers, .uninstaller, .spaceLens]),
         ("Speed", [.processes, .maintenance, .startup, .tweaks]),
         ("Protect", [.health]),

@@ -31,7 +31,7 @@ enum RailGroup: String, CaseIterable, Identifiable {
 
     var modules: [Module] {
         switch self {
-        case .home: return [.smartScan]
+        case .home: return [.smartScan, .status]
         case .clean: return [.cleanup, .devPurge, .installers, .spaceLens]
         case .apps: return [.uninstaller]
         case .speed: return [.processes, .maintenance, .startup, .tweaks]

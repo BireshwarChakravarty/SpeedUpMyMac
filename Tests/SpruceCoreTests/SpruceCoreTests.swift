@@ -846,3 +846,49 @@ final class InstallerSweepTests: SandboxedTestCase {
         XCTAssertEqual(byName["Mounted.dmg"]?.suggested(), false, "mounted images can't go")
     }
 }
+
+final class MetricsTests: SandboxedTestCase {
+    private func sample(_ minutesAgo: Double, cpu: Double, now: Date, diskFree: Int64 = 100) -> MetricSample {
+        MetricSample(time: now.addingTimeInterval(-minutesAgo * 60), cpu: cpu, load: 1, memory: 50, swapBytes: 0,
+                     diskFreeBytes: diskFree, netIn: 0, netOut: 0)
+    }
+
+    func testStoreBucketsAverageAndPeakAndPrunes() throws {
+        let store = MetricStore(path: home + "/metrics.sqlite")
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        for (minutes, cpu) in [(50.0, 10.0), (49.5, 30.0), (10.0, 80.0), (9.5, 20.0)] {
+            store.insert(sample(minutes, cpu: cpu, now: now))
+        }
+        let points = store.series(.cpu, from: now.addingTimeInterval(-3600), to: now, points: 6)   // 10-minute buckets
+        XCTAssertEqual(points.count, 2)
+        XCTAssertEqual(points[0].average, 20, accuracy: 0.001)
+        XCTAssertEqual(points[0].peak, 30, accuracy: 0.001)
+        XCTAssertEqual(points[1].average, 50, accuracy: 0.001)
+        XCTAssertEqual(points[1].peak, 80, accuracy: 0.001)
+        XCTAssertEqual(store.count(from: now.addingTimeInterval(-3600), to: now), 4)
+
+        store.prune(olderThan: now.addingTimeInterval(-20 * 60))
+        XCTAssertEqual(store.count(from: now.addingTimeInterval(-3600), to: now), 2)
+    }
+
+    func testSamplerReadsSaneValues() {
+        let sampler = MetricSampler()
+        _ = sampler.sample()
+        let second = sampler.sample(now: Date().addingTimeInterval(1))
+        XCTAssertTrue((0...100).contains(second.cpu))
+        XCTAssertTrue((0...100).contains(second.memory))
+        XCTAssertGreaterThanOrEqual(second.netIn, 0)
+        XCTAssertGreaterThanOrEqual(second.load, 0)
+    }
+
+    func testDiskForecast() {
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        // 100 GB free, losing 10 GB a day: about 7 days left after 3 days.
+        let shrinking = (0...3).map { MetricPoint(time: start.addingTimeInterval(Double($0) * 86_400),
+                                                  average: Double(100 - $0 * 10) * 1e9, peak: 0) }
+        XCTAssertEqual(DiskForecast.daysUntilFull(shrinking) ?? 0, 7, accuracy: 0.01)
+        let growing = (0...3).map { MetricPoint(time: start.addingTimeInterval(Double($0) * 86_400), average: Double(100 + $0) * 1e9, peak: 0) }
+        XCTAssertNil(DiskForecast.daysUntilFull(growing))
+        XCTAssertNil(DiskForecast.daysUntilFull(Array(shrinking.prefix(2))), "too little history")
+    }
+}

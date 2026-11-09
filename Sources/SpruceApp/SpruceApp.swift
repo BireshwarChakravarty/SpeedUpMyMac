@@ -68,6 +68,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if let model = AppDelegate.model { StatusItemController.install(model: model) }
+        MetricsMonitor.shared.start()
     }
 
     static var mainWindows: [NSWindow] { windows.allObjects }
