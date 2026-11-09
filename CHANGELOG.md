@@ -6,7 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [2.1.0] — 2026-11-09
 
-A new look inspired by [Burrow](https://github.com/caezium/Burrow), a live **Status** page with 90 days
+A new look, a live **Status** page with 90 days
 of history, and an **Installers** sweep.
 
 ### Added

@@ -5,7 +5,6 @@ import SpruceCore
 /// paper in light) with a faint film grain, warm off-white text, and vivid section accents used
 /// for labels, marks and active states. Spruce's own colour is mint on deep spruce green. The type
 /// set is bundled: Geist for text and numbers, Geist Mono for labels, Cal Sans for titles.
-/// The look follows Burrow's (github.com/caezium/Burrow, MIT); see NOTICE.md.
 enum Theme {
     static let mint = Color(hex: 0x7DF5D0)
     static let spruce = Color(hex: 0x2DD4A0)
