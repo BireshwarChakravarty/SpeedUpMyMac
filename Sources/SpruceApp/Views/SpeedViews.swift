@@ -188,12 +188,14 @@ struct StartupView: View {
             ForEach([StartupItem.Domain.userAgent, .globalAgent, .daemon], id: \.self) { domain in
                 let list = items.filter { $0.domain == domain }
                 if !list.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            SectionTitle(title: domain.rawValue + "s", symbol: "power", trailing: "\(list.count)")
-                            if domain.needsAdmin { SudoBadge() }
+                    VStack(alignment: .leading, spacing: 2) {
+                        SectionTitle(title: domain.rawValue + "s", symbol: "power", trailing: "\(list.count)",
+                                     admin: domain.needsAdmin)
+                            .padding(.bottom, 6)
+                        ForEach(Array(list.enumerated()), id: \.element.id) { index, item in
+                            if index > 0 { RowDivider(inset: 62) }
+                            row(item)
                         }
-                        ForEach(list) { item in row(item) }
                     }
                     .card()
                 }
@@ -206,16 +208,17 @@ struct StartupView: View {
     }
 
     private func row(_ item: StartupItem) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 14) {
             Toggle("", isOn: Binding(get: { !item.disabled }, set: { on in toggle(item, on) }))
-                .labelsHidden().toggleStyle(GlowSwitchStyle(tint: Module.startup.gradient))
-                .frame(width: 54)
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .tint(Module.startup.accent)
                 .disabled(item.domain.needsAdmin && !model.sudo)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(item.label).fontWeight(.medium).lineLimit(1)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(item.label).font(Theme.sans(13, .medium)).lineLimit(1).truncationMode(.middle)
                 if let program = item.program { PathText(path: program) }
             }
-            Spacer()
+            Spacer(minLength: 12)
             if item.quarantined && OSFeatures.launchdRejectsQuarantined {
                 Chip(text: "Won't load", color: Theme.review, symbol: "exclamationmark.triangle.fill")
                     .help("macOS 27's launchd skips plists that still carry the download quarantine flag.")
@@ -227,11 +230,13 @@ struct StartupView: View {
             if item.signing.suspicious {
                 Chip(text: item.signer ?? item.signing.rawValue, color: Theme.risky, symbol: "exclamationmark.triangle.fill")
             } else {
-                Text(item.signer ?? item.signing.rawValue).font(.caption).foregroundStyle(.secondary)
+                Text(item.signer ?? item.signing.rawValue).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
             IconButton(symbol: "magnifyingglass", help: "Show in Finder") { model.reveal(item.plistPath) }
         }
-        .padding(.vertical, 3)
+        .frame(minHeight: 44)
+        .padding(.vertical, 4)
+        .padding(.horizontal, 4)
         .rowHover()
     }
 

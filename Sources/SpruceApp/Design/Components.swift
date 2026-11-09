@@ -80,12 +80,15 @@ struct SectionTitle: View {
     var title: String
     var symbol: String?
     var trailing: String?
+    /// Shows the Admin lock before the count, so counts stay lined up across cards.
+    var admin = false
     @Environment(\.pageModule) private var module
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(title.uppercased()).font(Theme.mono(11, .semibold)).tracking(1.4).foregroundStyle(module.accentText)
             Spacer()
+            if admin { SudoBadge() }
             if let trailing { Text(trailing).font(Theme.mono(12)).foregroundStyle(.tertiary) }
         }
         .padding(.horizontal, 4)
