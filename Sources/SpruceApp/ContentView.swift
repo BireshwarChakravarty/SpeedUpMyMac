@@ -76,6 +76,7 @@ struct ContentView: View {
         case .smartScan: SmartScanView()
         case .cleanup: CleanupView()
         case .devPurge: DevPurgeView()
+        case .installers: InstallersView()
         case .uninstaller: UninstallerView()
         case .spaceLens: SpaceLensView()
         case .processes: ProcessesView()

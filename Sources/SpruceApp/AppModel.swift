@@ -4,7 +4,7 @@ import Observation
 import LocalAuthentication
 
 enum Module: String, CaseIterable, Identifiable, Hashable {
-    case smartScan, cleanup, devPurge, uninstaller, spaceLens
+    case smartScan, cleanup, devPurge, installers, uninstaller, spaceLens
     case processes, maintenance, startup, tweaks
     case health, fleet, history
 
@@ -15,6 +15,7 @@ enum Module: String, CaseIterable, Identifiable, Hashable {
         case .smartScan: return "Smart Scan"
         case .cleanup: return "Cleanup"
         case .devPurge: return "Dev Purge"
+        case .installers: return "Installers"
         case .uninstaller: return "Uninstaller"
         case .spaceLens: return "Space Lens"
         case .processes: return "Processes"
@@ -32,6 +33,7 @@ enum Module: String, CaseIterable, Identifiable, Hashable {
         case .smartScan: return "sparkles"
         case .cleanup: return "trash.slash"
         case .devPurge: return "hammer"
+        case .installers: return "shippingbox"
         case .uninstaller: return "xmark.app"
         case .spaceLens: return "circle.circle"
         case .processes: return "cpu"
@@ -46,7 +48,7 @@ enum Module: String, CaseIterable, Identifiable, Hashable {
 
     static let groups: [(String?, [Module])] = [
         (nil, [.smartScan]),
-        ("Clean", [.cleanup, .devPurge, .uninstaller, .spaceLens]),
+        ("Clean", [.cleanup, .devPurge, .installers, .uninstaller, .spaceLens]),
         ("Speed", [.processes, .maintenance, .startup, .tweaks]),
         ("Protect", [.health]),
         ("Fleet", [.fleet, .history]),
@@ -537,6 +539,39 @@ final class AppModel {
     func findOrphans() async {
         let installed = apps.isEmpty ? Uninstaller.installedApps(measureSizes: false) : apps
         orphans = await run("Looking for leftovers of deleted apps…") { Orphans.find(installed: installed, minBytes: 1) }
+    }
+
+    // MARK: Installers
+
+    var installerFiles: [InstallerFile] = []
+    var installersScanned = false
+
+    func scanInstallers() async {
+        if apps.isEmpty { await loadApps() }
+        let names = apps.map(\.name)
+        installerFiles = await run("Looking for installers…") {
+            InstallerSweep.scan(installedApps: names, mounted: InstallerSweep.mountedImages())
+        }
+        installersScanned = true
+    }
+
+    func confirmInstallers(_ chosen: [InstallerFile]) {
+        guard !chosen.isEmpty else { return }
+        receipt = Receipt(title: "Remove old installers",
+                          lines: chosen.map { ReceiptLine(path: $0.path, title: $0.kind.rawValue, bytes: $0.bytes, destination: "Move to Trash") },
+                          script: nil, confirmTitle: "Move to Trash",
+                          note: "Installers you've already used. They go to the Trash, so you can put any back.") { [self] in
+            let settings = self.settings
+            let result = await run("Removing installers…") { () -> CleanReport in
+                let r = Cleaner(settings: settings, sudo: false, runner: nil).remove(
+                    chosen.map { RemovalRequest(item: ScanItem(path: $0.path, bytes: $0.bytes), scope: .user, preferTrash: true) },
+                    reason: "installers")
+                History.append(HistoryEntry(action: "installers", detail: "\(chosen.count) installer(s)", report: r))
+                return r
+            }
+            summarize(result, verb: "Moved")
+            await scanInstallers()
+        }
     }
 
     func confirmOrphans(_ chosen: [Leftover]) {

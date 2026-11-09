@@ -814,3 +814,35 @@ final class MiscTests: XCTestCase {
         XCTAssertEqual(r?.stdout.trimmingCharacters(in: .whitespacesAndNewlines), "0")
     }
 }
+
+final class InstallerSweepTests: SandboxedTestCase {
+    func testMatchesInstallersToInstalledApps() {
+        let apps = ["Google Chrome", "Zoom", "Docker", "Go", "Visual Studio Code"]
+        XCTAssertEqual(InstallerSweep.matchApp(fileName: "GoogleChrome-131.0.dmg", installedApps: apps), "Google Chrome")
+        XCTAssertEqual(InstallerSweep.matchApp(fileName: "Zoom.pkg", installedApps: apps), "Zoom")
+        XCTAssertEqual(InstallerSweep.matchApp(fileName: "Docker (1).dmg", installedApps: apps), "Docker")
+        XCTAssertNil(InstallerSweep.matchApp(fileName: "go1.22.darwin-arm64.pkg", installedApps: apps), "two-letter names never match")
+        XCTAssertNil(InstallerSweep.matchApp(fileName: "Firefox 133.0.dmg", installedApps: apps))
+    }
+
+    func testFindsInstallersAndSuggestsTheUsedOnes() {
+        makeFile("Downloads/Zoom.pkg", bytes: 4096, age: 1)
+        makeFile("Downloads/Firefox.dmg", bytes: 8192, age: 30)
+        makeFile("Downloads/Fresh.dmg", bytes: 2048, age: 1)
+        makeFile("Downloads/ubuntu.iso", bytes: 1024, age: 90)
+        makeFile("Downloads/notes.txt", bytes: 100, age: 90)
+        makeFile("Downloads/a/b/c/d/e/Deep.dmg", bytes: 100, age: 90)
+        let mounted = makeFile("Desktop/Mounted.dmg", bytes: 512, age: 60)
+        let found = InstallerSweep.scan(roots: [home + "/Downloads", home + "/Desktop"], installedApps: ["Zoom"],
+                                        mounted: [URL(fileURLWithPath: mounted).resolvingSymlinksInPath().path])
+        let byName = Dictionary(uniqueKeysWithValues: found.map { ($0.name, $0) })
+        XCTAssertEqual(Set(byName.keys), ["Zoom.pkg", "Firefox.dmg", "Fresh.dmg", "ubuntu.iso", "Mounted.dmg"], "no text files, nothing too deep")
+        XCTAssertEqual(byName["Zoom.pkg"]?.installedApp, "Zoom")
+        XCTAssertEqual(byName["Zoom.pkg"]?.suggested(), true, "its app is installed")
+        XCTAssertEqual(byName["Firefox.dmg"]?.suggested(), true, "a month old")
+        XCTAssertEqual(byName["Fresh.dmg"]?.suggested(), false, "downloaded yesterday, app not installed")
+        XCTAssertEqual(byName["ubuntu.iso"]?.suggested(), false, "ISO images are never pre-selected")
+        XCTAssertEqual(byName["Mounted.dmg"]?.mounted, true)
+        XCTAssertEqual(byName["Mounted.dmg"]?.suggested(), false, "mounted images can't go")
+    }
+}

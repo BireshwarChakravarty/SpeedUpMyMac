@@ -95,6 +95,7 @@ extension Module {
         case .smartScan: return (0x8CF7D6, 0x2DD4A0, 0x0E9F7A)
         case .cleanup: return (0x7DD3FC, 0x38BDF8, 0x0284C7)
         case .devPurge: return (0xA5B4FC, 0x818CF8, 0x4F46E5)
+        case .installers: return (0xF2B48C, 0xD98C5F, 0xA65A30)
         case .uninstaller: return (0xF9A8D4, 0xF472B6, 0xDB2777)
         case .spaceLens: return (0xD8B4FE, 0xC084FC, 0x9333EA)
         case .processes: return (0xFCD34D, 0xFBBF24, 0xD97706)
@@ -134,6 +135,7 @@ extension Module {
         case .smartScan: return "One scan, every corner of this Mac"
         case .cleanup: return "Caches, logs, browser junk, installers and Trash"
         case .devPurge: return "Build artifacts from projects you're not touching"
+        case .installers: return "Disk images and packages you've already used"
         case .uninstaller: return "Remove apps completely — no traces left"
         case .spaceLens: return "See what's using your disk"
         case .processes: return "Tame CPU and memory hogs"
