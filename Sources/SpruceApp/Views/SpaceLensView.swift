@@ -22,7 +22,7 @@ struct SpaceLensView: View {
                 PillPicker(selection: $mode, options: [(0, "Disk map", "circle.circle"), (1, "Large & old", "doc.badge.clock"),
                                                        (2, "Duplicates", "doc.on.doc")])
                 Spacer()
-                Text(Paths.abbreviate(root)).font(Theme.mono).foregroundStyle(.secondary)
+                Text(Paths.abbreviate(root)).font(Theme.code).foregroundStyle(.secondary)
                 Button("Choose folder…") { chooseRoot() }
             }
             .padding(.horizontal, 26).padding(.bottom, 12)

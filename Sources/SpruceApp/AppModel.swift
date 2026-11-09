@@ -23,7 +23,7 @@ enum Module: String, CaseIterable, Identifiable, Hashable {
         case .tweaks: return "Tweaks"
         case .health: return "Health"
         case .fleet: return "Fleet"
-        case .history: return "History"
+        case .history: return "Activity"
         }
     }
 

@@ -3,13 +3,13 @@ import SpruceCore
 
 // MARK: - Buttons
 
-/// The primary call to action: a capsule in the section's colour with dark text, a glass top
-/// edge and a soft glow. One per screen. `.controlSize(.large)` for hero actions.
+/// The primary call to action: a high-contrast pill (warm white on dark, warm ink on paper), or a
+/// section's colour with `.tinted(_:)`. One per screen. `.controlSize(.large)` for hero actions.
 struct PrimaryButtonStyle: ButtonStyle {
-    /// nil: the colour of the section the button sits in.
+    /// nil: the high-contrast inverse pill.
     var fill: LinearGradient? = nil
     var glow: Color? = nil
-    var text: Color = Theme.ink
+    var text: Color? = nil
 
     func makeBody(configuration: Configuration) -> some View {
         PrimaryButtonBody(configuration: configuration, fill: fill, glow: glow, text: text)
@@ -20,7 +20,7 @@ private struct PrimaryButtonBody: View {
     var configuration: ButtonStyleConfiguration
     var fill: LinearGradient?
     var glow: Color?
-    var text: Color
+    var text: Color?
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.controlSize) private var controlSize
     @Environment(\.pageModule) private var module
@@ -29,19 +29,21 @@ private struct PrimaryButtonBody: View {
     var body: some View {
         let small = controlSize == .small || controlSize == .mini
         let large = controlSize == .large || controlSize == .extraLarge
-        let glowColor = glow ?? module.accent
+        let glowColor = glow ?? .black
         configuration.label
-            .font(.system(size: large ? 15 : small ? 12 : 13, weight: .semibold))
+            .font(Theme.sans(large ? 15 : small ? 12 : 13, .semibold))
             .lineLimit(1)
             .fixedSize()
-            .foregroundStyle(text)
-            .padding(.horizontal, large ? 26 : small ? 12 : 18)
-            .frame(height: large ? 44 : small ? 26 : 32)
-            .background(Capsule().fill(fill ?? module.buttonGradient))
-            .overlay(Capsule().strokeBorder(LinearGradient(colors: [.white.opacity(0.7), .white.opacity(0.0)], startPoint: .top, endPoint: .center), lineWidth: 1))
-            .overlay(Capsule().fill(.white.opacity(hovering ? 0.14 : 0)))
+            .foregroundStyle(text ?? (fill == nil ? Theme.onInverse : Theme.ink))
+            .padding(.horizontal, large ? 28 : small ? 12 : 18)
+            .frame(height: large ? 46 : small ? 26 : 32)
+            .background {
+                if let fill { Capsule().fill(fill) } else { Capsule().fill(Theme.inverse) }
+            }
+            .overlay(Capsule().fill(.white.opacity(hovering ? 0.12 : 0)))
             .overlay(Capsule().fill(.black.opacity(configuration.isPressed ? 0.12 : 0)))
-            .shadow(color: glowColor.opacity(isEnabled ? (hovering ? 0.55 : 0.38) : 0), radius: large ? 16 : 8, y: large ? 6 : 3)
+            .shadow(color: glowColor.opacity(isEnabled ? (fill == nil ? 0.25 : (hovering ? 0.5 : 0.35)) : 0),
+                    radius: large ? 14 : 6, y: large ? 5 : 2)
             .opacity(isEnabled ? 1 : 0.4)
             .contentShape(Capsule())
             .modifier(PressFeedback(isPressed: configuration.isPressed, sound: .tap))
@@ -65,13 +67,13 @@ private struct QuietButtonBody: View {
         let small = controlSize == .small || controlSize == .mini
         let large = controlSize == .large || controlSize == .extraLarge
         configuration.label
-            .font(.system(size: large ? 15 : small ? 12 : 13, weight: .medium))
+            .font(Theme.sans(large ? 15 : small ? 12 : 13, .medium))
             .lineLimit(1)
             .fixedSize()
             .padding(.horizontal, large ? 22 : small ? 10 : 14)
-            .frame(height: large ? 44 : small ? 26 : 32)
-            .background(Capsule().fill(Theme.rim.opacity(configuration.isPressed ? 0.14 : hovering ? 0.1 : 0.06)))
-            .overlay(Capsule().strokeBorder(Theme.rimGradient, lineWidth: 1))
+            .frame(height: large ? 46 : small ? 26 : 32)
+            .background(Capsule().fill(configuration.isPressed ? Theme.cardHover : hovering ? Theme.cardHover : Theme.chipFill))
+            .overlay(Capsule().strokeBorder(Theme.hairline, lineWidth: 1))
             .contentShape(Capsule())
             .opacity(isEnabled ? 1 : 0.4)
             .modifier(PressFeedback(isPressed: configuration.isPressed, sound: .tap))
@@ -81,7 +83,7 @@ private struct QuietButtonBody: View {
 }
 
 extension ButtonStyle where Self == PrimaryButtonStyle {
-    /// The primary button in the colour of the section it sits in.
+    /// The primary call to action: the high-contrast pill.
     static var brand: PrimaryButtonStyle { PrimaryButtonStyle() }
     static var danger: PrimaryButtonStyle { PrimaryButtonStyle(fill: Theme.danger, glow: Color(hex: 0xF43F5E), text: .white) }
     /// The primary button in a specific section's colour.

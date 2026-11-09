@@ -1,133 +1,137 @@
 import SwiftUI
 import SpruceCore
 
-/// The floating sidebar: modules in groups, each with its coloured icon tile and a live count, and
-/// this Mac at the bottom.
-/// Liquid Glass on macOS 26 (it's the navigation layer), a plain raised panel before that.
+/// The sections, grouped the way the rail shows them. Each group's pages appear as tabs at the top.
+enum RailGroup: String, CaseIterable, Identifiable {
+    case home, clean, apps, speed, protect, fleet
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .home: return "Overview"
+        case .clean: return "Clean"
+        case .apps: return "Apps"
+        case .speed: return "Speed"
+        case .protect: return "Protect"
+        case .fleet: return "Fleet"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .home: return "sparkles"
+        case .clean: return "wand.and.rays"
+        case .apps: return "square.grid.2x2"
+        case .speed: return "gauge.with.dots.needle.67percent"
+        case .protect: return "checkmark.shield"
+        case .fleet: return "macbook.and.iphone"
+        }
+    }
+
+    var modules: [Module] {
+        switch self {
+        case .home: return [.smartScan]
+        case .clean: return [.cleanup, .devPurge, .spaceLens]
+        case .apps: return [.uninstaller]
+        case .speed: return [.processes, .maintenance, .startup, .tweaks]
+        case .protect: return [.health]
+        case .fleet: return [.fleet, .history]
+        }
+    }
+
+    /// The colour the rail item lights up in.
+    var module: Module { modules[0] }
+
+    static func of(_ module: Module) -> RailGroup {
+        allCases.first { $0.modules.contains(module) } ?? .home
+    }
+}
+
+/// The slim rail on the left: Spruce's mark, one icon per group, Settings at the bottom.
 struct Sidebar: View {
     @Environment(AppModel.self) private var model
     @Namespace private var namespace
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Color.clear.frame(height: 30) // the traffic lights live here
-            ScrollView {
-                VStack(alignment: .leading, spacing: 1) {
-                    ForEach(Module.groups.indices, id: \.self) { index in
-                        let group = Module.groups[index]
-                        if let title = group.0 {
-                            Text(title)
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(.tertiary)
-                                .padding(.horizontal, 10)
-                                .padding(.top, 14)
-                                .padding(.bottom, 3)
-                        }
-                        ForEach(group.1) { module in
-                            SidebarRow(module: module, selected: model.selection == module, badge: badge(for: module),
-                                       namespace: namespace) {
-                                guard model.selection != module else { return }
-                                SoundFX.shared.play(.select, haptic: .alignment)
-                                withAnimation(Theme.spring) { model.selection = module }
-                            }
-                        }
-                    }
+        let current = RailGroup.of(model.selection ?? .smartScan)
+        VStack(spacing: 10) {
+            Color.clear.frame(height: 22) // the traffic lights live here
+            SpruceMark().frame(width: 40, height: 40)
+                .help("Spruce")
+            Capsule().fill(Theme.hairline).frame(width: 28, height: 1).padding(.vertical, 4)
+            ForEach(RailGroup.allCases) { group in
+                RailButton(group: group, selected: group == current, badge: badge(for: group), namespace: namespace) {
+                    guard group != current else { return }
+                    SoundFX.shared.play(.select, haptic: .alignment)
+                    withAnimation(Theme.spring) { model.selection = group.module }
                 }
-                .padding(.horizontal, 8)
             }
-            .scrollIndicators(.never)
-            MachineFooter().padding(8)
+            Spacer()
+            SettingsLink {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 17, weight: .regular))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("Settings (⌘,)")
+            .padding(.bottom, 10)
         }
-        .modifier(SidebarSurface())
+        .frame(width: 72)
+        .frame(maxHeight: .infinity)
+        .background(RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous).fill(Theme.cardFill))
+        .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous).strokeBorder(Theme.hairline, lineWidth: 1))
     }
 
-    private func badge(for module: Module) -> String? {
-        switch module {
-        case .cleanup:
-            guard let scan = model.scan else { return nil }
-            let bytes = scan.bytes(maxRisk: .safe)
-            return bytes > 0 ? Format.bytes(bytes) : nil
-        case .devPurge:
-            let bytes = model.artifacts.filter { !$0.recentlyActive }.reduce(0) { $0 + $1.bytes }
-            return bytes > 0 ? Format.bytes(bytes) : nil
-        case .maintenance:
-            let n = model.smart?.recommendedTasks.count ?? 0
-            return n > 0 ? "\(n)" : nil
-        case .startup:
-            let n = model.smart?.suspiciousStartupItems.count ?? 0
-            return n > 0 ? "\(n)" : nil
-        case .health:
-            return model.health.map { "\($0.score)" }
-        case .fleet:
-            return model.fleet.count > 1 ? "\(model.fleet.count)" : nil
-        default:
-            return nil
+    /// A dot when something in the group needs a look.
+    private func badge(for group: RailGroup) -> Bool {
+        switch group {
+        case .speed: return !(model.smart?.recommendedTasks.isEmpty ?? true) || !(model.smart?.suspiciousStartupItems.isEmpty ?? true)
+        case .protect: return (model.health?.score ?? 100) < 70
+        default: return false
         }
     }
 }
 
-private struct SidebarSurface: ViewModifier {
-    func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
-        #if compiler(>=6.2)
-        if #available(macOS 26.0, *) {
-            content.glassEffect(.regular, in: shape)
-        } else {
-            content.background(Theme.sidebar, in: shape)
-                .overlay(shape.strokeBorder(Theme.rim.opacity(0.07), lineWidth: 1))
-                .shadow(color: .black.opacity(0.25), radius: 14, y: 6)
-        }
-        #else
-        content.background(Theme.sidebar, in: shape)
-            .overlay(shape.strokeBorder(Theme.rim.opacity(0.07), lineWidth: 1))
-            .shadow(color: .black.opacity(0.25), radius: 14, y: 6)
-        #endif
-    }
-}
-
-private struct SidebarRow: View {
-    var module: Module
+private struct RailButton: View {
+    var group: RailGroup
     var selected: Bool
-    var badge: String?
+    var badge: Bool
     var namespace: Namespace.ID
     var action: () -> Void
     @State private var hovering = false
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 10) {
-                IconTile(module: module, size: 22)
-                    .scaleEffect(selected ? 1.06 : 1)
-                    .animation(Theme.snappy, value: selected)
-                Text(module.title)
-                    .font(.system(size: 13, weight: selected ? .semibold : .regular))
-                    .foregroundStyle(.primary)
-                Spacer(minLength: 4)
-                if let badge {
-                    Text(badge)
-                        .font(.system(size: 11, weight: .medium, design: .rounded).monospacedDigit())
-                        .foregroundStyle(selected ? AnyShapeStyle(module.accentText) : AnyShapeStyle(.secondary))
-                        .contentTransition(.numericText())
-                }
-            }
-            .padding(.horizontal, 7)
-            .frame(height: 32)
-            .background {
+            ZStack {
                 if selected {
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .fill(Theme.rim.opacity(0.1))
-                        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Theme.rimGradient, lineWidth: 1))
-                        .matchedGeometryEffect(id: "selection", in: namespace)
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .fill(group.module.buttonGradient)
+                        .shadow(color: group.module.accent.opacity(0.4), radius: 8, y: 3)
+                        .matchedGeometryEffect(id: "rail", in: namespace)
                 } else if hovering {
-                    RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Theme.rim.opacity(0.05))
+                    RoundedRectangle(cornerRadius: 15, style: .continuous).fill(Theme.chipFill)
+                }
+                Image(systemName: group.symbol)
+                    .font(.system(size: 18, weight: selected ? .semibold : .regular))
+                    .foregroundStyle(selected ? AnyShapeStyle(Theme.ink) : AnyShapeStyle(.secondary))
+                    .symbolEffect(.bounce, value: selected)
+            }
+            .frame(width: 48, height: 48)
+            .overlay(alignment: .topTrailing) {
+                if badge && !selected {
+                    Circle().fill(Theme.review).frame(width: 7, height: 7).offset(x: -8, y: 8)
                 }
             }
-            .contentShape(RoundedRectangle(cornerRadius: 9))
+            .contentShape(RoundedRectangle(cornerRadius: 15))
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
-        .animation(Theme.spring, value: badge)
+        .help(group.title)
+        .accessibilityLabel(group.title)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }

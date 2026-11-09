@@ -36,29 +36,29 @@ struct SmartScanView: View {
             VStack(alignment: .leading, spacing: 12) {
                 switch phase {
                 case .idle:
-                    Text("Ready when you are").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.accentText)
-                    Text("Spruce up \(model.machine.name)").font(.system(size: 34, weight: .bold)).lineLimit(2)
+                    Text("READY WHEN YOU ARE").font(Theme.mono(11, .semibold)).tracking(1.4).foregroundStyle(Theme.accentText)
+                    Text("Spruce up \(model.machine.name)").font(Theme.display(36)).lineLimit(2)
                     Text("\(model.machine.chip) · macOS \(model.machine.osVersion) · \(model.machine.isAdmin ? "Administrator" : "Standard account")")
-                        .font(.system(size: 14)).foregroundStyle(.secondary)
+                        .font(Theme.mono(12)).foregroundStyle(.secondary)
                     Button("Start Scan") { Task { await model.runSmartScan() } }
                         .buttonStyle(.brand)
                         .controlSize(.large)
                         .keyboardShortcut(.defaultAction)
                         .padding(.top, 8)
                 case .scanning:
-                    Text("Scanning").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.accentText)
+                    Text("SCANNING").font(Theme.mono(11, .semibold)).tracking(1.4).foregroundStyle(Theme.accentText)
                     Text(model.scanStage)
-                        .font(.system(size: 28, weight: .bold))
+                        .font(Theme.display(30))
                         .lineLimit(2)
                         .contentTransition(.opacity)
                         .animation(.easeOut(duration: 0.15), value: model.scanStage)
-                    Text("Nothing is removed until you confirm a receipt.").font(.system(size: 14)).foregroundStyle(.secondary)
+                    Text("Nothing is removed until you confirm a receipt.").font(Theme.sans(14)).foregroundStyle(.secondary)
                 case .done:
                     if let smart = model.smart {
-                        Text(smart.quickWinBytes > 0 ? "Ready to spruce up" : "Spotless")
-                            .font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.accentText)
+                        Text(smart.quickWinBytes > 0 ? "READY TO SPRUCE UP" : "SPOTLESS")
+                            .font(Theme.mono(11, .semibold)).tracking(1.4).foregroundStyle(Theme.accentText)
                         BigBytes(bytes: smart.quickWinBytes, size: 88, duration: 1.2)
-                        Text(heroDetail(smart)).font(.system(size: 15)).foregroundStyle(.secondary)
+                        Text(heroDetail(smart)).font(Theme.sans(15)).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                         HStack(spacing: 10) {
                             Button("Spruce Up") { model.cleanNow() }
@@ -98,8 +98,8 @@ struct SmartScanView: View {
         HStack(alignment: .top, spacing: 12) {
             IconTile(module: module, size: 30)
             VStack(alignment: .leading, spacing: 4) {
-                Text(title).font(.system(size: 13, weight: .semibold))
-                Text(detail).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Text(title).font(Theme.sans(14, .semibold))
+                Text(detail).font(Theme.sans(12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(16)
@@ -181,15 +181,16 @@ struct SmartScanView: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 6) {
-                    Circle().fill(module.accent).frame(width: 7, height: 7).shadow(color: module.accent.opacity(0.6), radius: 3)
-                    Text(label).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+                    Image(systemName: module.symbol).font(.system(size: 11, weight: .semibold))
+                    Text(label.uppercased()).font(Theme.mono(11, .semibold)).tracking(1.4)
                 }
-                Text(value).font(.system(size: 24, weight: .bold, design: .rounded)).lineLimit(1).minimumScaleFactor(0.7)
+                .foregroundStyle(module.accentText)
+                Text(value).font(Theme.sans(26, .semibold)).lineLimit(1).minimumScaleFactor(0.7)
                 visual()
-                Text(detail).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2)
+                Text(detail).font(Theme.mono(11)).foregroundStyle(.secondary).lineLimit(2)
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
+            .padding(18)
+            .frame(maxWidth: .infinity, minHeight: 140, alignment: .topLeading)
             .surface()
             .hoverLift()
             .contentShape(RoundedRectangle(cornerRadius: 16))
@@ -211,10 +212,10 @@ struct SmartScanView: View {
                 ForEach(Array(sorted.enumerated()), id: \.element.0) { index, row in
                     if index > 0 { RowDivider(inset: 0) }
                     HStack(spacing: 18) {
-                        Text(row.0).font(.system(size: 13)).frame(width: 190, alignment: .leading)
+                        Text(row.0).font(Theme.sans(13)).frame(width: 190, alignment: .leading)
                         GrowingBar(fraction: Double(row.1) / Double(maxBytes), fill: colours[index % colours.count].barGradient,
                                    delay: 0.1 + Double(index) * 0.04, height: 7)
-                        Text(Format.bytes(row.1)).font(.system(size: 13, design: .rounded).monospacedDigit()).foregroundStyle(.secondary)
+                        Text(Format.bytes(row.1)).font(Theme.mono(12)).foregroundStyle(.secondary)
                             .frame(width: 80, alignment: .trailing)
                     }
                     .padding(.vertical, 11)

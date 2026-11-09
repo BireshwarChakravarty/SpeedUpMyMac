@@ -8,9 +8,9 @@ struct MetricText: View {
 
     var body: some View {
         let parts = MetricText.split(value)
-        (Text(parts.0).font(.system(size: size, weight: .bold, design: .rounded))
-            + Text(parts.1.isEmpty ? "" : " " + parts.1).font(.system(size: size * 0.46, weight: .semibold, design: .rounded)).foregroundColor(.secondary))
-            .tracking(size > 40 ? -1.2 : 0)
+        (Text(parts.0).font(Theme.sans(size, .semibold))
+            + Text(parts.1.isEmpty ? "" : " " + parts.1).font(Theme.mono(size * 0.4, .medium)).foregroundColor(.secondary))
+            .tracking(size > 40 ? -1.5 : 0)
             .monospacedDigit()
             .lineLimit(1)
             .minimumScaleFactor(0.5)
@@ -56,18 +56,21 @@ struct HeroHeader<Actions: View>: View {
     @Environment(\.pageModule) private var module
 
     var body: some View {
-        HStack(alignment: .center, spacing: 20) {
-            IconTile(module: module, size: 56)
-            VStack(alignment: .leading, spacing: 4) {
-                MetricText(value: value, size: 48)
+        HStack(alignment: .center, spacing: 22) {
+            SectionSphere(module: module, size: 58)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title.uppercased())
+                    .font(Theme.mono(11, .semibold)).tracking(1.4)
+                    .foregroundStyle(module.accentText)
+                MetricText(value: value, size: 46)
                     .contentTransition(.numericText())
                     .animation(Theme.spring, value: value)
-                Text(caption).font(.system(size: 13)).foregroundStyle(.secondary).lineLimit(2)
+                Text(caption).font(Theme.sans(13)).foregroundStyle(.secondary).lineLimit(2)
             }
             Spacer(minLength: 12)
             HStack(spacing: 8) { actions() }
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 10)
         .reveal()
     }
 }
@@ -77,12 +80,13 @@ struct SectionTitle: View {
     var title: String
     var symbol: String?
     var trailing: String?
+    @Environment(\.pageModule) private var module
 
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(title).font(.system(size: 15, weight: .semibold))
+            Text(title.uppercased()).font(Theme.mono(11, .semibold)).tracking(1.4).foregroundStyle(module.accentText)
             Spacer()
-            if let trailing { Text(trailing).font(.system(size: 13).monospacedDigit()).foregroundStyle(.tertiary) }
+            if let trailing { Text(trailing).font(Theme.mono(12)).foregroundStyle(.tertiary) }
         }
         .padding(.horizontal, 4)
     }
@@ -122,8 +126,10 @@ struct Chip: View {
             if let symbol { Image(systemName: symbol).font(.system(size: 9, weight: .semibold)) }
             Text(text)
         }
-        .font(.system(size: 11, weight: .semibold))
+        .font(Theme.mono(11, .medium))
         .foregroundStyle(color)
+        .padding(.horizontal, 7).padding(.vertical, 2)
+        .background(Capsule().fill(color.opacity(0.12)))
     }
 }
 
@@ -148,7 +154,7 @@ struct SudoBadge: View {
 struct SizeText: View {
     var bytes: Int64
     var body: some View {
-        Text(Format.bytes(bytes)).font(.system(size: 13).monospacedDigit()).foregroundStyle(.secondary)
+        Text(Format.bytes(bytes)).font(Theme.mono(12)).foregroundStyle(.secondary)
             .contentTransition(.numericText())
     }
 }
@@ -156,7 +162,7 @@ struct SizeText: View {
 struct PathText: View {
     var path: String
     var body: some View {
-        Text(Paths.abbreviate(path)).font(Theme.mono).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
+        Text(Paths.abbreviate(path)).font(Theme.code).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
             .textSelection(.enabled)
     }
 }
@@ -169,8 +175,8 @@ struct EmptyState: View {
     var body: some View {
         VStack(spacing: 10) {
             EmptyStateMark(symbol: symbol)
-            Text(title).font(.system(size: 17, weight: .semibold))
-            Text(message).font(.system(size: 13)).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 420)
+            Text(title).font(Theme.display(26))
+            Text(message).font(Theme.sans(13)).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 440)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 48)
@@ -178,19 +184,14 @@ struct EmptyState: View {
     }
 }
 
-/// An empty state's symbol on a soft disc of the section's colour.
+/// An empty state's centrepiece: the section's soft sphere.
 private struct EmptyStateMark: View {
     var symbol: String
     @Environment(\.pageModule) private var module
 
     var body: some View {
-        Image(systemName: symbol)
-            .font(.system(size: 30, weight: .regular))
-            .foregroundStyle(module.accentText)
-            .frame(width: 72, height: 72)
-            .background(Circle().fill(module.accent.opacity(0.14)))
-            .overlay(Circle().strokeBorder(module.accent.opacity(0.25), lineWidth: 1))
-            .padding(.bottom, 4)
+        SectionSphere(module: module, size: 96)
+            .padding(.bottom, 14)
     }
 }
 

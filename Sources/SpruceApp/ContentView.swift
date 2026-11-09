@@ -13,8 +13,7 @@ struct ContentView: View {
             ModuleBackdrop(module: module)
             HStack(spacing: 0) {
                 Sidebar()
-                    .frame(width: 236)
-                    .padding(8)
+                    .padding(.leading, 10).padding(.vertical, 10)
                 VStack(spacing: 0) {
                     TopBar(module: module, soundOn: $soundOn)
                     ZStack {
@@ -40,7 +39,7 @@ struct ContentView: View {
                 }
             }
             .padding(.bottom, 20)
-            .padding(.leading, 252)
+            .padding(.leading, 92)
             .animation(.spring(response: 0.4, dampingFraction: 0.85), value: model.busy)
             .animation(.spring(response: 0.4, dampingFraction: 0.85), value: model.status)
             .animation(.spring(response: 0.4, dampingFraction: 0.85), value: model.sentinelOffer?.app.path)
@@ -54,6 +53,7 @@ struct ContentView: View {
                 .zIndex(10)
             }
         }
+        .foregroundStyle(Theme.text)
         .background(WindowConfigurator())
         .buttonStyle(.quiet)
         .toggleStyle(.check)
@@ -89,23 +89,50 @@ struct ContentView: View {
     }
 }
 
-/// The toolbar row: the page title on the left, sound and Admin on the right. Drags the window.
+/// The toolbar row: the group's pages as pill tabs on the left, sound and Admin on the right.
+/// Drags the window.
 struct TopBar: View {
     var module: Module
     @Binding var soundOn: Bool
+    @Environment(AppModel.self) private var model
+    @Namespace private var namespace
 
     var body: some View {
+        let group = RailGroup.of(module)
         HStack(alignment: .center, spacing: 10) {
-            Text(module.title)
-                .font(.system(size: 15, weight: .semibold))
-                .id(module)
-                .transition(.opacity)
-            Text(module.subtitle)
-                .font(.system(size: 13))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .id("sub-\(module.rawValue)")
-                .transition(.opacity)
+            HStack(spacing: 2) {
+                ForEach(group.modules) { page in
+                    let selected = page == module
+                    Button {
+                        guard !selected else { return }
+                        SoundFX.shared.play(.select)
+                        withAnimation(Theme.spring) { model.selection = page }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(page.title.lowercased())
+                            if let badge = badge(for: page) {
+                                Text(badge).foregroundStyle(selected ? Theme.onInverse.opacity(0.6) : Theme.text.opacity(0.45))
+                                    .contentTransition(.numericText())
+                            }
+                        }
+                        .font(Theme.mono(13, selected ? .semibold : .regular))
+                        .foregroundStyle(selected ? Theme.onInverse : Theme.text.opacity(0.72))
+                        .padding(.horizontal, 14)
+                        .frame(height: 30)
+                        .background {
+                            if selected {
+                                Capsule().fill(Theme.inverse).matchedGeometryEffect(id: "tab", in: namespace)
+                            }
+                        }
+                        .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(3)
+            .background(Capsule().fill(Theme.chipFill))
+            .overlay(Capsule().strokeBorder(Theme.hairline, lineWidth: 1))
+            .animation(Theme.spring, value: module)
             Spacer()
             Button {
                 soundOn.toggle()
@@ -120,9 +147,32 @@ struct TopBar: View {
             .accessibilityLabel(soundOn ? "Mute sound effects" : "Turn on sound effects")
             SudoSwitch()
         }
-        .padding(.leading, 24)
+        .padding(.leading, 22)
         .padding(.trailing, 20)
-        .frame(height: 52)
+        .frame(height: 60)
+    }
+
+    /// Live counts beside a tab's name.
+    private func badge(for page: Module) -> String? {
+        switch page {
+        case .cleanup:
+            guard let scan = model.scan else { return nil }
+            let bytes = scan.bytes(maxRisk: .safe)
+            return bytes > 0 ? Format.bytes(bytes) : nil
+        case .devPurge:
+            let bytes = model.artifacts.filter { !$0.recentlyActive }.reduce(0) { $0 + $1.bytes }
+            return bytes > 0 ? Format.bytes(bytes) : nil
+        case .maintenance:
+            let n = model.smart?.recommendedTasks.count ?? 0
+            return n > 0 ? "\(n)" : nil
+        case .startup:
+            let n = model.smart?.suspiciousStartupItems.count ?? 0
+            return n > 0 ? "\(n)" : nil
+        case .fleet:
+            return model.fleet.count > 1 ? "\(model.fleet.count)" : nil
+        default:
+            return nil
+        }
     }
 }
 
@@ -223,7 +273,7 @@ struct ReceiptSheet: View {
             if let script = receipt.script {
                 DisclosureGroup(isExpanded: $showScript) {
                     ScrollView {
-                        Text(script.text).font(Theme.mono).textSelection(.enabled)
+                        Text(script.text).font(Theme.code).textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .frame(height: 130)

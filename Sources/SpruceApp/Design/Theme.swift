@@ -1,10 +1,11 @@
 import SwiftUI
 import SpruceCore
 
-/// Design tokens (docs/DESIGN.md). Spruce's own colour is mint on deep spruce green; every section
-/// has a colour of its own (Module.palette) that tints its icon, its primary button and the light
-/// behind its page. Glass is for chrome (sidebar, toolbar, menu bar panel); content sits on solid
-/// surfaces with a hairline highlight along the top edge.
+/// Design tokens (docs/DESIGN.md). A warm, calm ground (deep forest charcoal in dark mode, warm
+/// paper in light) with a faint film grain, warm off-white text, and vivid section accents used
+/// for labels, marks and active states. Spruce's own colour is mint on deep spruce green. The type
+/// set is bundled: Geist for text and numbers, Geist Mono for labels, Cal Sans for titles.
+/// The look follows Burrow's (github.com/caezium/Burrow, MIT); see NOTICE.md.
 enum Theme {
     static let mint = Color(hex: 0x7DF5D0)
     static let spruce = Color(hex: 0x2DD4A0)
@@ -15,23 +16,53 @@ enum Theme {
     static let brandAngular = AngularGradient(colors: [mint, spruce, sky, mint], center: .center)
 
     static let safe = Color(light: 0x15803D, dark: 0x4ADE80)
-    static let review = Color(light: 0xB45309, dark: 0xFBBF24)
-    static let risky = Color(light: 0xDC2626, dark: 0xF87171)
-    static let sudo = Color(light: 0xB45309, dark: 0xF5A524)
-    static let danger = LinearGradient(colors: [Color(hex: 0xFB7185), Color(hex: 0xE11D48)], startPoint: .top, endPoint: .bottom)
+    static let review = Color(light: 0xB45309, dark: 0xF0B24A)
+    static let risky = Color(light: 0xDC2626, dark: 0xF0604E)
+    static let sudo = Color(light: 0xB45309, dark: 0xF0B24A)
+    static let danger = LinearGradient(colors: [Color(hex: 0xF57A68), Color(hex: 0xE0473A)], startPoint: .top, endPoint: .bottom)
 
-    /// Window background and the solid surfaces that sit on it. Neutrals lean slightly green.
-    static let base = Color(light: 0xF2F5F4, dark: 0x101615)
-    static let baseRaised = Color(light: 0xFFFFFF, dark: 0x19201F)
-    static let surface = Color(light: 0xFFFFFF, dark: 0x19211F)
-    static let sidebar = Color(light: 0xE8EDEB, dark: 0x1A2220)
-    static let separator = Color(light: 0xE2E8E6, dark: 0x29322F)
-    static let track = Color(light: 0xE2E8E6, dark: 0x2A3431)
+    // Ground: deep forest charcoal (dark) / warm paper (light).
+    static let base = Color(light: 0xF3F1EA, dark: 0x13140F)
+    static let baseRaised = Color(light: 0xFBFAF6, dark: 0x1B1C16)
+    /// Solid fallback for places that need an opaque surface (sheets, the menu bar panel).
+    static let surface = Color(light: 0xFBFAF6, dark: 0x1D1E18)
+    static let sidebar = Color(light: 0xE9E6DC, dark: 0x1A1B15)
+    // Text: warm off-white (dark) / warm ink (light).
+    static let text = Color(light: 0x1F1E16, dark: 0xECEAE0)
+    // Lifted surfaces and lines: warm white over the ground.
+    static let cardFill = Color(light: 0xFFFFFF, dark: 0xF2F0E4, lightAlpha: 0.7, darkAlpha: 0.065)
+    static let cardHover = Color(light: 0xFFFFFF, dark: 0xF2F0E4, lightAlpha: 0.92, darkAlpha: 0.1)
+    static let chipFill = Color(light: 0x2A2A1E, dark: 0xF2F0E4, lightAlpha: 0.07, darkAlpha: 0.08)
+    static let hairline = Color(light: 0x2A2A1E, dark: 0xF2F0E4, lightAlpha: 0.12, darkAlpha: 0.1)
+    static let separator = Color(light: 0x2A2A1E, dark: 0xF2F0E4, lightAlpha: 0.1, darkAlpha: 0.08)
+    static let track = Color(light: 0x2A2A1E, dark: 0xF2F0E4, lightAlpha: 0.1, darkAlpha: 0.1)
     static let rim = Color(light: 0x000000, dark: 0xFFFFFF)
-    /// Text on mint and on every section's button gradient.
-    static let ink = Color(hex: 0x04140F)
+    /// The high-contrast call to action: warm white on dark, warm ink on paper.
+    static let inverse = Color(light: 0x1F1E16, dark: 0xF6F4EA)
+    static let onInverse = Color(light: 0xF6F4EA, dark: 0x13140F)
+    /// Text on mint and on every section's colour.
+    static let ink = Color(hex: 0x0B0D08)
     /// Spruce's colour as text: deep green in light mode, where mint would be unreadable.
     static let accentText = Color(light: 0x0B7A5E, dark: 0x7DF5D0)
+
+    // Shape: rounded, the house signature.
+    static let radiusSmall: CGFloat = 12
+    static let radiusCard: CGFloat = 18
+    static let radiusLarge: CGFloat = 26
+
+    // Type: the bundled set. `.custom` falls back to the system font if a face isn't registered
+    // (for example in `swift run`, outside the app bundle).
+    static func sans(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
+        let face = weight == .semibold || weight == .bold || weight == .heavy ? "Geist-SemiBold"
+            : weight == .medium ? "Geist-Medium" : "Geist-Regular"
+        return .custom(face, size: size)
+    }
+    static func mono(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
+        let face = weight == .bold || weight == .heavy ? "GeistMono-Bold" : weight == .semibold ? "GeistMono-SemiBold"
+            : weight == .medium ? "GeistMono-Medium" : "GeistMono-Regular"
+        return .custom(face, size: size)
+    }
+    static func display(_ size: CGFloat) -> Font { .custom("CalSans-Regular", size: size) }
 
     static func color(for risk: Risk) -> Color {
         switch risk {
@@ -43,12 +74,12 @@ enum Theme {
 
     static func scoreColor(_ score: Int) -> Color { score >= 80 ? safe : score >= 60 ? review : risky }
 
-    /// Numbers use SF Pro Rounded: friendlier, and the digits stay tabular.
-    static let hero = Font.system(size: 60, weight: .bold, design: .rounded)
-    static let heroUnit = Font.system(size: 26, weight: .semibold, design: .rounded)
-    static let heroSmall = Font.system(size: 28, weight: .bold, design: .rounded)
-    static let title = Font.system(size: 22, weight: .semibold)
-    static let mono = Font.system(.caption, design: .monospaced)
+    static let hero = sans(60, .semibold)
+    static let heroUnit = mono(24, .medium)
+    static let heroSmall = sans(28, .semibold)
+    static let title = display(24)
+    /// Paths and scripts.
+    static let code = Font.custom("GeistMono-Regular", size: 11)
 
     /// One spring for everything, so the whole app moves with the same weight.
     static let spring = Animation.spring(response: 0.42, dampingFraction: 0.86)
@@ -134,12 +165,13 @@ extension Color {
                   blue: Double(hex & 0xFF) / 255, opacity: opacity)
     }
 
-    /// A colour that adapts to light/dark appearance.
-    init(light: UInt32, dark: UInt32) {
+    /// A colour that adapts to light/dark appearance, each with its own opacity.
+    init(light: UInt32, dark: UInt32, lightAlpha: Double = 1, darkAlpha: Double = 1) {
         self.init(nsColor: NSColor(name: nil) { appearance in
-            let hex = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            let hex = isDark ? dark : light
             return NSColor(srgbRed: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255,
-                           blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
+                           blue: CGFloat(hex & 0xFF) / 255, alpha: isDark ? darkAlpha : lightAlpha)
         })
     }
 }
@@ -165,9 +197,8 @@ extension View {
         #endif
     }
 
-    /// A solid content surface: a hairline highlight along the top edge in dark mode, a soft
-    /// shadow in light mode.
-    func surface(cornerRadius: CGFloat = 16) -> some View {
+    /// A content card: warm white lifted a little off the ground, with a hairline edge.
+    func surface(cornerRadius: CGFloat = Theme.radiusCard) -> some View {
         modifier(Surface(cornerRadius: cornerRadius))
     }
 
@@ -179,14 +210,12 @@ extension View {
 
 private struct Surface: ViewModifier {
     var cornerRadius: CGFloat
-    @Environment(\.colorScheme) private var scheme
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         content
-            .background(Theme.surface.opacity(scheme == .dark ? 0.86 : 1), in: shape)
-            .overlay(shape.strokeBorder(Theme.rimGradient, lineWidth: 1).allowsHitTesting(false))
-            .shadow(color: .black.opacity(scheme == .dark ? 0.18 : 0.06), radius: scheme == .dark ? 10 : 8, y: 3)
+            .background(Theme.cardFill, in: shape)
+            .overlay(shape.strokeBorder(Theme.hairline, lineWidth: 1).allowsHitTesting(false))
     }
 }
 
@@ -220,25 +249,70 @@ struct IconTile: View {
     }
 }
 
-/// The light behind each page, in its section's colour, cross-fading as you move between sections.
+/// The window's ground: the same calm, warm surface on every page (sections keep their colour in
+/// labels and marks, not in the background), a faint light in the top corner, and film grain.
 struct ModuleBackdrop: View {
     var module: Module
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        let strength = scheme == .dark ? 1.0 : 0.6
         ZStack {
             Theme.base
-            ZStack {
-                RadialGradient(colors: [module.accent.opacity(0.22 * strength), .clear],
-                               center: UnitPoint(x: 0.45, y: 0.08), startRadius: 0, endRadius: 640)
-                RadialGradient(colors: [Color(hex: module.palette.lo).opacity(0.12 * strength), .clear],
-                               center: UnitPoint(x: 1, y: 1), startRadius: 0, endRadius: 560)
-            }
-            .id(module)
-            .transition(.opacity)
+            LinearGradient(colors: [Color(light: 0xFBFAF4, dark: 0x1C1D16, lightAlpha: 0.5, darkAlpha: 0.55),
+                                    Color(light: 0xEBE7DC, dark: 0x0C0D09, lightAlpha: 0.6, darkAlpha: 0.8)],
+                           startPoint: .top, endPoint: .bottom)
+            RadialGradient(colors: [Theme.mint.opacity(scheme == .dark ? 0.06 : 0.08), .clear],
+                           center: .topTrailing, startRadius: 0, endRadius: 620)
+            Grain()
         }
-        .animation(.easeInOut(duration: 0.45), value: module)
         .ignoresSafeArea()
+    }
+}
+
+/// Film grain: a tiled field of random light and dark specks at very low opacity.
+struct Grain: View {
+    var opacity: Double = 0.05
+
+    /// Rendered once into a bitmap, then tiled.
+    private static let tile: NSImage = {
+        let size = 160
+        var generator = SeededRandom(seed: 0x5EED)
+        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: size, pixelsHigh: size, bitsPerSample: 8,
+                                         samplesPerPixel: 2, hasAlpha: true, isPlanar: false,
+                                         colorSpaceName: .calibratedWhite, bytesPerRow: size * 2, bitsPerPixel: 16),
+              let pixels = rep.bitmapData else { return NSImage(size: NSSize(width: 1, height: 1)) }
+        for i in 0..<(size * size) {
+            let speck = generator.next(in: 0...1) < 0.5
+            pixels[i * 2] = generator.next(in: 0...1) < 0.5 ? 255 : 0
+            pixels[i * 2 + 1] = speck ? UInt8(generator.next(in: 40...150)) : 0
+        }
+        let image = NSImage(size: NSSize(width: size, height: size))
+        image.addRepresentation(rep)
+        return image
+    }()
+
+    var body: some View {
+        Image(nsImage: Grain.tile)
+            .resizable(resizingMode: .tile)
+            .opacity(opacity)
+            .blendMode(.overlay)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+
+/// A soft sphere in a section's colour: the centrepiece of a page's empty and start states.
+struct SectionSphere: View {
+    var module: Module
+    var size: CGFloat = 120
+
+    var body: some View {
+        Circle()
+            .fill(RadialGradient(colors: [Color(hex: module.palette.hi), module.accent, Color(hex: module.palette.lo).opacity(0.85)],
+                                 center: UnitPoint(x: 0.38, y: 0.32), startRadius: 0, endRadius: size * 0.62))
+            .overlay(Circle().strokeBorder(.white.opacity(0.14), lineWidth: 1))
+            .frame(width: size, height: size)
+            .background(Circle().fill(module.accent.opacity(0.22)).blur(radius: size * 0.3).frame(width: size * 1.5, height: size * 1.5))
+            .accessibilityHidden(true)
     }
 }

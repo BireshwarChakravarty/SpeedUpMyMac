@@ -334,7 +334,7 @@ struct SettingsView: View {
                             Text("Give Spruce Full Disk Access, quit and reopen it, then turn this on again. Or paste this in Terminal (it asks for your password once):")
                                 .foregroundStyle(.secondary)
                             Text(Tweaks.touchIDTerminalCommand)
-                                .font(Theme.mono)
+                                .font(Theme.code)
                                 .textSelection(.enabled)
                                 .padding(8)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -444,7 +444,7 @@ struct SettingsView: View {
             Text(title)
             ForEach(items, id: \.self) { item in
                 HStack {
-                    Text(item).font(Theme.mono)
+                    Text(item).font(Theme.code)
                     Spacer()
                     Button { update(items.filter { $0 != item }); model.settings.save() } label: { Image(systemName: "minus.circle") }
                         .buttonStyle(.borderless)

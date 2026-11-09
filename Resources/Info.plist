@@ -10,6 +10,8 @@
     <string>io.spruceapp.Spruce</string>
     <key>CFBundleExecutable</key>
     <string>Spruce</string>
+    <key>ATSApplicationFontsPath</key>
+    <string>Fonts</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundlePackageType</key>

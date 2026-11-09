@@ -31,6 +31,9 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Helpers" "$APP/Contents/Resources"
 cp "$BIN/SpruceApp" "$APP/Contents/MacOS/Spruce"
 cp "$BIN/spruce" "$APP/Contents/Helpers/spruce"
 cp Assets/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+# Bundled typefaces (SIL Open Font License; registered through ATSApplicationFontsPath).
+mkdir -p "$APP/Contents/Resources/Fonts"
+cp Resources/Fonts/*.ttf Resources/Fonts/*-OFL.txt "$APP/Contents/Resources/Fonts/"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD/" Resources/Info.plist > "$APP/Contents/Info.plist"
 
 # Signing, best first:
