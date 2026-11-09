@@ -4,6 +4,33 @@ All notable changes to Spruce (formerly Root, and before that Burnish) are docum
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] — 2026-11-09
+
+A new look inspired by [Burrow](https://github.com/caezium/Burrow), a live **Status** page with 90 days
+of history, and an **Installers** sweep.
+
+### Added
+
+- **Status** (Overview → Status):
+  - **Now** shows live cards for CPU, memory, load, disk, network and security, each with a chart. The disk card estimates when the disk will be full.
+  - **History** charts every metric from 5 minutes to 90 days, with the average and peak for each period.
+  - Spruce samples every 30 seconds while it runs (the menu bar counts), every 2 seconds while Status is open, and keeps 90 days in a local database on this Mac only.
+- **Installers** (Clean → Installers):
+  - Finds `.dmg`, `.pkg`, `.xip` and `.iso` files in Downloads, Desktop, Documents, Mail downloads and /Users/Shared.
+  - Shows which installed app each one belongs to, how old it is and where it is.
+  - Pre-selects installers for apps you already have, and anything older than a week. ISO images and mounted disk images are never pre-selected.
+  - Moves selected files to the Trash after the usual receipt.
+
+### Changed
+
+- **New look:**
+  - A warm, calm background with film grain, the same on every page.
+  - A slim icon rail (Overview, Clean, Apps, Speed, Protect, Fleet, Settings), with each group's pages as pill tabs at the top.
+  - Uppercase monospaced labels in each section's colour, flat cards with a hairline edge, and a soft sphere in each section's colour on page headers and start screens.
+  - The primary button is a high-contrast pill.
+- **Bundled fonts:** Geist for text and numbers, Geist Mono for labels and tabs, Cal Sans for titles (all SIL Open Font License).
+- **History is now called Activity,** to make room for metric history.
+
 ## [2.0.0] — 2026-11-06 · Spruce
 
 Root is now **Spruce**, with a new icon, a redesigned interface, Touch ID for admin steps, and a
@@ -136,6 +163,7 @@ First release under the name Root (renamed from Burnish).
 - **Interface:** native macOS design with sound effects, plus the `root` command-line tool.
 - **Migration:** settings, logs and the fleet folder move over automatically from Burnish.
 
+[2.1.0]: https://github.com/BireshwarChakravarty/SpeedUpMyMac/compare/06075a6...c22e931
 [2.0.0]: https://github.com/BireshwarChakravarty/SpeedUpMyMac/compare/8138fb2...000e70f
 [1.1.0]: https://github.com/BireshwarChakravarty/SpeedUpMyMac/compare/396b95a...8138fb2
 [1.0.0]: https://github.com/BireshwarChakravarty/SpeedUpMyMac/compare/9404342...396b95a
