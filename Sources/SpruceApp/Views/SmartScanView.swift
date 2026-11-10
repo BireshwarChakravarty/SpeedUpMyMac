@@ -48,9 +48,6 @@ struct SmartScanView: View {
                             .disabled(model.busy != nil || smart.quickWinBytes == 0)
                         Button("Review \(reviewCount(smart)) items") { go(.cleanup) }
                         Button("Rescan") { Task { await model.runSmartScan() } }
-                            .buttonStyle(.plain)
-                            .font(Theme.sans(14, .medium))
-                            .foregroundStyle(.secondary)
                             .disabled(model.busy != nil)
                     }
                     healthLine(smart.health)

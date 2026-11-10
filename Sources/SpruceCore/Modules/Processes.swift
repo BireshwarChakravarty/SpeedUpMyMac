@@ -28,11 +28,19 @@ public enum Processes {
         #else
         let r = Shell.run("/bin/ps", ["-axo", "pid=,uid=,%cpu=,rss=,state=,comm="])
         #endif
-        return r.stdout.split(separator: "\n").compactMap { line in
+        return parse(r.stdout)
+    }
+
+    /// Parses `ps` output. Columns are padded, so the command name can start with spaces; it is
+    /// trimmed so names line up and match by name (protected processes, search).
+    static func parse(_ output: String) -> [ProcessInfoRow] {
+        output.split(separator: "\n").compactMap { line in
             let parts = line.split(separator: " ", maxSplits: 5, omittingEmptySubsequences: true)
             guard parts.count == 6, let pid = Int32(parts[0]), let uid = UInt32(parts[1]),
                   let cpu = Double(parts[2]), let rss = Int64(parts[3]) else { return nil }
-            return ProcessInfoRow(pid: pid, uid: uid, cpu: cpu, memoryBytes: rss * 1024, name: String(parts[5]),
+            let name = parts[5].trimmingCharacters(in: .whitespaces)
+            guard !name.isEmpty else { return nil }
+            return ProcessInfoRow(pid: pid, uid: uid, cpu: cpu, memoryBytes: rss * 1024, name: name,
                                   state: String(parts[4]))
         }
     }

@@ -13,7 +13,8 @@ struct HealthView: View {
                 HStack(spacing: 22) {
                     ScoreRing(score: h.score, size: 120)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(h.machine.name).font(.title2.weight(.bold))
+                        Text(h.machine.name).font(Theme.display(24)).lineLimit(1).truncationMode(.middle)
+                            .help(h.machine.name)
                         Text("\(h.machine.chip) · \(h.machine.model) · macOS \(h.machine.osVersion) · \(Format.bytes(h.machine.memoryBytes)) memory")
                             .foregroundStyle(.secondary)
                         Text("Up \(Int(h.uptimeSeconds / 86_400)) days · thermal \(h.thermal)").foregroundStyle(.secondary)
@@ -183,7 +184,8 @@ struct FleetCard: View {
                     .shadow(color: Module.fleet.tint.1.opacity(0.5), radius: 8, y: 4)
                 VStack(alignment: .leading) {
                     HStack(spacing: 6) {
-                        Text(snap.machine.name).font(.headline)
+                        Text(snap.machine.name).font(.headline).lineLimit(1).truncationMode(.middle)
+                            .help(snap.machine.name)
                         if isThisMac { Chip(text: "This Mac", color: Theme.spruce, symbol: "location.fill") }
                     }
                     Text("\(snap.machine.chip) · macOS \(snap.machine.osVersion)").font(.caption).foregroundStyle(.secondary)
@@ -253,12 +255,12 @@ struct HistoryView: View {
 
     var body: some View {
         ModuleScroll {
-            HeroHeader(title: "History", value: Format.bytes(model.history.reduce(0) { $0 + $1.bytes }),
+            HeroHeader(title: "Activity", value: Format.bytes(model.history.reduce(0) { $0 + $1.bytes }),
                        caption: "freed on this Mac · every removal is logged with its paths", symbol: "clock.arrow.circlepath") {
                 Button("Open Trash") { NSWorkspace.shared.open(URL(fileURLWithPath: Paths.expand("~/.Trash"))) }
             }
             if model.history.isEmpty {
-                EmptyState(symbol: "clock", title: "Nothing yet", message: "Cleanups, uninstalls, purges and tweaks appear here.").card()
+                EmptyState(symbol: "clock", title: "Nothing yet", message: "Cleanups, uninstalls, purges and tweaks appear here.", sphere: false).card()
             }
             ForEach(Array(model.history.enumerated()), id: \.element.id) { index, entry in
                 DisclosureGroup {
@@ -285,7 +287,7 @@ struct HistoryView: View {
                 .reveal(index: index, step: 0.03)
             }
         }
-        .navigationTitle("History")
+        .navigationTitle("Activity")
         .onAppear { model.loadHistory() }
     }
 
@@ -580,7 +582,7 @@ struct QuickUninstallPanel: View {
         let systemApp = quick.app.isAppleApp && !InstalledApp.deletableAppleApps.contains(quick.app.bundleID)
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
-                Image(nsImage: NSWorkspace.shared.icon(forFile: quick.app.path))
+                Image(nsImage: FileIcon.image(quick.app.path))
                     .resizable().frame(width: 48, height: 48)
                     .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
                 VStack(alignment: .leading, spacing: 2) {
@@ -593,7 +595,8 @@ struct QuickUninstallPanel: View {
                 Button { model.quickUninstall = nil } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary) }
                     .buttonStyle(.plain).help("Scan another app")
             }
-            ForEach(kinds(quick).prefix(4), id: \.name) { row in
+            // With nothing outside the bundle the total below says it all; list kinds only when there are several.
+            ForEach(quick.leftovers.isEmpty ? [] : Array(kinds(quick).prefix(4)), id: \.name) { row in
                 HStack {
                     Text(row.name).font(.callout).foregroundStyle(.secondary).lineLimit(1)
                     Spacer()

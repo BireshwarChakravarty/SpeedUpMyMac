@@ -159,7 +159,7 @@ struct CelebrationOverlay: View {
         .onTapGesture { dismiss() }
         .onAppear {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { shown = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.6) { dismiss() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) { dismiss() }
         }
     }
 }
@@ -189,7 +189,6 @@ struct ScoreRing: View {
     var score: Int
     var size: CGFloat = 120
     var caption: String = "Health"
-    @Environment(\.pageModule) private var module
     @State private var shown: Double = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(reduceEffectsKey) private var reduceEffects = false
@@ -200,10 +199,9 @@ struct ScoreRing: View {
             Circle().stroke(Theme.track, lineWidth: width)
             Circle()
                 .trim(from: 0, to: shown)
-                .stroke(AngularGradient(colors: [Color(hex: module.palette.hi), module.accent, Color(hex: module.palette.hi)], center: .center),
-                        style: StrokeStyle(lineWidth: width, lineCap: .round))
+                .stroke(ScoreRing.color(for: score), style: StrokeStyle(lineWidth: width, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .shadow(color: module.accent.opacity(0.45), radius: size * 0.04)
+                .shadow(color: ScoreRing.color(for: score).opacity(0.45), radius: size * 0.04)
             VStack(spacing: 0) {
                 CountingText(value: Double(score), duration: 1.0) { "\(Int($0.rounded()))" }
                     .font(.system(size: size * 0.3, weight: .bold, design: .rounded))
@@ -217,6 +215,11 @@ struct ScoreRing: View {
         .onChange(of: score) { animate() }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Health score \(score) out of 100")
+    }
+
+    /// The score's own colour, the same on every page: green when healthy, amber, then red.
+    static func color(for score: Int) -> Color {
+        Theme.scoreColor(score)
     }
 
     private func animate() {

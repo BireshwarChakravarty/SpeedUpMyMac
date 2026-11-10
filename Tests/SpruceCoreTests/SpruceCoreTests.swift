@@ -891,4 +891,15 @@ final class MetricsTests: SandboxedTestCase {
         XCTAssertNil(DiskForecast.daysUntilFull(growing))
         XCTAssertNil(DiskForecast.daysUntilFull(Array(shrinking.prefix(2))), "too little history")
     }
+
+    func testProcessNamesAreTrimmed() {
+        let output = """
+          312   501   13.3  59800 S    helpd
+          401   501    0.4  10300 Ss   cfprefsd
+           77     0    0.0   2500 S<s  Finder
+        """
+        let rows = Processes.parse(output)
+        XCTAssertEqual(rows.map(\.name), ["helpd", "cfprefsd", "Finder"])
+        XCTAssertEqual(rows.first?.memoryBytes, 59800 * 1024)
+    }
 }

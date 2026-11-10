@@ -51,6 +51,7 @@ struct StatusView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onAppear { MetricsMonitor.shared.watch() }
         .onDisappear { MetricsMonitor.shared.unwatch() }
+        .onChange(of: model.tourSubpage) { _, page in if page == "status-history" { mode = 1 } }
     }
 }
 
@@ -67,7 +68,7 @@ private struct StatusNow: View {
         let latest = monitor.latest
         ModuleScroll {
             header
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 250), spacing: 14)], spacing: 14) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 250), spacing: 14, alignment: .top)], spacing: 14) {
                 MetricCard(metric: .cpu, title: "CPU", value: latest.map { String(format: "%.1f", $0.cpu) } ?? "—", unit: "%",
                            badge: nil, footer: latest.map { String(format: "load %.2f", $0.load) } ?? "") {
                     Chart(Array(live.enumerated()), id: \.offset) { index, sample in
@@ -115,11 +116,8 @@ private struct StatusNow: View {
                 ScoreRing(score: health.score, size: 92)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("STATUS").font(Theme.mono(11, .semibold)).tracking(1.4).foregroundStyle(Module.status.accentText)
-                    HStack(alignment: .firstTextBaseline, spacing: 10) {
-                        Text("\(health.score)").font(Theme.sans(46, .semibold))
-                        Text(health.score >= 80 ? "Good" : health.score >= 60 ? "Fair" : "Poor")
-                            .font(Theme.sans(20, .medium)).foregroundStyle(Theme.scoreColor(health.score))
-                    }
+                    Text(health.score >= 80 ? "Good" : health.score >= 60 ? "Fair" : "Poor")
+                        .font(Theme.sans(40, .semibold)).foregroundStyle(Theme.scoreColor(health.score))
                     Text(health.notes.first ?? "Nothing needs attention").font(Theme.sans(13)).foregroundStyle(.secondary)
                 }
             }
@@ -216,6 +214,7 @@ private struct MetricCard<ChartContent: View>: View {
                         .background(Capsule().fill(Theme.chipFill))
                 }
             }
+            .frame(height: 22)   // the same with or without a badge, so cards in a row line up
             .foregroundStyle(color)
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(value).font(Theme.sans(34, .semibold)).lineLimit(1).minimumScaleFactor(0.6)
@@ -277,7 +276,7 @@ private struct StatusHistory: View {
                     .font(Theme.mono(11)).foregroundStyle(.secondary)
             }
             bigChart
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12, alignment: .top)], spacing: 12) {
                 ForEach(Metric.allCases) { metric in
                     smallCard(metric)
                 }

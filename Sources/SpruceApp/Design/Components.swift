@@ -174,10 +174,12 @@ struct EmptyState: View {
     var symbol: String
     var title: String
     var message: String
+    /// Off when the page header already shows the section's sphere.
+    var sphere = true
 
     var body: some View {
         VStack(spacing: 10) {
-            EmptyStateMark(symbol: symbol)
+            if sphere { EmptyStateMark(symbol: symbol) }
             Text(title).font(Theme.display(26))
             Text(message).font(Theme.sans(13)).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 440)
         }
@@ -274,4 +276,22 @@ struct ModuleGlyph: View {
     var bounce: Bool = false
 
     var body: some View { IconTile(module: module, size: size) }
+}
+
+/// Finder icons, looked up once per path. Lists redraw often (hover, selection, live counts), and
+/// asking NSWorkspace for every row on every redraw is slow enough to stall page changes.
+@MainActor
+enum FileIcon {
+    private static let cache: NSCache<NSString, NSImage> = {
+        let cache = NSCache<NSString, NSImage>()
+        cache.countLimit = 400
+        return cache
+    }()
+
+    static func image(_ path: String) -> NSImage {
+        if let icon = cache.object(forKey: path as NSString) { return icon }
+        let icon = NSWorkspace.shared.icon(forFile: path)
+        cache.setObject(icon, forKey: path as NSString)
+        return icon
+    }
 }

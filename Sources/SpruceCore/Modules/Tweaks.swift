@@ -47,6 +47,9 @@ public struct Tweak: Codable, Identifiable, Sendable {
     public var restart: String?
     public var presets: Set<String>
 
+    /// Safari keeps its settings in its sandbox container, which only apps with Full Disk Access can write.
+    public var needsFullDiskAccess: Bool { domain == "com.apple.Safari" }
+
     init(_ id: String, _ title: String, _ detail: String, _ group: TweakGroup, domain: String, key: String,
          value: TweakValue, admin: Bool = false, restart: String? = nil, presets: Set<String> = []) {
         self.id = id

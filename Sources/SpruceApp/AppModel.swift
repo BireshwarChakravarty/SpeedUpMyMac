@@ -694,10 +694,12 @@ final class AppModel {
 
     private var tourShot = 0
     private var tourStarted = false
+    /// Set by the CI tour to open a page's inner view (a sub-tab, a sheet) for one screenshot.
+    var tourSubpage: String?
 
     /// Asks CI to capture the screen: a `.ready` file asks, a `.done` file answers.
-    private func captureTour(_ folder: String, _ name: String) async {
-        try? await Task.sleep(for: .seconds(2.5))
+    private func captureTour(_ folder: String, _ name: String, after delay: Double = 2.5) async {
+        try? await Task.sleep(for: .seconds(delay))
         tourShot += 1
         let base = (folder as NSString).appendingPathComponent(String(format: "%02d-%@", tourShot, name))
         FileManager.default.createFile(atPath: base + ".ready", contents: nil)
@@ -717,20 +719,41 @@ final class AppModel {
         await loadApps()
         await runSmartScan()
         await captureTour(folder, "smart-scan-results")
+        // Inner views a page opens itself; each gets its own screenshot after the page's own.
+        let subpages: [Module: (page: String, name: String)] = [
+            .status: ("status-history", "status-history"),
+            .uninstaller: ("orphans", "uninstaller-orphans"),
+            .spaceLens: ("space-map", "space-lens-map"),
+            .tweaks: ("tweaks-preset", "tweaks-preset"),
+        ]
         for module in Module.allCases where module != .smartScan {
             if module == .uninstaller {
                 uninstallFocus = apps.filter { $0.userRemovable && !$0.isAppleApp }.max(by: { $0.bytes < $1.bytes })
             }
             selection = module
             await captureTour(folder, module.rawValue)
+            if let sub = subpages[module] {
+                tourSubpage = sub.page
+                try? await Task.sleep(for: .milliseconds(500))
+                for _ in 0..<40 where busy != nil { try? await Task.sleep(for: .milliseconds(500)) }   // let a scan finish
+                await captureTour(folder, sub.name)
+                tourSubpage = nil
+                receipt = nil
+            }
         }
+
+        // Settings is its own window.
+        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        await captureTour(folder, "settings")
+        NSApp.windows.filter { $0.isVisible && !AppDelegate.mainWindows.contains($0) && $0.title.localizedCaseInsensitiveContains("settings") }
+            .forEach { $0.close() }
+
         selection = .smartScan
         cleanNow()
         await captureTour(folder, "receipt")
         receipt = nil
         celebrate(Celebration(bytes: smart?.quickWinBytes ?? 0, title: "Cleaned — clean to the root"))
-        try? await Task.sleep(for: .milliseconds(600))
-        await captureTour(folder, "celebration")
+        await captureTour(folder, "celebration", after: 1.0)
 
         // The menu bar panel: empty, then with an app dropped on it.
         StatusItemController.shared?.show()

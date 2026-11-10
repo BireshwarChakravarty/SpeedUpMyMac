@@ -206,7 +206,7 @@ struct SentinelBanner: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            Image(nsImage: NSWorkspace.shared.icon(forFile: app.path)).resizable().frame(width: 36, height: 36)
+            Image(nsImage: FileIcon.image(app.path)).resizable().frame(width: 36, height: 36)
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(app.name) left \(leftovers.count) file\(leftovers.count == 1 ? "" : "s") behind").font(.system(size: 13, weight: .semibold))
                 Text(Format.bytes(leftovers.reduce(0) { $0 + $1.bytes })).font(.system(size: 12)).foregroundStyle(.secondary)
@@ -242,7 +242,7 @@ struct ReceiptSheet: View {
                     Text("\(receipt.lines.count) item\(receipt.lines.count == 1 ? "" : "s")").font(.system(size: 13)).foregroundStyle(.secondary)
                 }
                 Spacer()
-                BigBytes(bytes: receipt.total, size: 30, duration: 0.8)
+                if receipt.total > 0 { BigBytes(bytes: receipt.total, size: 30, duration: 0.8) }
             }
             if let note = receipt.note {
                 InfoNote(text: note, symbol: isUninstall ? "exclamationmark.triangle" : "info.circle")
@@ -288,7 +288,7 @@ struct ReceiptSheet: View {
                 }
             }
             HStack {
-                Text("Every removal is logged in History.").font(.system(size: 12)).foregroundStyle(.tertiary)
+                Text("Everything Spruce does is logged in Activity.").font(.system(size: 12)).foregroundStyle(.tertiary)
                 Spacer()
                 Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
                 Button(receipt.confirmTitle) {

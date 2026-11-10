@@ -18,7 +18,8 @@ struct ProcessesView: View {
 
     var body: some View {
         ModuleScroll {
-            HeroHeader(title: "Processes", value: "\(rows.filter { $0.cpu > 50 }.count) busy",
+            let busy = rows.filter { $0.cpu > 50 }.count
+            HeroHeader(title: "Processes", value: busy > 0 ? "\(busy) busy" : "All calm",
                        caption: "Quit, pause (SIGSTOP) or push a hog onto the efficiency cores", symbol: "cpu") {
                 VStack(alignment: .trailing, spacing: 10) {
                     PillPicker(selection: $byMemory, options: [(false, "CPU", "cpu"), (true, "Memory", "memorychip")])
@@ -26,6 +27,15 @@ struct ProcessesView: View {
                 }
             }
             VStack(spacing: 2) {
+                HStack(spacing: 10) {
+                    Text("PROCESS").frame(maxWidth: .infinity, alignment: .leading)
+                    Color.clear.frame(width: 90, height: 1)
+                    Text("CPU").frame(width: 64, alignment: .trailing)
+                    Text("MEMORY").frame(width: 80, alignment: .trailing)
+                    Color.clear.frame(width: 30, height: 1)
+                }
+                .font(Theme.mono(10, .semibold)).tracking(1.2).foregroundStyle(.tertiary)
+                .padding(.bottom, 6)
                 ForEach(shown) { p in
                     HStack(spacing: 10) {
                         Text(p.name).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
@@ -180,8 +190,9 @@ struct StartupView: View {
 
     var body: some View {
         ModuleScroll {
-            HeroHeader(title: "Startup Items", value: "\(items.filter { !$0.disabled }.count) active",
-                       caption: "\(items.filter(\.needsAttention).count) need a look · disabling is reversible, nothing is deleted",
+            let review = items.filter(\.needsAttention).count
+            HeroHeader(title: "Startup Items", value: review > 0 ? "\(review) to review" : "All good",
+                       caption: "\(items.filter { !$0.disabled }.count) of \(items.count) running at login · disabling is reversible, nothing is deleted",
                        symbol: "power") {
                 Button("Refresh") { Task { await load() } }
             }
@@ -276,6 +287,7 @@ struct StartupView: View {
 struct TweaksView: View {
     @Environment(AppModel.self) private var model
     @State private var applied = Set<String>()
+    @State private var hasFullDiskAccess = true
 
     var body: some View {
         ModuleScroll {
@@ -283,29 +295,36 @@ struct TweaksView: View {
                        caption: "Every change remembers the previous value and can be reverted", symbol: "slider.horizontal.3") {
                 HStack {
                     ForEach(Tweaks.presets, id: \.self) { preset in
-                        Button(preset.capitalized) { apply(Tweaks.inPreset(preset)) }
+                        Button(preset.capitalized) { confirmPreset(preset) }
                     }
-                    Button("Revert all") { revert(Tweaks.all) }
+                    Button("Revert All") { confirmRevertAll() }
+                        .disabled(applied.isEmpty)
                 }
             }
-            InfoNote(text: "macOS seals the system volume, so system apps and Siri/Spotlight daemons can't be deleted without disabling SIP. Spruce won't ask you to. These are the changes that are safe and reversible.")
+            InfoNote(text: "Presets show exactly what they change before anything happens. System apps and Siri/Spotlight daemons sit on the sealed system volume, so Spruce only offers changes that are safe and reversible.")
             ForEach(TweakGroup.allCases, id: \.self) { group in
                 VStack(alignment: .leading, spacing: 6) {
                     SectionTitle(title: group.rawValue, symbol: "slider.horizontal.3", trailing: nil)
                     ForEach(Tweaks.all.filter { $0.group == group }) { tweak in
+                        let blockedByAccess = tweak.needsFullDiskAccess && !hasFullDiskAccess
                         Toggle(isOn: Binding(get: { applied.contains(tweak.id) }, set: { on in on ? apply([tweak]) : revert([tweak]) })) {
                             VStack(alignment: .leading, spacing: 1) {
                                 HStack(spacing: 6) {
                                     Text(tweak.title)
                                     if tweak.needsAdmin { SudoBadge() }
+                                    if blockedByAccess { Chip(text: "Needs Full Disk Access", color: Theme.review, symbol: "lock.shield") }
                                 }
                                 Text(tweak.detail).font(.caption).foregroundStyle(.secondary)
                             }
                         }
                         .toggleStyle(GlowSwitchStyle(tint: Module.tweaks.gradient))
-                        .disabled(tweak.needsAdmin && !model.sudo)
+                        .disabled((tweak.needsAdmin && !model.sudo) || blockedByAccess)
                         .padding(.vertical, 2)
                         .rowHover()
+                    }
+                    if group == .privacy && !hasFullDiskAccess {
+                        Button("Open Full Disk Access Settings") { model.openFullDiskAccessSettings() }
+                            .controlSize(.small)
                     }
                     if group == .system {
                         Toggle(isOn: Binding(get: { model.touchIDForAdmin }, set: { on in model.setTouchIDForAdmin(on) })) {
@@ -324,10 +343,54 @@ struct TweaksView: View {
         }
         .navigationTitle("Tweaks")
         .task { await refresh() }
+        .onChange(of: model.tourSubpage) { _, page in
+            if page == "tweaks-preset" { confirmPreset("balanced") }
+        }
+    }
+
+    /// The apps a list of tweaks restarts, in plain words ("the Dock and Finder").
+    private static func restartNote(_ tweaks: [Tweak]) -> String? {
+        let apps = Set(tweaks.compactMap(\.restart)).sorted()
+        guard !apps.isEmpty else { return nil }
+        let names = apps.map { $0 == "Dock" ? "the Dock" : $0 }
+        let list = names.count == 1 ? names[0] : names.dropLast().joined(separator: ", ") + " and " + names.last!
+        return "Restarts \(list) so the change shows up."
+    }
+
+    /// A preset changes several settings at once and restarts the Dock or Finder, so it goes through
+    /// the usual receipt: every change listed, nothing done until confirmed.
+    private func confirmPreset(_ preset: String) {
+        let sudo = model.sudo
+        let all = Tweaks.inPreset(preset).filter { !applied.contains($0.id) }
+        let list = all.filter { (!$0.needsAdmin || sudo) && !($0.needsFullDiskAccess && !hasFullDiskAccess) }
+        let skipped = all.count - list.count
+        guard !list.isEmpty else {
+            model.report(all.isEmpty ? "Everything in \(preset.capitalized) is already on" : "\(preset.capitalized) needs Admin mode or Full Disk Access for the rest")
+            return
+        }
+        var note = Self.restartNote(list) ?? "Each change can be reverted from this page."
+        if skipped > 0 { note += " \(skipped) more need Admin mode or Full Disk Access and are left as they are." }
+        model.receipt = Receipt(title: "\(preset.capitalized) tweaks",
+                                lines: list.map { ReceiptLine(path: "tweak:\($0.id)", title: $0.title, bytes: 0, destination: "Turn on") },
+                                script: nil, confirmTitle: "Apply \(list.count)", note: note) { [self] in
+            apply(list)
+        }
+    }
+
+    private func confirmRevertAll() {
+        let list = Tweaks.all.filter { applied.contains($0.id) && (!$0.needsAdmin || model.sudo) }
+        guard !list.isEmpty else { return }
+        model.receipt = Receipt(title: "Revert tweaks",
+                                lines: list.map { ReceiptLine(path: "tweak:\($0.id)", title: $0.title, bytes: 0, destination: "Restore") },
+                                script: nil, confirmTitle: "Revert \(list.count)",
+                                note: Self.restartNote(list) ?? "Each setting goes back to the value it had before Spruce changed it.") { [self] in
+            revert(list)
+        }
     }
 
     private func refresh() async {
         applied = await Task.detached { Set(Tweaks.all.filter(Tweaks.isApplied).map(\.id)) }.value
+        hasFullDiskAccess = await Task.detached { Health.hasFullDiskAccess() }.value
         model.touchIDForAdmin = Tweaks.touchIDForSudoEnabled()
     }
 

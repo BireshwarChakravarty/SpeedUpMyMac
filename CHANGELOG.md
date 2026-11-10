@@ -35,6 +35,17 @@ of history, and an **Installers** sweep.
 - **Maintenance and Space Lens open on a start screen,** like Cleanup and Installers. Maintenance no longer runs its checks as soon as you open it.
 - **The menu bar panel fits small screens.** It stops at the bottom of the screen and scrolls, instead of running off it.
 
+### Fixed
+
+- **Tweaks presets ask first.** Balanced, Privacy, Snappy and Revert All list every change and which apps restart (the Dock, Finder) before anything happens.
+- **The Safari tweak** is marked "Needs Full Disk Access" instead of failing when Spruce can't write Safari's settings.
+- **Process names line up** in Processes. Names from `ps` kept leading spaces, which also stopped protected processes matching by name.
+- **One colour per health score** everywhere: green 80 and up, amber 60–79, red below 60.
+- **Startup Items** spacing: the switch no longer touches the item's name, and counts line up across cards. The headline matches the tab ("3 to review").
+- **Long Mac names** stay on one line in Health and Fleet.
+- **Activity** is named the same on its tab, heading and the confirmation screen.
+- **Small layout fixes:** sub-tabs are pills that match the top tabs, Status cards line up in rows, every page has the same side margins, Dev Purge shows what it found when nothing is selected, the menu bar's uninstall card shows its size once, and the clean celebration stays up long enough to read.
+
 ## [2.0.0] — 2026-11-06 · Spruce
 
 Root is now **Spruce**, with a new icon, a redesigned interface, Touch ID for admin steps, and a

@@ -195,24 +195,43 @@ extension ToggleStyle where Self == GlowSwitchStyle {
 // MARK: - Segmented picker
 
 /// The system segmented control (Liquid Glass on macOS 26), with a click.
+/// Sub-tabs inside a page (Now / History, Name / Size…): small pills that match the top tabs,
+/// with the selected one in the high-contrast pill colour.
 struct PillPicker<Value: Hashable>: View {
     @Binding var selection: Value
     var options: [(value: Value, title: String, symbol: String?)]
+    @Namespace private var pill
 
     var body: some View {
-        Picker("", selection: Binding(get: { selection }, set: { new in
-            guard new != selection else { return }
-            SoundFX.shared.play(.select)
-            withAnimation(Theme.spring) { selection = new }
-        })) {
+        HStack(spacing: 2) {
             ForEach(options.indices, id: \.self) { i in
-                Text(options[i].title).tag(options[i].value)
+                let option = options[i]
+                let selected = option.value == selection
+                Button {
+                    guard !selected else { return }
+                    SoundFX.shared.play(.select)
+                    withAnimation(Theme.snappy) { selection = option.value }
+                } label: {
+                    Text(option.title)
+                        .font(Theme.sans(12, .medium))
+                        .foregroundStyle(selected ? Theme.onInverse : Theme.text.opacity(0.7))
+                        .lineLimit(1)
+                        .padding(.horizontal, 12).padding(.vertical, 5)
+                        .background {
+                            if selected {
+                                Capsule().fill(Theme.inverse).matchedGeometryEffect(id: "pill", in: pill)
+                            }
+                        }
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selected ? .isSelected : [])
             }
         }
-        .pickerStyle(.segmented)
-        .labelsHidden()
+        .padding(3)
+        .background(Capsule().fill(Theme.chipFill))
+        .overlay(Capsule().strokeBorder(Theme.hairline, lineWidth: 1))
         .fixedSize()
-        .tint(Color(light: 0x8E8E93, dark: 0x636366)) // neutral selection: white text stays readable
     }
 }
 

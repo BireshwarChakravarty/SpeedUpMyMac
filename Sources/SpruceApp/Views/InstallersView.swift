@@ -86,7 +86,7 @@ struct InstallersView: View {
                                      set: { on in if on { chosen.insert(file.path) } else { chosen.remove(file.path) } }))
                 .labelsHidden()
                 .disabled(file.mounted)
-            Image(nsImage: NSWorkspace.shared.icon(forFile: file.path)).resizable().frame(width: 28, height: 28)
+            Image(nsImage: FileIcon.image(file.path)).resizable().frame(width: 28, height: 28)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(file.name).font(Theme.sans(13, .medium)).lineLimit(1).truncationMode(.middle)

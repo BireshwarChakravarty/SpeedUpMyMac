@@ -19,12 +19,15 @@ struct DevPurgeView: View {
                         .disabled(model.busy != nil)
                 }
             } else {
-            HeroHeader(title: "Dev Purge", value: Format.bytes(selectedBytes),
-                       caption: "node_modules, target, .build, Pods, venvs and friends in \(model.settings.purgeRoots.count) project roots",
+            let foundBytes = model.artifacts.reduce(Int64(0)) { $0 + $1.bytes }
+            HeroHeader(title: "Dev Purge", value: Format.bytes(selectedBytes > 0 ? selectedBytes : foundBytes),
+                       caption: selectedBytes > 0
+                           ? "selected of \(Format.bytes(foundBytes)) found in \(model.settings.purgeRoots.count) project roots"
+                           : "found in \(model.settings.purgeRoots.count) project roots · nothing selected yet",
                        symbol: "hammer") {
                 HStack {
                     Button("Scan") { Task { await model.runPurgeScan() } }.disabled(model.busy != nil)
-                    Button("Purge") { model.confirmPurge() }.buttonStyle(.tinted(.devPurge)).disabled(selectedBytes == 0 || model.busy != nil)
+                    Button("Purge") { model.confirmPurge() }.buttonStyle(.brand).disabled(selectedBytes == 0 || model.busy != nil)
                 }
             }
             let waiting = ProjectPurge.rootsNeedingAccess(model.settings.purgeRoots).filter { Paths.lexists(Paths.expand($0)) }

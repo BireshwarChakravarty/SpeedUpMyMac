@@ -40,6 +40,12 @@ struct UninstallerView: View {
             takeFocus()
         }
         .onChange(of: model.uninstallFocus) { takeFocus() }
+        .onChange(of: model.tourSubpage) { _, page in
+            if page == "orphans" {
+                mode = 1
+                Task { await model.findOrphans() }
+            }
+        }
     }
 
     /// An app picked in the menu bar panel opens here, expanded.
@@ -90,7 +96,7 @@ struct UninstallerView: View {
             }
             removalBar
         }
-        .padding(.horizontal, 26)
+        .padding(.horizontal, 32)
         .padding(.bottom, 18)
         .onChange(of: selectedApp) { load() }
         .onChange(of: model.apps) {
@@ -153,7 +159,7 @@ struct UninstallerView: View {
                             .font(.system(size: 10, weight: .bold)).foregroundStyle(.tertiary)
                             .rotationEffect(.degrees(open ? 90 : 0))
                             .frame(width: 12)
-                        Image(nsImage: NSWorkspace.shared.icon(forFile: app.path)).resizable().frame(width: 32, height: 32)
+                        Image(nsImage: FileIcon.image(app.path)).resizable().frame(width: 32, height: 32)
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 6) {
                                 Text(app.name).font(Theme.sans(13, .medium)).lineLimit(1)

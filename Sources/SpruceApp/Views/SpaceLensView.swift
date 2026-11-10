@@ -25,7 +25,7 @@ struct SpaceLensView: View {
                 Text(Paths.abbreviate(root)).font(Theme.code).foregroundStyle(.secondary)
                 Button("Choose folder…") { chooseRoot() }
             }
-            .padding(.horizontal, 26).padding(.bottom, 12)
+            .padding(.horizontal, 32).padding(.bottom, 12)
             Group {
                 switch mode {
                 case 0: mapPane
@@ -40,6 +40,13 @@ struct SpaceLensView: View {
         .padding(.top, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .navigationTitle("Space Lens")
+        .onChange(of: model.tourSubpage) { _, page in
+            if page == "space-map" {
+                mode = 0
+                root = "/Applications"
+                scanTree()
+            }
+        }
     }
 
     private func chooseRoot() {
@@ -194,7 +201,7 @@ struct SpaceLensView: View {
                 VStack(spacing: 2) {
                     ForEach(large) { f in
                         HStack {
-                            Image(nsImage: NSWorkspace.shared.icon(forFile: f.path)).resizable().frame(width: 22, height: 22)
+                            Image(nsImage: FileIcon.image(f.path)).resizable().frame(width: 22, height: 22)
                             VStack(alignment: .leading, spacing: 1) {
                                 Text((f.path as NSString).lastPathComponent).lineLimit(1)
                                 PathText(path: (f.path as NSString).deletingLastPathComponent)
