@@ -315,6 +315,7 @@ struct SettingsView: View {
     @AppStorage(SoundFX.volumeKey) private var volume: Double = 0.55
     @AppStorage(reduceEffectsKey) private var reduceEffects = false
     @AppStorage(alwaysDarkKey) private var alwaysDark = true
+    @AppStorage(menuBarOnlyKey) private var menuBarOnly = true
 
     var body: some View {
         Form {
@@ -383,6 +384,14 @@ struct SettingsView: View {
                 .disabled(!soundOn)
                 Toggle("Always use the dark theme", isOn: $alwaysDark)
                 Toggle("Reduce motion and visual effects", isOn: $reduceEffects)
+            }
+            Section("Dock & Menu Bar") {
+                Toggle("Hide from the Dock when the window is closed", isOn: $menuBarOnly)
+                    .onChange(of: menuBarOnly) { _, _ in AppDelegate.updateDockIcon() }
+                Text(menuBarOnly
+                     ? "Spruce stays in the menu bar. It shows in the Dock only while its window is open; open it again from the menu bar icon."
+                     : "Spruce stays in the Dock and the menu bar while it's running, even with its window closed.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section("Uninstaller") {
                 Toggle("Remove apps completely — leave no trace", isOn: binding(\.uninstallCompletely))

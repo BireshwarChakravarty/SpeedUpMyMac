@@ -778,7 +778,8 @@ final class AppModel {
             }
             AppDelegate.mainWindows.forEach { $0.close() }
             try? await Task.sleep(for: .seconds(1))
-            note("closed", "visible main windows after close: \(AppDelegate.mainWindows.filter(\.isVisible).count)\n")
+            let dock = NSApp.activationPolicy() == .regular ? "in the Dock" : "menu bar only"
+            note("closed", "visible main windows after close: \(AppDelegate.mainWindows.filter(\.isVisible).count)\nDock icon: \(dock)\n")
             var reopened = false
             for _ in 0..<600 {
                 if AppDelegate.mainWindows.contains(where: \.isVisible) { reopened = true; break }

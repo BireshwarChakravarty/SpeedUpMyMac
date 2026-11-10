@@ -3,6 +3,9 @@ import SpruceCore
 
 /// "Always dark" in Settings: Spruce is designed dark-first, and every page also works in light mode.
 let alwaysDarkKey = "alwaysDark"
+/// "Hide from the Dock when the window is closed": Spruce then lives in the menu bar only, and
+/// comes back to the Dock whenever its window is open. On by default.
+let menuBarOnlyKey = "menuBarOnlyWhenClosed"
 
 @main
 struct SpruceApp: App {
@@ -56,7 +59,7 @@ struct SpruceApp: App {
     }
 }
 
-/// Clicking Spruce in the Dock brings its window back, whatever else is on screen. (SwiftUI's own
+/// Clicking Spruce in the Dock (or Open Spruce in the menu bar panel) brings its window back, whatever else is on screen. (SwiftUI's own
 /// handling counted the menu bar panel as a visible window, so the Dock icon did nothing.) Opening
 /// Spruce again from Finder or Launchpad sends the same "reopen" event.
 @MainActor
@@ -71,11 +74,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// The app's one model, shared with the menu bar panel (which lives outside SwiftUI's scenes).
     static var model: AppModel?
 
-    static func register(_ window: NSWindow) { windows.add(window) }
+    static func register(_ window: NSWindow) {
+        windows.add(window)
+        if NSApp.activationPolicy() != .regular { NSApp.setActivationPolicy(.regular) }
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        UserDefaults.standard.register(defaults: [menuBarOnlyKey: true])
         if let model = AppDelegate.model { StatusItemController.install(model: model) }
         MetricsMonitor.shared.start()
+        NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: nil, queue: .main) { note in
+            let closing = note.object as? NSWindow
+            MainActor.assumeIsolated { AppDelegate.updateDockIcon(closing: closing) }
+        }
+    }
+
+    /// Windows that count as "Spruce is open": the main window and Settings. The menu bar panel,
+    /// popovers and the status item's own window don't.
+    private static func isAppWindow(_ window: NSWindow) -> Bool {
+        !(window is NSPanel) && window.styleMask.contains(.titled) && (window.isVisible || window.isMiniaturized)
+    }
+
+    /// Shows Spruce in the Dock while one of its windows is open. When the last one closes and
+    /// "Hide from the Dock when the window is closed" is on, it steps back to the menu bar only.
+    static func updateDockIcon(closing: NSWindow? = nil) {
+        let open = NSApp.windows.contains { $0 !== closing && isAppWindow($0) }
+        let menuBarOnly = UserDefaults.standard.bool(forKey: menuBarOnlyKey)
+        let policy: NSApplication.ActivationPolicy = (open || !menuBarOnly) ? .regular : .accessory
+        guard NSApp.activationPolicy() != policy else { return }
+        NSApp.setActivationPolicy(policy)
     }
 
     static var mainWindows: [NSWindow] { windows.allObjects }
@@ -90,6 +117,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Brings back the main window: un-minimizes or raises it, or opens a new one if it was closed.
     static func showMainWindow() {
+        if NSApp.activationPolicy() != .regular { NSApp.setActivationPolicy(.regular) }
         if let window = mainWindows.first(where: \.isVisible) ?? mainWindows.first(where: \.isMiniaturized) {
             if window.isMiniaturized { window.deminiaturize(nil) }
             window.makeKeyAndOrderFront(nil)

@@ -67,7 +67,7 @@ Spruce is built not to interrupt you:
 - **Quitting an app before uninstalling it** uses the same mechanism as the Dock's Quit, so macOS never asks "allow Spruce to control…".
 - **Login Items** are only touched when the app is actually listed there.
 
-**Closed the window?** Click Spruce in the Dock, or **Open Spruce** in its menu bar panel, and it comes back.
+**Closed the window?** Spruce keeps running in the menu bar and leaves the Dock. Click its menu bar icon and choose **Open Spruce** (or open it from Applications) and the window comes back, along with its Dock icon. To keep it in the Dock all the time, turn off **Settings → Dock & Menu Bar → Hide from the Dock when the window is closed**.
 
 Grant **Full Disk Access** once (Smart Scan shows a card for it) and the folder questions stop for good.
 
