@@ -4,6 +4,7 @@ import SpruceCore
 struct ContentView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
     @AppStorage(SoundFX.enabledKey) private var soundOn = true
 
     var body: some View {
@@ -66,7 +67,10 @@ struct ContentView: View {
         }
         .onChange(of: model.receipt?.id) { _, id in if id != nil { SoundFX.shared.play(.whoosh) } }
         .onChange(of: model.sentinelOffer?.app.path) { _, path in if path != nil { SoundFX.shared.play(.success, haptic: .generic) } }
-        .onAppear { AppDelegate.openMainWindow = { [openWindow] in openWindow(id: "main") } }
+        .onAppear {
+            AppDelegate.openMainWindow = { [openWindow] in openWindow(id: "main") }
+            AppDelegate.openSettingsWindow = { [openSettings] in openSettings() }
+        }
         .task { if let folder = AppModel.tourFolder { await model.runTour(folder) } }
     }
 

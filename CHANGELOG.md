@@ -37,6 +37,7 @@ of history, and an **Installers** sweep.
 
 ### Fixed
 
+- **Orphaned files never lists Apple's own data.** Group containers for Podcasts (`TEAMID.groups.com.apple.podcasts`) and Shortcuts (`group.is.workflow.*`) were shown as leftovers of deleted apps; so was the Swift toolchain's cache. Nothing was pre-selected, but they could have been removed by hand.
 - **Tweaks presets ask first.** Balanced, Privacy, Snappy and Revert All list every change and which apps restart (the Dock, Finder) before anything happens.
 - **The Safari tweak** is marked "Needs Full Disk Access" instead of failing when Spruce can't write Safari's settings.
 - **Process names line up** in Processes. Names from `ps` kept leading spaces, which also stopped protected processes matching by name.

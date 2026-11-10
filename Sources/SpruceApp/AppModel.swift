@@ -743,7 +743,7 @@ final class AppModel {
         }
 
         // Settings is its own window.
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        AppDelegate.openSettingsWindow?()
         await captureTour(folder, "settings")
         NSApp.windows.filter { $0.isVisible && !AppDelegate.mainWindows.contains($0) && $0.title.localizedCaseInsensitiveContains("settings") }
             .forEach { $0.close() }

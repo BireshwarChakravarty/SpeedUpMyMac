@@ -60,6 +60,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private static let windows = NSHashTable<NSWindow>.weakObjects()
     /// SwiftUI's `openWindow(id: "main")`, handed over by the first view that has it.
     static var openMainWindow: (() -> Void)?
+    /// SwiftUI's `openSettings()`, handed over the same way (the CI tour opens Settings with it).
+    static var openSettingsWindow: (() -> Void)?
 
     /// The app's one model, shared with the menu bar panel (which lives outside SwiftUI's scenes).
     static var model: AppModel?

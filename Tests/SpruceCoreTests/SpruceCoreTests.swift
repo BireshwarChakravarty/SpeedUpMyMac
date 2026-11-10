@@ -902,4 +902,13 @@ final class MetricsTests: SandboxedTestCase {
         XCTAssertEqual(rows.map(\.name), ["helpd", "cfprefsd", "Finder"])
         XCTAssertEqual(rows.first?.memoryBytes, 59800 * 1024)
     }
+
+    func testAppleGroupContainersAreNeverOrphans() {
+        XCTAssertEqual(Orphans.stripTeamPrefix("243LU875E5.groups.com.apple.podcasts"), "com.apple.podcasts")
+        for id in ["243LU875E5.groups.com.apple.podcasts", "group.is.workflow.my.app", "group.is.workflow.shortcuts",
+                   "org.swift.swiftpm"] {
+            XCTAssertTrue(Orphans.isIgnored(Orphans.stripTeamPrefix(id)), id)
+        }
+        XCTAssertFalse(Orphans.isIgnored(Orphans.stripTeamPrefix("ABCDE12345.com.vendor.deletedapp")))
+    }
 }

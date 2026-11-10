@@ -19,7 +19,9 @@ public enum Orphans {
     ]
 
     /// Bundle-ID prefixes that belong to the OS, frameworks, or shared infrastructure.
-    static let ignoredPrefixes = ["com.apple.", "group.com.apple.", "apple.", "systemgroup.", "com.microsoft.office",
+    /// `is.workflow` is Shortcuts' original namespace, still used by its group containers; `org.swift`
+    /// is the Swift toolchain's cache, not an app's.
+    static let ignoredPrefixes = ["com.apple.", "group.com.apple.", "apple.", "systemgroup.", "is.workflow.", "org.swift.", "com.microsoft.office",
                                   "ubf8t346g9.", "com.google.keystone", "org.sparkle-project", "io.spruceapp", "io.rootapp", "com.crashlytics",
                                   "com.plausiblelabs", "com.segment", "com.getsentry", "ksdatabase", "nsurlsession"]
 
@@ -46,7 +48,7 @@ public enum Orphans {
                 var id = Uninstaller.leafName(child)
                 if kind == "Container", child.count == 36, let owner = Uninstaller.containerOwner(path) { id = owner.lowercased() }
                 if kind == "Group Container" { id = stripTeamPrefix(id) }
-                                guard looksLikeBundleID(id), !ignoredPrefixes.contains(where: { id.hasPrefix($0) }) else { continue }
+                guard looksLikeBundleID(id), !isIgnored(id) else { continue }
                 guard !isOwned(id, by: known), Safety.isAllowed(path) else { continue }
                 results.append(Leftover(path: path, bytes: 0, kind: kind, system: false,
                                         isUserData: kind == "Application Support" || kind.contains("Container")))
@@ -60,6 +62,12 @@ public enum Orphans {
         return results.filter { $0.bytes >= minBytes }.sorted { $0.bytes > $1.bytes }
     }
 
+    /// Apple's own and shared infrastructure, never offered as an orphan, wherever "com.apple." sits.
+    static func isIgnored(_ id: String) -> Bool {
+        let id = id.lowercased()
+        return ignoredPrefixes.contains { id.hasPrefix($0) } || id.contains(".com.apple.")
+    }
+
     static func looksLikeBundleID(_ s: String) -> Bool {
         let parts = s.split(separator: ".")
         return parts.count >= 3 && parts.allSatisfy { !$0.isEmpty } && !s.contains(" ")
@@ -69,7 +77,7 @@ public enum Orphans {
     static func stripTeamPrefix(_ id: String) -> String {
         var parts = id.split(separator: ".").map(String.init)
         if let first = parts.first, first.count == 10, first.allSatisfy({ $0.isLetter || $0.isNumber }) { parts.removeFirst() }
-        if parts.first == "group" { parts.removeFirst() }
+        if parts.first == "group" || parts.first == "groups" { parts.removeFirst() }
         return parts.joined(separator: ".")
     }
 
