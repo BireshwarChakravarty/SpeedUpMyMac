@@ -382,7 +382,7 @@ struct SettingsView: View {
                 }
                 .disabled(!soundOn)
                 Toggle("Always use the dark theme", isOn: $alwaysDark)
-                Toggle("Reduce visual effects (still orb, no particles)", isOn: $reduceEffects)
+                Toggle("Reduce motion and visual effects", isOn: $reduceEffects)
             }
             Section("Uninstaller") {
                 Toggle("Remove apps completely — leave no trace", isOn: binding(\.uninstallCompletely))

@@ -46,7 +46,12 @@ struct SpruceApp: App {
         }
 
         SwiftUI.Settings {
+            // Same theme as the main window: dark when "Always use the dark theme" is on, warm ground, Spruce accents.
             SettingsView().environment(model).frame(width: 540)
+                .scrollContentBackground(.hidden)
+                .background(Theme.base)
+                .preferredColorScheme(alwaysDark ? .dark : nil)
+                .tint(Theme.spruce)
         }
     }
 }
