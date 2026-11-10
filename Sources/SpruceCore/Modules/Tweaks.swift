@@ -158,7 +158,65 @@ public enum Tweaks {
     }
 
     public static func isApplied(_ tweak: Tweak) -> Bool {
-        currentValue(tweak).map(tweak.value.matches) ?? false
+        (fastValue(tweak) ?? currentValue(tweak)).map(tweak.value.matches) ?? false
+    }
+
+    /// Which tweaks are on. Reads preferences in-process (no `defaults` process per tweak, which made
+    /// the Tweaks page take seconds to open). Only Safari, whose settings live in its sandbox
+    /// container, still goes through `defaults`, and only when Spruce has Full Disk Access.
+    public static func appliedIDs(_ tweaks: [Tweak] = all, fullDiskAccess: Bool) -> Set<String> {
+        var on = Set<String>()
+        var slow: [Tweak] = []
+        for tweak in tweaks {
+            if tweak.needsFullDiskAccess {
+                if fullDiskAccess { slow.append(tweak) }
+            } else if let raw = fastValue(tweak) {
+                if tweak.value.matches(raw) { on.insert(tweak.id) }
+            } else if !canReadFast(tweak) {
+                slow.append(tweak)
+            }
+        }
+        for tweak in slow where currentValue(tweak).map(tweak.value.matches) ?? false { on.insert(tweak.id) }
+        return on
+    }
+
+    /// Whether `fastValue` can answer for this tweak (a nil answer then means the key is unset).
+    static func canReadFast(_ tweak: Tweak) -> Bool {
+        #if os(macOS)
+        return !tweak.needsFullDiskAccess
+        #else
+        return false
+        #endif
+    }
+
+    /// The value as `defaults read` would print it, read in-process. Nil if unset or not readable this way.
+    static func fastValue(_ tweak: Tweak) -> String? {
+        #if os(macOS)
+        guard canReadFast(tweak) else { return nil }
+        let value: Any?
+        if tweak.domain.hasPrefix("/") {
+            value = (NSDictionary(contentsOfFile: tweak.domain) as? [String: Any])?[tweak.key]
+        } else {
+            let app: CFString = tweak.domain == "NSGlobalDomain" ? kCFPreferencesAnyApplication : tweak.domain as CFString
+            CFPreferencesAppSynchronize(app)
+            value = CFPreferencesCopyValue(tweak.key as CFString, app, kCFPreferencesCurrentUser, kCFPreferencesAnyHost)
+        }
+        return value.flatMap(rawString)
+        #else
+        return nil
+        #endif
+    }
+
+    /// Formats a property-list value the way `defaults read` prints it (booleans as 1/0).
+    static func rawString(_ value: Any) -> String? {
+        if let n = value as? NSNumber {
+            #if os(macOS)
+            if CFGetTypeID(n) == CFBooleanGetTypeID() { return n.boolValue ? "1" : "0" }
+            #endif
+            return n.stringValue
+        }
+        if let s = value as? String { return s }
+        return nil
     }
 
     /// Applies tweaks. User tweaks run directly; admin tweaks go into one root script.

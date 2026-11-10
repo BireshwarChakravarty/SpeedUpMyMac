@@ -911,4 +911,15 @@ final class MetricsTests: SandboxedTestCase {
         }
         XCTAssertFalse(Orphans.isIgnored(Orphans.stripTeamPrefix("ABCDE12345.com.vendor.deletedapp")))
     }
+
+    func testTweakValuesFormatLikeDefaultsRead() {
+        XCTAssertEqual(Tweaks.rawString(NSNumber(value: 2)), "2")
+        XCTAssertEqual(Tweaks.rawString(NSNumber(value: 0.5)), "0.5")
+        XCTAssertEqual(Tweaks.rawString("Nlsv"), "Nlsv")
+        XCTAssertTrue(TweakValue.float(0.5).matches(Tweaks.rawString(NSNumber(value: 0.5))!))
+        #if os(macOS)
+        XCTAssertEqual(Tweaks.rawString(kCFBooleanTrue as Any), "1")
+        XCTAssertTrue(TweakValue.bool(true).matches(Tweaks.rawString(kCFBooleanTrue as Any)!))
+        #endif
+    }
 }

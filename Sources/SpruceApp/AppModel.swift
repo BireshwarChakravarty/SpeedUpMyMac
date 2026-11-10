@@ -179,6 +179,9 @@ final class AppModel {
 
     /// Admin steps ask for a fingerprint instead of the password (pam_tid for sudo).
     var touchIDForAdmin = Tweaks.touchIDForSudoEnabled()
+    /// Last known Tweaks state, so the page opens with real switches while it re-checks.
+    var tweaksApplied: Set<String>?
+    var tweaksFullDiskAccess = true
     var showTouchIDOffer = false
     private static let touchIDOfferedKey = "touchIDOffered"
 

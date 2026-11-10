@@ -286,16 +286,18 @@ struct StartupView: View {
 
 struct TweaksView: View {
     @Environment(AppModel.self) private var model
-    @State private var applied = Set<String>()
-    @State private var hasFullDiskAccess = true
+    private var applied: Set<String> { model.tweaksApplied ?? [] }
+    private var hasFullDiskAccess: Bool { model.tweaksFullDiskAccess }
+    private var loaded: Bool { model.tweaksApplied != nil }
 
     var body: some View {
         ModuleScroll {
-            HeroHeader(title: "Tweaks", value: "\(applied.count) of \(Tweaks.all.count) on",
+            HeroHeader(title: "Tweaks", value: loaded ? "\(applied.count) of \(Tweaks.all.count) on" : "Checking…",
                        caption: "Every change remembers the previous value and can be reverted", symbol: "slider.horizontal.3") {
                 HStack {
                     ForEach(Tweaks.presets, id: \.self) { preset in
                         Button(preset.capitalized) { confirmPreset(preset) }
+                            .disabled(!loaded)
                     }
                     Button("Revert All") { confirmRevertAll() }
                         .disabled(applied.isEmpty)
@@ -318,7 +320,7 @@ struct TweaksView: View {
                             }
                         }
                         .toggleStyle(GlowSwitchStyle(tint: Module.tweaks.gradient))
-                        .disabled((tweak.needsAdmin && !model.sudo) || blockedByAccess)
+                        .disabled(!loaded || (tweak.needsAdmin && !model.sudo) || blockedByAccess)
                         .padding(.vertical, 2)
                         .rowHover()
                     }
@@ -389,8 +391,12 @@ struct TweaksView: View {
     }
 
     private func refresh() async {
-        applied = await Task.detached { Set(Tweaks.all.filter(Tweaks.isApplied).map(\.id)) }.value
-        hasFullDiskAccess = await Task.detached { Health.hasFullDiskAccess() }.value
+        let state = await Task.detached { () -> (Set<String>, Bool) in
+            let access = Health.hasFullDiskAccess()
+            return (Tweaks.appliedIDs(fullDiskAccess: access), access)
+        }.value
+        model.tweaksFullDiskAccess = state.1
+        model.tweaksApplied = state.0
         model.touchIDForAdmin = Tweaks.touchIDForSudoEnabled()
     }
 
