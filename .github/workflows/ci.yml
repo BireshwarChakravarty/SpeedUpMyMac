@@ -161,10 +161,12 @@ jobs:
   linux:
     name: Linux — engine and CLI tests
     runs-on: ubuntu-24.04
+    # Swift's official image: setup-swift has to fetch signing keys from keyserver.ubuntu.com on
+    # every run, and fails the job whenever that server is down.
+    container: swift:6.2-noble
+    env:
+      SPRUCE_ALLOW_ROOT: "1"   # containers run as root; Spruce refuses root unless told
     steps:
       - uses: actions/checkout@v4
-      - uses: swift-actions/setup-swift@v2
-        with:
-          swift-version: "6.2"
       - run: swift build
       - run: swift test
