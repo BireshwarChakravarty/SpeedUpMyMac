@@ -3,6 +3,7 @@ import SpruceCore
 
 struct SmartScanView: View {
     @Environment(AppModel.self) private var model
+    @AppStorage(fdaCardDismissedKey) private var fdaCardDismissed = false
 
     private var phase: OrbPhase {
         model.scanProgress != nil ? .scanning : (model.smart == nil ? .idle : .done)
@@ -10,7 +11,7 @@ struct SmartScanView: View {
 
     var body: some View {
         ModuleScroll {
-            if model.health?.security.fullDiskAccess == false { FullDiskAccessCard() }
+            if model.health?.security.fullDiskAccess == false && !fdaCardDismissed { FullDiskAccessCard() }
             hero
             if let smart = model.smart, phase != .scanning {
                 summary(smart)
@@ -221,9 +222,14 @@ struct SmartScanView: View {
     }
 }
 
+let fdaCardDismissedKey = "fullDiskAccessCardDismissed"
+
 /// Asks once for Full Disk Access, the one permission that stops macOS asking about each folder.
+/// Can be dismissed for good (on a managed or standard-account Mac, the user may not be allowed to
+/// grant it); Settings → About keeps "Grant Full Disk Access…" for later.
 struct FullDiskAccessCard: View {
     @Environment(AppModel.self) private var model
+    @AppStorage(fdaCardDismissedKey) private var dismissed = false
 
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
@@ -235,6 +241,11 @@ struct FullDiskAccessCard: View {
             }
             Spacer(minLength: 12)
             Button("Open Settings") { model.openFullDiskAccessSettings() }.buttonStyle(.brand)
+            Button("Not Now") {
+                withAnimation(Theme.spring) { dismissed = true }
+                model.report("Hidden. You can grant Full Disk Access later from Settings.")
+            }
+            .help("Hide this card. Spruce keeps skipping protected folders.")
         }
         .padding(16)
         .surface()

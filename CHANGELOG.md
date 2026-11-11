@@ -38,6 +38,8 @@ of history, and an **Installers** sweep.
 
 ### Fixed
 
+- **The Full Disk Access card can be dismissed.** "Not Now" hides it for good, for Macs where you can't grant it (a standard account, or one managed by your organisation). Settings → This Mac can bring it back.
+- **About shows the real build number.** It read "2.1.0 (1)" because CI checks out a single commit; it now shows the CI build number, e.g. "2.1.0 (52)".
 - **Tweaks opens instantly.** It used to start one `defaults` process per setting (26 in a row) before showing anything; it now reads them in-process, remembers the last state, and shows "Checking…" instead of wrong switches on the very first open.
 - **Orphaned files never lists Apple's own data.** Group containers for Podcasts (`TEAMID.groups.com.apple.podcasts`) and Shortcuts (`group.is.workflow.*`) were shown as leftovers of deleted apps; so was the Swift toolchain's cache. Nothing was pre-selected, but they could have been removed by hand.
 - **Tweaks presets ask first.** Balanced, Privacy, Snappy and Revert All list every change and which apps restart (the Dock, Finder) before anything happens.

@@ -316,6 +316,7 @@ struct SettingsView: View {
     @AppStorage(reduceEffectsKey) private var reduceEffects = false
     @AppStorage(alwaysDarkKey) private var alwaysDark = true
     @AppStorage(menuBarOnlyKey) private var menuBarOnly = true
+    @AppStorage(fdaCardDismissedKey) private var fdaCardDismissed = false
 
     var body: some View {
         Form {
@@ -437,6 +438,10 @@ struct SettingsView: View {
                 LabeledContent("Account", value: "\(model.machine.userName) · \(model.machine.isAdmin ? "Administrator" : "Standard")")
                 LabeledContent("Fleet folder", value: Paths.abbreviate(model.settings.resolvedFleetFolder))
                 Button("Grant Full Disk Access…") { model.openFullDiskAccessSettings() }
+                if fdaCardDismissed && model.health?.security.fullDiskAccess == false {
+                    Button("Show the Full Disk Access card again") { fdaCardDismissed = false }
+                        .buttonStyle(.borderless)
+                }
             }
         }
         .formStyle(.grouped)

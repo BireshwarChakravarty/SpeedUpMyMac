@@ -41,6 +41,8 @@ Spruce is the new name for Root. The first time Spruce opens, it moves Root's se
 ### Give it Full Disk Access
 Without it, Spruce can't see Mail, Safari, other apps' containers or the Trash.
 Go to **System Settings → Privacy & Security → Full Disk Access**, click **+** and add Spruce.
+
+**Can't grant it?** On a standard account or a Mac your organisation manages, you may not be allowed to. Click **Not Now** on the Smart Scan card and it stays hidden; Spruce keeps working and skips protected folders. **Settings → This Mac** brings the card back.
 The Smart Scan and Health pages also have a button that opens this setting.
 
 **On macOS 27 this matters more.** macOS 27 no longer asks before an app reads another app's container. It just says no. Without Full Disk Access, Spruce skips the cleanup items inside other apps' containers (sandboxed app caches and logs, Slack, Teams, Mail downloads) and says so on the Cleanup page. For the `spruce` command, add your terminal app (Terminal, iTerm, Ghostty…) instead.
