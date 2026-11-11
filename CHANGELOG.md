@@ -4,6 +4,18 @@ All notable changes to Spruce (formerly Root, and before that Burnish) are docum
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.1] — 2026-11-11
+
+### Changed
+
+- **Menu bar only when the window is closed.** Closing Spruce's window takes it out of the Dock; it keeps running in the menu bar and returns to the Dock when you open it again. Turn this off in Settings → Dock & Menu Bar.
+- **About reads "Version 2.1.1",** with no build number in brackets.
+
+### Fixed
+
+- **Tweaks opens instantly.** It used to start one `defaults` process per setting (26 in a row) before showing anything; it now reads them in-process, remembers the last state, and shows "Checking…" instead of wrong switches on the very first open.
+- **The Full Disk Access card can be dismissed.** "Not Now" hides it for good, for Macs where you can't grant it (a standard account, or one managed by your organisation). Settings → This Mac can bring it back.
+
 ## [2.1.0] — 2026-11-09
 
 A new look, a live **Status** page with 90 days
@@ -23,7 +35,6 @@ of history, and an **Installers** sweep.
 
 ### Changed
 
-- **Menu bar only when the window is closed.** Closing Spruce's window takes it out of the Dock; it keeps running in the menu bar and returns to the Dock when you open it again. Turn this off in Settings → Dock & Menu Bar.
 - **New icon:** four rounded bars stacked into a spruce tree, which also read as disk-usage bars. The menu bar icon and the logo inside the app use the same mark.
 - **New look:**
   - A warm, calm background with film grain, the same on every page.
@@ -38,9 +49,6 @@ of history, and an **Installers** sweep.
 
 ### Fixed
 
-- **The Full Disk Access card can be dismissed.** "Not Now" hides it for good, for Macs where you can't grant it (a standard account, or one managed by your organisation). Settings → This Mac can bring it back.
-- **About shows the real build number.** It read "2.1.0 (1)" because CI checks out a single commit; it now shows the CI build number, e.g. "2.1.0 (52)".
-- **Tweaks opens instantly.** It used to start one `defaults` process per setting (26 in a row) before showing anything; it now reads them in-process, remembers the last state, and shows "Checking…" instead of wrong switches on the very first open.
 - **Orphaned files never lists Apple's own data.** Group containers for Podcasts (`TEAMID.groups.com.apple.podcasts`) and Shortcuts (`group.is.workflow.*`) were shown as leftovers of deleted apps; so was the Swift toolchain's cache. Nothing was pre-selected, but they could have been removed by hand.
 - **Tweaks presets ask first.** Balanced, Privacy, Snappy and Revert All list every change and which apps restart (the Dock, Finder) before anything happens.
 - **The Safari tweak** is marked "Needs Full Disk Access" instead of failing when Spruce can't write Safari's settings.
@@ -183,7 +191,8 @@ First release under the name Root (renamed from Burnish).
 - **Interface:** native macOS design with sound effects, plus the `root` command-line tool.
 - **Migration:** settings, logs and the fleet folder move over automatically from Burnish.
 
-[2.1.0]: https://github.com/BireshwarChakravarty/SpeedUpMyMac/compare/06075a6...c22e931
+[2.1.1]: https://github.com/BireshwarChakravarty/SpeedUpMyMac/compare/68c84dd...HEAD
+[2.1.0]: https://github.com/BireshwarChakravarty/SpeedUpMyMac/compare/06075a6...68c84dd
 [2.0.0]: https://github.com/BireshwarChakravarty/SpeedUpMyMac/compare/8138fb2...000e70f
 [1.1.0]: https://github.com/BireshwarChakravarty/SpeedUpMyMac/compare/396b95a...8138fb2
 [1.0.0]: https://github.com/BireshwarChakravarty/SpeedUpMyMac/compare/9404342...396b95a

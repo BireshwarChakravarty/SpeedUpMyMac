@@ -30,6 +30,10 @@ struct SpruceApp: App {
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1240, height: 800)
         .commands {
+            // About shows "Version 2.1.1" only: an empty build version drops the "(…)" after it.
+            CommandGroup(replacing: .appInfo) {
+                Button("About Spruce") { AppDelegate.showAbout() }
+            }
             CommandGroup(after: .newItem) {
                 Button("Smart Scan") {
                     model.selection = .smartScan
@@ -113,6 +117,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         AppDelegate.showMainWindow()
         return false
+    }
+
+    static func showAbout() {
+        NSApp.orderFrontStandardAboutPanel(options: [.version: ""])
+        NSApp.activate()
     }
 
     /// Brings back the main window: un-minimizes or raises it, or opens a new one if it was closed.

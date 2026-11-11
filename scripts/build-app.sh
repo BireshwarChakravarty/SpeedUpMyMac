@@ -9,10 +9,9 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-VERSION="2.1.0"
-# The build number shown in About ("2.1.0 (52)"). CI uses its run number, the "build #52" in release
-# notes; CI checks out one commit, so counting commits would always give 1 there.
-BUILD="${GITHUB_RUN_NUMBER:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}"
+VERSION="2.1.1"
+# The build number is the version itself, so About reads "Version 2.1.1" with nothing in brackets.
+BUILD="$VERSION"
 DIST="dist"
 APP="$DIST/Spruce.app"
 

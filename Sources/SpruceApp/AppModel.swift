@@ -751,6 +751,12 @@ final class AppModel {
         NSApp.windows.filter { $0.isVisible && !AppDelegate.mainWindows.contains($0) && $0.title.localizedCaseInsensitiveContains("settings") }
             .forEach { $0.close() }
 
+        // About: should read "Version 2.1.1" with no build number.
+        let before = Set(NSApp.windows.map(ObjectIdentifier.init))
+        AppDelegate.showAbout()
+        await captureTour(folder, "about")
+        NSApp.windows.filter { !before.contains(ObjectIdentifier($0)) }.forEach { $0.close() }
+
         selection = .smartScan
         cleanNow()
         await captureTour(folder, "receipt")
