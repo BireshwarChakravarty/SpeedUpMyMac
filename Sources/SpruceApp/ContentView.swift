@@ -82,6 +82,7 @@ struct ContentView: View {
         case .cleanup: CleanupView()
         case .devPurge: DevPurgeView()
         case .installers: InstallersView()
+        case .updates: UpdatesView()
         case .uninstaller: UninstallerView()
         case .spaceLens: SpaceLensView()
         case .processes: ProcessesView()

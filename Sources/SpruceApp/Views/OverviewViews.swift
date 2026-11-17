@@ -295,6 +295,7 @@ struct HistoryView: View {
         switch action {
         case "uninstall": return "xmark.app"
         case "purge": return "hammer"
+        case "update": return "arrow.down.circle"
         case "orphans": return "questionmark.folder"
         case "optimize": return "wrench.and.screwdriver"
         case "smart": return "sparkles"

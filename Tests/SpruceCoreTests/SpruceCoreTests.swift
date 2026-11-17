@@ -922,4 +922,99 @@ final class MetricsTests: SandboxedTestCase {
         XCTAssertTrue(TweakValue.bool(true).matches(Tweaks.rawString(kCFBooleanTrue as Any)!))
         #endif
     }
+
+    // MARK: App updates
+
+    func testVersionComparisonFollowsSparkle() {
+        XCTAssertEqual(AppUpdates.compareVersions("1.10", "1.9"), .orderedDescending)
+        XCTAssertEqual(AppUpdates.compareVersions("1.0", "1.0.1"), .orderedAscending)
+        XCTAssertEqual(AppUpdates.compareVersions("1.0b2", "1.0"), .orderedAscending)
+        XCTAssertEqual(AppUpdates.compareVersions("1.0b2", "1.0b10"), .orderedAscending)
+        XCTAssertEqual(AppUpdates.compareVersions("2.4.1", "2.4.1"), .orderedSame)
+        XCTAssertEqual(AppUpdates.compareVersions("1234", "1199"), .orderedDescending)
+    }
+
+    func testAppcastPicksNewestReleaseThisMacCanRun() {
+        let xml = """
+        <?xml version="1.0" encoding="utf-8"?>
+        <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+          <channel>
+            <item><title>3.0</title><sparkle:version>300</sparkle:version><sparkle:shortVersionString>3.0</sparkle:shortVersionString>
+              <sparkle:minimumSystemVersion>99.0</sparkle:minimumSystemVersion></item>
+            <item><title>2.5 beta</title><sparkle:channel>beta</sparkle:channel><sparkle:version>250</sparkle:version></item>
+            <item><title>2.4</title><sparkle:releaseNotesLink>https://example.com/2.4</sparkle:releaseNotesLink>
+              <enclosure url="https://example.com/a.zip" sparkle:version="240" sparkle:shortVersionString="2.4" length="1"/></item>
+            <item><title>2.3</title><enclosure url="https://example.com/b.zip" sparkle:version="230" sparkle:shortVersionString="2.3"/></item>
+          </channel>
+        </rss>
+        """
+        let items = AppUpdates.parseAppcast(Data(xml.utf8))
+        XCTAssertEqual(items.count, 4)
+        let newest = AppUpdates.latest(items, osVersion: "15.0.0")
+        XCTAssertEqual(newest?.version, "240")
+        XCTAssertEqual(newest?.shortVersion, "2.4")
+        XCTAssertEqual(newest?.releaseNotes, "https://example.com/2.4")
+    }
+
+    func testBrewCaskInfoParses() {
+        let json = """
+        {"formulae":[],"casks":[
+          {"token":"firefox","installed":"123.0","version":"124.0","outdated":true,"auto_updates":true,
+           "artifacts":[{"uninstall":[{"quit":"org.mozilla.firefox"}]},{"app":["Firefox.app"]}]},
+          {"token":"iterm2","installed":"3.5.0","version":"3.5.2,abc","outdated":true,"auto_updates":false,
+           "artifacts":[{"app":[{"target":"iTerm.app"}]}]}
+        ]}
+        """
+        let casks = AppUpdates.parseBrewCasks(Data(json.utf8))
+        XCTAssertEqual(casks.map(\.token), ["firefox", "iterm2"])
+        XCTAssertEqual(casks[0].apps, ["Firefox.app"])
+        XCTAssertTrue(casks[0].autoUpdates)
+        XCTAssertEqual(casks[1].apps, ["iTerm.app"])
+    }
+
+    func testUpdateCheckSortsAppsBySource() {
+        let feed = """
+        <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel>
+        <item><enclosure url="https://x/y.zip" sparkle:version="510" sparkle:shortVersionString="5.1"/></item>
+        </channel></rss>
+        """
+        let store = #"{"resultCount":1,"results":[{"version":"14.2","trackViewUrl":"https://apps.apple.com/app/id1"}]}"#
+        let apps = [
+            UpdateCandidate(path: "/Applications/Feedy.app", name: "Feedy", bundleID: "com.example.feedy", version: "5.0", build: "500",
+                            feedURL: "https://example.com/appcast.xml", isAppStore: false, isApple: false),
+            UpdateCandidate(path: "/Applications/Current.app", name: "Current", bundleID: "com.example.current", version: "5.1", build: "510",
+                            feedURL: "https://example.com/appcast.xml", isAppStore: false, isApple: false),
+            UpdateCandidate(path: "/Applications/Storey.app", name: "Storey", bundleID: "com.example.storey", version: "14.1", build: "1",
+                            feedURL: nil, isAppStore: true, isApple: false),
+            UpdateCandidate(path: "/Applications/iTerm.app", name: "iTerm", bundleID: "com.googlecode.iterm2", version: "3.5.0", build: "3.5.0",
+                            feedURL: "https://example.com/appcast.xml", isAppStore: false, isApple: false),
+            UpdateCandidate(path: "/Applications/Squirrel.app", name: "Squirrel", bundleID: "com.example.squirrel", version: "1", build: "1",
+                            feedURL: nil, isAppStore: false, isApple: false),
+            UpdateCandidate(path: "/Applications/Plain.app", name: "Plain", bundleID: "com.example.plain", version: "1", build: "1",
+                            feedURL: "http://insecure.example.com/feed.xml", isAppStore: false, isApple: false),
+            UpdateCandidate(path: "/Applications/Safari.app", name: "Safari", bundleID: "com.apple.Safari", version: "18", build: "18",
+                            feedURL: nil, isAppStore: false, isApple: true),
+        ]
+        let casks = [BrewCask(token: "iterm2", apps: ["iTerm.app"], installed: "3.5.0", latest: "3.5.2,abc", outdated: true, autoUpdates: false)]
+        let report = AppUpdates.check(apps, casks: casks, osVersion: "15.0.0", region: "us") { url in
+            url.host == "itunes.apple.com" ? Data(store.utf8) : Data(feed.utf8)
+        }
+        XCTAssertEqual(report.updates.map(\.name), ["iTerm", "Storey", "Feedy"])   // Homebrew, App Store, built-in
+        XCTAssertEqual(report.updates[0].latest, "3.5.2")
+        XCTAssertEqual(report.updates[0].caskToken, "iterm2")
+        XCTAssertEqual(report.updates[1].storeURL, "https://apps.apple.com/app/id1")
+        XCTAssertEqual(report.updates[2].installed, "5.0")
+        XCTAssertEqual(report.updates[2].latest, "5.1")
+        XCTAssertEqual(report.upToDate, ["Current"])
+        XCTAssertEqual(Set(report.unchecked), ["Squirrel", "Plain"])
+        XCTAssertTrue(report.failed.isEmpty)
+    }
+
+    func testUpdateCheckReportsFeedsThatDontAnswer() {
+        let apps = [UpdateCandidate(path: "/Applications/Gone.app", name: "Gone", bundleID: "com.example.gone", version: "1", build: "1",
+                                    feedURL: "https://example.com/feed.xml", isAppStore: false, isApple: false)]
+        let report = AppUpdates.check(apps, casks: nil, osVersion: "15.0.0", region: "us") { _ in nil }
+        XCTAssertEqual(report.failed, ["Gone"])
+        XCTAssertFalse(report.usedHomebrew)
+    }
 }

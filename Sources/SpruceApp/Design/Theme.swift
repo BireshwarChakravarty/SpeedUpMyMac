@@ -98,6 +98,7 @@ extension Module {
         case .devPurge: return (0xF0C772, 0xE6A93C, 0xB07A1C)
         case .installers: return (0xEDB591, 0xD98C5F, 0xA65E35)
         case .uninstaller: return (0xF6A08A, 0xF0714E, 0xBD4A2C)
+        case .updates: return (0x8FE3E8, 0x3FC1C9, 0x23878E)
         case .spaceLens: return (0xD3D0FF, 0xB7B2FF, 0x7F78E0)
         case .processes: return (0xF6CC80, 0xF0B24A, 0xBF8424)
         case .maintenance: return (0xB3ADF6, 0x8E84F0, 0x5E54C4)
@@ -139,6 +140,7 @@ extension Module {
         case .devPurge: return "Build artifacts from projects you're not touching"
         case .installers: return "Disk images and packages you've already used"
         case .uninstaller: return "Remove apps completely — no traces left"
+        case .updates: return "Newer versions of the apps you have"
         case .spaceLens: return "See what's using your disk"
         case .processes: return "Tame CPU and memory hogs"
         case .maintenance: return "Fix what's actually broken"

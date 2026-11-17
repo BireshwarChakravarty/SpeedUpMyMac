@@ -4,6 +4,18 @@ All notable changes to Spruce (formerly Root, and before that Burnish) are docum
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] — 2026-11-17
+
+### Added
+
+- **Updates** (Apps → Updates): finds apps with a newer version and hands each one to whatever installs it.
+  - **Homebrew apps:** Spruce runs `brew upgrade --cask` after the usual receipt, one app or all at once.
+  - **App Store apps:** checked against Apple's public App Store lookup; **View** and **Open App Store Updates** take you there.
+  - **Apps with a built-in updater** (Sparkle): Spruce reads the same update feed the app reads, shows the new version and its release notes, and opens the app so its own updater installs it.
+  - Apps that update themselves some other way (Chrome, Electron apps) are listed as not checkable. Apple's own apps update with macOS.
+  - Only app IDs go to Apple; nothing else about the Mac is sent. Spruce never replaces an app bundle itself.
+- **`spruce updates`** lists the same thing in Terminal (`--json` for scripts).
+
 ## [2.1.1] — 2026-11-11
 
 ### Changed
@@ -191,7 +203,8 @@ First release under the name Root (renamed from Burnish).
 - **Interface:** native macOS design with sound effects, plus the `root` command-line tool.
 - **Migration:** settings, logs and the fleet folder move over automatically from Burnish.
 
-[2.1.1]: https://github.com/BireshwarChakravarty/SpeedUpMyMac/compare/68c84dd...HEAD
+[2.2.0]: https://github.com/BireshwarChakravarty/SpeedUpMyMac/compare/6351dba...HEAD
+[2.1.1]: https://github.com/BireshwarChakravarty/SpeedUpMyMac/compare/68c84dd...6351dba
 [2.1.0]: https://github.com/BireshwarChakravarty/SpeedUpMyMac/compare/06075a6...68c84dd
 [2.0.0]: https://github.com/BireshwarChakravarty/SpeedUpMyMac/compare/8138fb2...000e70f
 [1.1.0]: https://github.com/BireshwarChakravarty/SpeedUpMyMac/compare/396b95a...8138fb2

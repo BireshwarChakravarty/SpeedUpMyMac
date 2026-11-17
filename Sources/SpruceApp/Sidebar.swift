@@ -33,7 +33,7 @@ enum RailGroup: String, CaseIterable, Identifiable {
         switch self {
         case .home: return [.smartScan, .status]
         case .clean: return [.cleanup, .devPurge, .installers, .spaceLens]
-        case .apps: return [.uninstaller]
+        case .apps: return [.uninstaller, .updates]
         case .speed: return [.processes, .maintenance, .startup, .tweaks]
         case .protect: return [.health]
         case .fleet: return [.fleet, .history]

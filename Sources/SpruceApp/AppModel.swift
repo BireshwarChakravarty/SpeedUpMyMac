@@ -4,7 +4,7 @@ import Observation
 import LocalAuthentication
 
 enum Module: String, CaseIterable, Identifiable, Hashable {
-    case smartScan, status, cleanup, devPurge, installers, uninstaller, spaceLens
+    case smartScan, status, cleanup, devPurge, installers, uninstaller, updates, spaceLens
     case processes, maintenance, startup, tweaks
     case health, fleet, history
 
@@ -18,6 +18,7 @@ enum Module: String, CaseIterable, Identifiable, Hashable {
         case .devPurge: return "Dev Purge"
         case .installers: return "Installers"
         case .uninstaller: return "Uninstaller"
+        case .updates: return "Updates"
         case .spaceLens: return "Space Lens"
         case .processes: return "Processes"
         case .maintenance: return "Maintenance"
@@ -37,6 +38,7 @@ enum Module: String, CaseIterable, Identifiable, Hashable {
         case .devPurge: return "hammer"
         case .installers: return "shippingbox"
         case .uninstaller: return "xmark.app"
+        case .updates: return "arrow.down.circle"
         case .spaceLens: return "circle.circle"
         case .processes: return "cpu"
         case .maintenance: return "wrench.and.screwdriver"
@@ -50,7 +52,7 @@ enum Module: String, CaseIterable, Identifiable, Hashable {
 
     static let groups: [(String?, [Module])] = [
         (nil, [.smartScan, .status]),
-        ("Clean", [.cleanup, .devPurge, .installers, .uninstaller, .spaceLens]),
+        ("Clean", [.cleanup, .devPurge, .installers, .uninstaller, .updates, .spaceLens]),
         ("Speed", [.processes, .maintenance, .startup, .tweaks]),
         ("Protect", [.health]),
         ("Fleet", [.fleet, .history]),
@@ -581,6 +583,59 @@ final class AppModel {
 
     // MARK: Installers
 
+    // MARK: Updates
+
+    var updateReport: UpdateReport?
+
+    func checkUpdates() async {
+        let report = await run("Checking for updates…") { AppUpdates.check() }
+        updateReport = report
+        if !report.updates.isEmpty { SoundFX.shared.play(.success) }
+    }
+
+    /// Homebrew updates go through the usual receipt: every app listed, nothing run until confirmed.
+    func confirmBrewUpgrade(_ list: [AppUpdate]) {
+        let casks = list.filter { $0.caskToken != nil }
+        guard !casks.isEmpty else { return }
+        receipt = Receipt(title: casks.count == 1 ? "Update \(casks[0].name)" : "Update \(casks.count) apps",
+                          lines: casks.map { ReceiptLine(path: "cask:\($0.caskToken!)", title: "\($0.name)  \($0.installed) → \($0.latest)",
+                                                         bytes: 0, destination: "brew upgrade") },
+                          script: nil, confirmTitle: casks.count == 1 ? "Update" : "Update \(casks.count)",
+                          note: "Homebrew downloads each new version and replaces the app; your settings stay. Quit an app first if it's open.") { [self] in
+            await upgrade(casks)
+        }
+    }
+
+    private func upgrade(_ casks: [AppUpdate]) async {
+        let results = await run(casks.count == 1 ? "Updating \(casks[0].name)…" : "Updating \(casks.count) apps…") {
+            casks.map { ($0.id, $0.name, AppUpdates.upgrade(cask: $0.caskToken!)) }
+        }
+        let done = results.filter { $0.2 == nil }
+        let failed = results.filter { $0.2 != nil }
+        if !done.isEmpty {
+            History.append(HistoryEntry(action: "update", detail: done.map(\.1).joined(separator: ", ")))
+            let ids = Set(done.map(\.0))
+            updateReport?.updates.removeAll { ids.contains($0.id) }
+            updateReport?.upToDate.append(contentsOf: done.map(\.1))
+        }
+        if let first = failed.first {
+            report("\(first.1) didn't update: \(first.2 ?? "")", error: true)
+        } else {
+            report(done.count == 1 ? "\(done[0].1) is up to date" : "Updated \(done.count) apps")
+            SoundFX.shared.play(.success)
+        }
+    }
+
+    func openURL(_ string: String) {
+        if let url = URL(string: string) { NSWorkspace.shared.open(url) }
+    }
+
+    func openApp(_ path: String) {
+        NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: path), configuration: NSWorkspace.OpenConfiguration())
+    }
+
+    // MARK: Installers
+
     var installerFiles: [InstallerFile] = []
     var installersScanned = false
 
@@ -728,6 +783,7 @@ final class AppModel {
             .uninstaller: ("orphans", "uninstaller-orphans"),
             .spaceLens: ("space-map", "space-lens-map"),
             .tweaks: ("tweaks-preset", "tweaks-preset"),
+            .updates: ("updates-check", "updates-results"),
         ]
         for module in Module.allCases where module != .smartScan {
             if module == .uninstaller {
@@ -738,7 +794,7 @@ final class AppModel {
             if let sub = subpages[module] {
                 tourSubpage = sub.page
                 try? await Task.sleep(for: .milliseconds(500))
-                for _ in 0..<40 where busy != nil { try? await Task.sleep(for: .milliseconds(500)) }   // let a scan finish
+                for _ in 0..<(module == .updates ? 240 : 40) where busy != nil { try? await Task.sleep(for: .milliseconds(500)) }   // let a scan finish (an update check can take a minute)
                 await captureTour(folder, sub.name)
                 tourSubpage = nil
                 receipt = nil

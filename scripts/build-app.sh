@@ -9,7 +9,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-VERSION="2.1.1"
+VERSION="2.2.0"
 # The build number is the version itself, so About reads "Version 2.1.1" with nothing in brackets.
 BUILD="$VERSION"
 DIST="dist"

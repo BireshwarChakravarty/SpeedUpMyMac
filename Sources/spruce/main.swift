@@ -128,6 +128,7 @@ func cmdHelp() {
       clean                   Clean safe items; --include-review / --include-risky to widen, --only id,id
       purge                   Remove idle build artifacts (node_modules, target, .build, Pods, venv…)
       apps                    List installed apps with size and last use
+      updates                 Apps with a newer version (Homebrew, App Store, built-in updaters)
       uninstall <app>         Remove an app completely, no traces (--level strict|enhanced|deep, --keep-data)
       orphans                 Find leftovers of apps that are no longer installed
       large [path]            Large files (--min-mb 500, --older-days 180)
@@ -263,6 +264,34 @@ func cmdApps() {
         let used = app.lastUsed.map { Format.relative($0) } ?? "never/unknown"
         let tag = app.userRemovable ? "" : amber(" [admin]")
         print("  \(lpad(Format.bytes(app.bytes), 8))  \(pad(app.name, 32)) \(dim(pad(used, 14))) \(dim(app.bundleID))\(tag)")
+    }
+}
+
+func cmdUpdates() {
+    if !args.has("--json") { print(dim("Checking each app's update feed, the App Store and Homebrew…")) }
+    let report = AppUpdates.check()
+    if args.has("--json") { printJSON(report); return }
+    if report.updates.isEmpty {
+        print("  \(green("Everything is up to date")) \(dim("(\(report.upToDate.count) apps checked)"))")
+    }
+    for source in UpdateSource.allCases {
+        let list = report.updates.filter { $0.source == source }
+        guard !list.isEmpty else { continue }
+        print("\n\(bold(source.rawValue))")
+        for u in list {
+            print("  \(pad(u.name, 30)) \(dim(pad(u.installed, 12))) → \(green(u.latest))")
+        }
+        switch source {
+        case .homebrew: print(dim("  brew upgrade --cask \(list.compactMap(\.caskToken).joined(separator: " "))"))
+        case .appStore: print(dim("  Update from the App Store's Updates page"))
+        case .builtIn: print(dim("  Open each app and use its Check for Updates command"))
+        }
+    }
+    if !report.unchecked.isEmpty {
+        print(dim("\n\(report.unchecked.count) apps update themselves in a way Spruce can't read: \(report.unchecked.joined(separator: ", "))"))
+    }
+    if !report.failed.isEmpty {
+        print(amber("Couldn't reach the update feed for: \(report.failed.joined(separator: ", "))"))
     }
 }
 
@@ -616,6 +645,7 @@ case "scan": cmdScan()
 case "clean": cmdClean()
 case "purge": cmdPurge()
 case "apps": cmdApps()
+case "updates": cmdUpdates()
 case "uninstall": cmdUninstall()
 case "orphans": cmdOrphans()
 case "large": cmdLarge()
