@@ -41,9 +41,11 @@ struct UpdatesView: View {
     @ViewBuilder
     private func results(_ report: UpdateReport) -> some View {
         let brew = report.updates.filter { $0.source == .homebrew }
+        let nothingChecked = report.updates.isEmpty && report.upToDate.isEmpty
         HeroHeader(title: "Updates",
-                   value: report.updates.isEmpty ? "All current" : "\(report.updates.count) available",
-                   caption: "Checked \(Format.relative(report.checkedAt)) · \(report.upToDate.count) apps up to date",
+                   value: nothingChecked ? "Nothing to check" : report.updates.isEmpty ? "All current" : "\(report.updates.count) available",
+                   caption: "Checked \(Format.relative(report.checkedAt))"
+                       + (report.upToDate.isEmpty ? "" : " · \(report.upToDate.count) \(report.upToDate.count == 1 ? "app" : "apps") up to date"),
                    symbol: Module.updates.symbol) {
             Button("Check Again") { Task { await model.checkUpdates() } }.disabled(model.busy != nil)
             if !brew.isEmpty {
@@ -52,7 +54,11 @@ struct UpdatesView: View {
                     .disabled(model.busy != nil)
             }
         }
-        if report.updates.isEmpty {
+        if nothingChecked {
+            EmptyState(symbol: "questionmark.app", title: "No apps Spruce can check",
+                       message: "None of your apps came from Homebrew or the App Store, or use an update feed Spruce can read. They still update themselves.", sphere: false)
+                .card()
+        } else if report.updates.isEmpty {
             EmptyState(symbol: "checkmark.circle", title: "Everything is up to date",
                        message: "Every app Spruce can check has its newest version.", sphere: false)
                 .card()
@@ -135,7 +141,7 @@ struct UpdatesView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.top, 4)
                 } label: {
-                    Text("\(report.unchecked.count) apps update themselves in a way Spruce can't read")
+                    Text("\(report.unchecked.count) \(report.unchecked.count == 1 ? "app updates itself" : "apps update themselves") in a way Spruce can't read")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Text("Chrome, Electron apps and apps with their own installers keep themselves current. Their own Check for Updates still works.")
