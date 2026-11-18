@@ -20,6 +20,12 @@ public struct PrivilegedScript: Sendable, Equatable {
         lines.append(tolerateFailure ? "\(cmd) || true" : cmd)
     }
 
+    /// Appends commands that run one after another and stop at the first failure (`a && b && c`);
+    /// every argument is quoted.
+    public mutating func addChain(_ commands: [[String]]) {
+        lines.append(commands.map { $0.map(Shell.quote).joined(separator: " ") }.joined(separator: " && "))
+    }
+
     /// Appends a removal; the path must already have passed `Safety.validateForDeletion`.
     public mutating func remove(_ path: String) {
         add("/bin/rm", ["-rf", "--", path])

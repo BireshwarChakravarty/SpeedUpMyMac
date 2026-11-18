@@ -108,6 +108,17 @@ jobs:
         with:
           name: ${{ matrix.artifact }}
           path: dist/Spruce.zip
+      - name: Install an old app for the updater to find
+        # Rectangle 0.80 (2024), straight from the developer. The tour's Updates page should list it,
+        # and the step after the tour updates it for real.
+        continue-on-error: true
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/rect.dmg" https://github.com/rxhanson/Rectangle/releases/download/v0.80/Rectangle0.80.dmg
+          hdiutil attach -nobrowse -readonly -mountpoint "$RUNNER_TEMP/rect" "$RUNNER_TEMP/rect.dmg"
+          rm -rf /Applications/Rectangle.app
+          ditto "$RUNNER_TEMP/rect/Rectangle.app" /Applications/Rectangle.app
+          hdiutil detach "$RUNNER_TEMP/rect"
+          echo "installed Rectangle $(defaults read /Applications/Rectangle.app/Contents/Info.plist CFBundleShortVersionString)"
       - name: Screenshot tour
         # Launches the real app, which runs a scan and steps through every page; each page is
         # captured here. JPEGs are printed between @@SHOT/@@END markers so they can be read back
@@ -151,6 +162,20 @@ jobs:
             base64 -b 160 -i "$jpg"
             echo "@@END"
           done
+      - name: Updater end to end
+        # Downloads Rectangle's newest version from its own feed, checks the developer's signature,
+        # swaps it in, and confirms the result is newer and still validly signed.
+        continue-on-error: true
+        run: |
+          spruce=dist/Spruce.app/Contents/Helpers/spruce
+          before="$(defaults read /Applications/Rectangle.app/Contents/Info.plist CFBundleShortVersionString)"
+          "$spruce" updates
+          "$spruce" updates install Rectangle --yes
+          after="$(defaults read /Applications/Rectangle.app/Contents/Info.plist CFBundleShortVersionString)"
+          echo "Rectangle: $before -> $after"
+          codesign --verify --deep --strict /Applications/Rectangle.app
+          codesign -dv /Applications/Rectangle.app 2>&1 | grep TeamIdentifier
+          [ "$before" != "$after" ] && echo "UPDATER OK" || { echo "UPDATER FAILED: still $after"; exit 1; }
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -4,6 +4,17 @@ All notable changes to Spruce (formerly Root, and before that Burnish) are docum
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] — 2026-11-18
+
+### Changed
+
+- **Updates installs updates.** **Update** (one app) and **Update All** download and install new versions after the usual receipt, instead of sending you elsewhere:
+  - **Apps from outside the App Store** are downloaded from the developer: from the app's own update feed, or from Homebrew's public catalogue for apps without one (Chrome, Slack, VS Code and most Electron apps, which were "not checkable" before). Spruce installs a download only if it carries the developer's signature (the key inside the installed app) or matches Homebrew's checksum, the new app's code signature is valid and from the **same developer**, and its version is newer. The app is quit, swapped in place (the old copy stays until the new one is in) and reopened.
+  - **App Store apps** update through the `mas` tool, which Spruce installs with Homebrew when it's missing.
+  - **Homebrew apps** still use `brew upgrade`.
+  - Installer-package updates and apps owned by the system need Admin mode.
+- **`spruce updates install <app|all>`** does the same in Terminal.
+
 ## [2.2.0] — 2026-11-17
 
 ### Added
@@ -203,7 +214,8 @@ First release under the name Root (renamed from Burnish).
 - **Interface:** native macOS design with sound effects, plus the `root` command-line tool.
 - **Migration:** settings, logs and the fleet folder move over automatically from Burnish.
 
-[2.2.0]: https://github.com/BireshwarChakravarty/SpeedUpMyMac/compare/6351dba...HEAD
+[2.3.0]: https://github.com/BireshwarChakravarty/SpeedUpMyMac/compare/89a9a00...HEAD
+[2.2.0]: https://github.com/BireshwarChakravarty/SpeedUpMyMac/compare/6351dba...89a9a00
 [2.1.1]: https://github.com/BireshwarChakravarty/SpeedUpMyMac/compare/68c84dd...6351dba
 [2.1.0]: https://github.com/BireshwarChakravarty/SpeedUpMyMac/compare/06075a6...68c84dd
 [2.0.0]: https://github.com/BireshwarChakravarty/SpeedUpMyMac/compare/8138fb2...000e70f

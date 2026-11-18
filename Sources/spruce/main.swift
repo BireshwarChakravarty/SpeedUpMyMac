@@ -128,7 +128,7 @@ func cmdHelp() {
       clean                   Clean safe items; --include-review / --include-risky to widen, --only id,id
       purge                   Remove idle build artifacts (node_modules, target, .build, Pods, venv…)
       apps                    List installed apps with size and last use
-      updates                 Apps with a newer version (Homebrew, App Store, built-in updaters)
+      updates                 Apps with a newer version; updates install <app|all> installs them
       uninstall <app>         Remove an app completely, no traces (--level strict|enhanced|deep, --keep-data)
       orphans                 Find leftovers of apps that are no longer installed
       large [path]            Large files (--min-mb 500, --older-days 180)
@@ -268,8 +268,28 @@ func cmdApps() {
 }
 
 func cmdUpdates() {
+    let installing = args.positional.first == "install"
     if !args.has("--json") { print(dim("Checking each app's update feed, the App Store and Homebrew…")) }
     let report = AppUpdates.check()
+    if installing {
+        let query = args.positional.dropFirst().joined(separator: " ").lowercased()
+        guard !query.isEmpty else { fail("usage: spruce updates install <app name | all> [--yes] [--sudo]") }
+        let chosen = report.updates.filter { query == "all" || $0.name.lowercased() == query || $0.bundleID.lowercased() == query }
+        guard !chosen.isEmpty else {
+            print(report.upToDate.contains { $0.lowercased() == query } ? "  \(green("\(query) is up to date"))" : "  no update found for \"\(query)\"")
+            return
+        }
+        for u in chosen { print("  \(pad(u.name, 30)) \(dim(pad(u.installed, 12))) → \(green(u.latest))  \(dim(u.installable ? u.source.rawValue : "not installable"))") }
+        guard confirm("Install \(chosen.count) update(s)?", yes: args.has("--yes")) else { return }
+        var failed = false
+        for u in chosen where u.installable {
+            let result = AppInstaller.install(u, sudo: sudo, runner: runner) { print(dim("  " + $0)) }
+            print(result.ok ? "  \(green("✓")) \(result.message)" : "  \(amber("✗")) \(u.name): \(result.message)")
+            if !result.ok { failed = true }
+        }
+        if failed { exit(1) }
+        return
+    }
     if args.has("--json") { printJSON(report); return }
     if report.updates.isEmpty {
         print("  \(green("Everything is up to date")) \(dim("(\(report.upToDate.count) apps checked)"))")
@@ -283,8 +303,8 @@ func cmdUpdates() {
         }
         switch source {
         case .homebrew: print(dim("  brew upgrade --cask \(list.compactMap(\.caskToken).joined(separator: " "))"))
-        case .appStore: print(dim("  Update from the App Store's Updates page"))
-        case .builtIn: print(dim("  Open each app and use its Check for Updates command"))
+        case .appStore: print(dim("  spruce updates install <name>  (uses the mas tool)"))
+        case .builtIn: print(dim("  spruce updates install <name>  (downloads from the developer and checks the signature)"))
         }
     }
     if !report.unchecked.isEmpty {

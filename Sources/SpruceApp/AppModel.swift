@@ -150,6 +150,15 @@ final class AppModel {
             let deadline = Date().addingTimeInterval(4)
             while Date() < deadline, running.contains(where: { !$0.isTerminated }) { usleep(100_000) }
         }
+        // The updater quits an app before replacing it, the same way.
+        AppInstaller.quitApp = { bundleID, path in
+            let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
+                .filter { $0.bundleURL?.standardizedFileURL.path == URL(fileURLWithPath: path).standardizedFileURL.path }
+            running.forEach { $0.terminate() }
+            let deadline = Date().addingTimeInterval(15)
+            while Date() < deadline, running.contains(where: { !$0.isTerminated }) { usleep(100_000) }
+            return running.allSatisfy(\.isTerminated)
+        }
         Legacy.migrateDefaults()
         Scheduler.migrateLegacy(settings.schedule, cliPath: Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/spruce").path)
     }
@@ -593,36 +602,59 @@ final class AppModel {
         if !report.updates.isEmpty { SoundFX.shared.play(.success) }
     }
 
-    /// Homebrew updates go through the usual receipt: every app listed, nothing run until confirmed.
-    func confirmBrewUpgrade(_ list: [AppUpdate]) {
-        let casks = list.filter { $0.caskToken != nil }
-        guard !casks.isEmpty else { return }
-        receipt = Receipt(title: casks.count == 1 ? "Update \(casks[0].name)" : "Update \(casks.count) apps",
-                          lines: casks.map { ReceiptLine(path: "cask:\($0.caskToken!)", title: "\($0.name)  \($0.installed) → \($0.latest)",
-                                                         bytes: 0, destination: "brew upgrade") },
-                          script: nil, confirmTitle: casks.count == 1 ? "Update" : "Update \(casks.count)",
-                          note: "Homebrew downloads each new version and replaces the app; your settings stay. Quit an app first if it's open.") { [self] in
-            await upgrade(casks)
+    /// Updates go through the usual receipt: every app and where its new version comes from,
+    /// nothing downloaded or replaced until confirmed.
+    func confirmUpdates(_ list: [AppUpdate]) {
+        let ready = list.filter(\.installable)
+        guard !ready.isEmpty else { return }
+        let needsAdmin = ready.contains { $0.source == .appStore } && !sudo && machine.isAdmin
+        var note = "Each download is checked before it's installed: the developer's signature or Homebrew's checksum, a valid code signature from the same developer, and a newer version. Open apps are quit and reopened."
+        if needsAdmin { note += " App Store updates may need Admin mode." }
+        receipt = Receipt(title: ready.count == 1 ? "Update \(ready[0].name)" : "Update \(ready.count) apps",
+                          lines: ready.map { ReceiptLine(path: "update:\($0.id)", title: "\($0.name)  \($0.installed) → \($0.latest)",
+                                                         bytes: 0, destination: Self.updateMethod($0)) },
+                          script: nil, confirmTitle: ready.count == 1 ? "Update" : "Update \(ready.count)", note: note) { [self] in
+            await installUpdates(ready)
         }
     }
 
-    private func upgrade(_ casks: [AppUpdate]) async {
-        let results = await run(casks.count == 1 ? "Updating \(casks[0].name)…" : "Updating \(casks.count) apps…") {
-            casks.map { ($0.id, $0.name, AppUpdates.upgrade(cask: $0.caskToken!)) }
+    static func updateMethod(_ update: AppUpdate) -> String {
+        switch update.source {
+        case .homebrew: return "brew upgrade"
+        case .appStore: return "App Store"
+        case .builtIn: return update.download?.origin == "feed" ? "Developer's download" : "Download"
         }
-        let done = results.filter { $0.2 == nil }
-        let failed = results.filter { $0.2 != nil }
+    }
+
+    /// Installs one update at a time and keeps the page in step.
+    func installUpdates(_ list: [AppUpdate]) async {
+        let sudo = self.sudo, runner = self.runner
+        var done: [AppUpdate] = [], failures: [(String, String)] = []
+        for (index, update) in list.enumerated() {
+            let prefix = list.count > 1 ? "(\(index + 1) of \(list.count)) " : ""
+            busy = "\(prefix)Updating \(update.name)…"
+            let result = await Task.detached(priority: .userInitiated) {
+                AppInstaller.install(update, sudo: sudo, runner: runner) { message in
+                    Task { @MainActor [weak self] in self?.busy = prefix + message }
+                }
+            }.value
+            if result.ok {
+                done.append(update)
+                updateReport?.updates.removeAll { $0.id == update.id }
+                updateReport?.upToDate.append(update.name)
+            } else {
+                failures.append((update.name, result.message))
+            }
+        }
+        busy = nil
         if !done.isEmpty {
-            History.append(HistoryEntry(action: "update", detail: done.map(\.1).joined(separator: ", ")))
-            let ids = Set(done.map(\.0))
-            updateReport?.updates.removeAll { ids.contains($0.id) }
-            updateReport?.upToDate.append(contentsOf: done.map(\.1))
-        }
-        if let first = failed.first {
-            report("\(first.1) didn't update: \(first.2 ?? "")", error: true)
-        } else {
-            report(done.count == 1 ? "\(done[0].1) is up to date" : "Updated \(done.count) apps")
+            History.append(HistoryEntry(action: "update", detail: done.map { "\($0.name) \($0.latest)" }.joined(separator: ", ")))
             SoundFX.shared.play(.success)
+        }
+        if let first = failures.first {
+            report(failures.count == 1 && done.isEmpty ? first.1 : "\(done.count) updated, \(failures.count) didn't. \(first.0): \(first.1)", error: true)
+        } else {
+            report(done.count == 1 ? "\(done[0].name) is now \(done[0].latest)" : "Updated \(done.count) apps")
         }
     }
 

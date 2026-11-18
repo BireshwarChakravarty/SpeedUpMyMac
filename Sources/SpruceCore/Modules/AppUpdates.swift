@@ -10,7 +10,24 @@ import FoundationNetworking
 public enum UpdateSource: String, Codable, CaseIterable, Sendable {
     case homebrew = "Homebrew"
     case appStore = "App Store"
-    case builtIn = "Built-in updater"
+    /// Downloaded straight from the developer: the app's own update feed (Sparkle) or, for apps
+    /// without a readable feed, Homebrew's public catalogue of download links.
+    case builtIn = "Other apps"
+}
+
+/// Where Spruce downloads a new version from, and how it checks the file before installing it.
+public struct UpdateDownload: Codable, Hashable, Sendable {
+    public var url: String
+    /// SHA-256 from Homebrew's catalogue.
+    public var sha256: String?
+    /// EdDSA signature from the app's Sparkle feed, checked against the key inside the app.
+    public var edSignature: String?
+    /// "feed" (the app's own update feed) or "catalogue" (Homebrew's list of download links).
+    public var origin: String
+
+    public init(url: String, sha256: String? = nil, edSignature: String? = nil, origin: String) {
+        self.url = url; self.sha256 = sha256; self.edSignature = edSignature; self.origin = origin
+    }
 }
 
 /// One app with a newer version available.
@@ -29,6 +46,13 @@ public struct AppUpdate: Codable, Identifiable, Hashable, Sendable {
     public var releaseNotesURL: String?
     /// The App Store page, for App Store apps.
     public var storeURL: String?
+    /// The App Store's numeric ID, for `mas upgrade`.
+    public var storeID: Int?
+    /// What Spruce downloads and installs, for apps outside Homebrew and the App Store.
+    public var download: UpdateDownload?
+
+    /// Spruce can install this update itself.
+    public var installable: Bool { source != .builtIn || download != nil }
 }
 
 /// The result of one check.
@@ -85,13 +109,31 @@ public struct AppcastItem: Sendable, Equatable {
     public var minimumSystem: String?
     public var releaseNotes: String?
     public var channel: String?
+    public var url: String?
+    public var edSignature: String?
+
+    public init(version: String, shortVersion: String? = nil, minimumSystem: String? = nil, releaseNotes: String? = nil,
+                channel: String? = nil, url: String? = nil, edSignature: String? = nil) {
+        self.version = version; self.shortVersion = shortVersion; self.minimumSystem = minimumSystem
+        self.releaseNotes = releaseNotes; self.channel = channel; self.url = url; self.edSignature = edSignature
+    }
 }
 
-/// Finds apps with newer versions. It only reads: updating is left to Homebrew, the App Store or
-/// the app's own updater, so nothing here touches an app bundle.
+/// One app in Homebrew's public catalogue (formulae.brew.sh/api/cask.json): its newest version and
+/// where to download it. Spruce uses it for apps that weren't installed with Homebrew too.
+public struct CatalogApp: Sendable, Equatable {
+    public var token: String
+    public var version: String
+    public var url: String
+    public var sha256: String?
+    public var minimumSystem: String?
+}
+
+/// Finds apps with newer versions; `AppInstaller` installs them.
 ///
 /// Network use: each Sparkle app's own feed (the address the app itself checks), Apple's public
-/// App Store lookup (bundle IDs only), and Homebrew's own update. Nothing else about the Mac is sent.
+/// App Store lookup (bundle IDs only), Homebrew's public catalogue (one file, cached for a day) and
+/// Homebrew's own update. Nothing else about the Mac is sent.
 public enum AppUpdates {
     public typealias Fetch = @Sendable (URL) -> Data?
 
@@ -105,12 +147,13 @@ public enum AppUpdates {
             let r = Shell.run(path, ["info", "--cask", "--json=v2", "--installed"], timeout: 120, environment: brewEnvironment())
             return r.succeeded ? parseBrewCasks(Data(r.stdout.utf8)) : nil
         }
-        return check(candidates, casks: brew, osVersion: osVersion, region: region, fetch: fetch)
+        let catalog = loadCatalog(fetch: fetch)
+        return check(candidates, casks: brew, catalog: catalog, osVersion: osVersion, region: region, fetch: fetch)
     }
 
     /// The core of `check`, with everything it reads passed in (tests use this).
-    public static func check(_ candidates: [UpdateCandidate], casks: [BrewCask]?, osVersion: String, region: String,
-                             fetch: Fetch) -> UpdateReport {
+    public static func check(_ candidates: [UpdateCandidate], casks: [BrewCask]?, catalog: [String: CatalogApp]? = nil,
+                             osVersion: String, region: String, fetch: Fetch) -> UpdateReport {
         var caskByApp: [String: BrewCask] = [:]
         for cask in casks ?? [] { for app in cask.apps { caskByApp[app.lowercased()] = cask } }
 
@@ -130,10 +173,21 @@ public enum AppUpdates {
                 outcome = checkAppStore(app, region: region, fetch: fetch)
             } else if app.isApple {
                 outcome = .skip   // updated with macOS
-            } else if let feed = app.feedURL {
-                outcome = checkFeed(app, feed: feed, osVersion: osVersion, cask: caskByApp[bundleName], fetch: fetch)
             } else {
-                outcome = .unchecked(app.name)
+                // The app's own feed first; Homebrew's catalogue when there's no feed or it didn't answer.
+                var fromFeed: Outcome = .unchecked(app.name)
+                if let feed = app.feedURL {
+                    fromFeed = checkFeed(app, feed: feed, osVersion: osVersion, cask: caskByApp[bundleName], fetch: fetch)
+                }
+                switch fromFeed {
+                case .update, .current: outcome = fromFeed
+                default:
+                    if let entry = catalog?[bundleName], let fromCatalog = checkCatalog(app, entry, osVersion: osVersion) {
+                        outcome = fromCatalog
+                    } else {
+                        outcome = fromFeed
+                    }
+                }
             }
             outcomes.mutate { $0[i] = outcome }
         }
@@ -166,7 +220,7 @@ public enum AppUpdates {
         guard compareVersions(store.version, app.version) == .orderedDescending else { return .current(app.name) }
         return .update(AppUpdate(appPath: app.path, name: app.name, bundleID: app.bundleID,
                                  installed: app.version, latest: store.version, source: .appStore,
-                                 storeURL: store.url))
+                                 storeURL: store.url, storeID: store.id))
         }
 
     private static func checkFeed(_ app: UpdateCandidate, feed: String, osVersion: String, cask: BrewCask?, fetch: Fetch) -> Outcome {
@@ -182,7 +236,90 @@ public enum AppUpdates {
         return .update(AppUpdate(appPath: app.path, name: app.name, bundleID: app.bundleID,
                                  installed: displayVersion(app.version.isEmpty ? app.build : app.version),
                                  latest: displayVersion(newest.shortVersion ?? newest.version), source: .builtIn,
-                                 caskToken: cask?.token, releaseNotesURL: notes))
+                                 caskToken: cask?.token, releaseNotesURL: notes,
+                                 download: newest.url.flatMap { $0.lowercased().hasPrefix("https://")
+                                     ? UpdateDownload(url: $0, edSignature: newest.edSignature, origin: "feed") : nil }))
+    }
+
+    /// Compares an app with Homebrew's catalogue entry for the same app name. Nil when the entry
+    /// can't be used (no version, needs a newer macOS).
+    private static func checkCatalog(_ app: UpdateCandidate, _ entry: CatalogApp, osVersion: String) -> Outcome? {
+        let latest = displayVersion(entry.version)
+        guard !latest.isEmpty, latest != "latest", entry.url.lowercased().hasPrefix("https://") else { return nil }
+        if let minimum = entry.minimumSystem, compareVersions(minimum, osVersion) == .orderedDescending { return nil }
+        let installed = app.version.isEmpty ? app.build : app.version
+        guard compareVersions(latest, installed) == .orderedDescending else { return .current(app.name) }
+        let sha = entry.sha256.flatMap { $0 == "no_check" || $0.isEmpty ? nil : $0 }
+        return .update(AppUpdate(appPath: app.path, name: app.name, bundleID: app.bundleID,
+                                 installed: displayVersion(installed), latest: latest, source: .builtIn,
+                                 download: UpdateDownload(url: entry.url, sha256: sha, origin: "catalogue")))
+    }
+
+    // MARK: Homebrew's catalogue
+
+    static let catalogURL = URL(string: "https://formulae.brew.sh/api/cask.json")!
+
+    static var catalogCache: String { Paths.expand("~/Library/Caches/io.spruceapp/cask.json") }
+
+    /// Homebrew's catalogue, keyed by lowercased app bundle name ("google chrome.app"). Cached for a day.
+    public static func loadCatalog(fetch: Fetch) -> [String: CatalogApp]? {
+        let cache = catalogCache
+        var data: Data?
+        if let attributes = try? FileManager.default.attributesOfItem(atPath: cache),
+           let modified = attributes[.modificationDate] as? Date, Date().timeIntervalSince(modified) < 86_400 {
+            data = FileManager.default.contents(atPath: cache)
+        }
+        if data == nil, let fresh = fetch(catalogURL) {
+            try? FileManager.default.createDirectory(atPath: (cache as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
+            FileManager.default.createFile(atPath: cache, contents: fresh)
+            data = fresh
+        }
+        if data == nil { data = FileManager.default.contents(atPath: cache) }   // a stale copy beats none
+        return data.map { parseCatalog($0) }
+    }
+
+    /// Reads the catalogue. On Intel Macs, each cask's download for this macOS is used when it has one.
+    public static func parseCatalog(_ data: Data, intel: Bool = isIntel, codename: String? = currentCodename()) -> [String: CatalogApp] {
+        guard let casks = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] else { return [:] }
+        var out: [String: CatalogApp] = [:]
+        for cask in casks {
+            guard let token = cask["token"] as? String, var url = cask["url"] as? String,
+                  let version = cask["version"] as? String else { continue }
+            var sha = cask["sha256"] as? String
+            if intel, let variations = cask["variations"] as? [String: [String: Any]] {
+                let variant = codename.flatMap { variations[$0] } ?? variations.values.first
+                if let u = variant?["url"] as? String { url = u; sha = variant?["sha256"] as? String ?? sha }
+            }
+            var minimum: String?
+            if let macos = (cask["depends_on"] as? [String: Any])?["macos"] as? [String: Any],
+               let floor = (macos[">="] as? [String])?.first, Double(floor) != nil {
+                minimum = floor
+            }
+            var apps: [String] = []
+            for artifact in cask["artifacts"] as? [[String: Any]] ?? [] {
+                for entry in artifact["app"] as? [Any] ?? [] {
+                    if let name = entry as? String { apps.append((name as NSString).lastPathComponent) }
+                    else if let target = (entry as? [String: Any])?["target"] as? String { apps.append((target as NSString).lastPathComponent) }
+                }
+            }
+            let entry = CatalogApp(token: token, version: version, url: url, sha256: sha, minimumSystem: minimum)
+            for app in apps where out[app.lowercased()] == nil { out[app.lowercased()] = entry }
+        }
+        return out
+    }
+
+    public static var isIntel: Bool {
+        #if arch(x86_64)
+        return true
+        #else
+        return false
+        #endif
+    }
+
+    /// The name Homebrew uses for this macOS ("sequoia", "tahoe").
+    public static func currentCodename() -> String? {
+        let names = [12: "monterey", 13: "ventura", 14: "sonoma", 15: "sequoia", 26: "tahoe", 27: "golden_gate"]
+        return names[ProcessInfo.processInfo.operatingSystemVersion.majorVersion]
     }
 
     /// Reads what the checker needs from an app's Info.plist. Nil for bundles without an identifier.
@@ -253,11 +390,11 @@ public enum AppUpdates {
 
     // MARK: App Store
 
-    public static func parseStoreLookup(_ data: Data) -> (version: String, url: String?)? {
+    public static func parseStoreLookup(_ data: Data) -> (version: String, url: String?, id: Int?)? {
         guard let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               let first = (root["results"] as? [[String: Any]])?.first,
               let version = first["version"] as? String else { return nil }
-        return (version, first["trackViewUrl"] as? String)
+        return (version, first["trackViewUrl"] as? String, (first["trackId"] as? NSNumber)?.intValue)
     }
 
     // MARK: Sparkle appcasts
@@ -387,7 +524,9 @@ private final class AppcastReader: NSObject, XMLParserDelegate {
         text = ""
         if name == "item" { current = [:]; return }
         guard current != nil else { return }
-        if name == "enclosure" {
+        if name == "enclosure", attributes["sparkle:deltaFrom"] == nil {   // delta patches aren't full apps
+            if current?["url"] == nil, let url = attributes["url"] { current?["url"] = url }
+            if current?["sparkle:edSignature"] == nil, let sig = attributes["sparkle:edSignature"] { current?["sparkle:edSignature"] = sig }
             for key in ["sparkle:version", "sparkle:shortVersionString", "sparkle:minimumSystemVersion"] {
                 if let value = attributes[key], current?[key] == nil { current?[key] = value }
             }
@@ -402,7 +541,7 @@ private final class AppcastReader: NSObject, XMLParserDelegate {
                 items.append(AppcastItem(version: version, shortVersion: c["sparkle:shortVersionString"],
                                          minimumSystem: c["sparkle:minimumSystemVersion"],
                                          releaseNotes: c["sparkle:releaseNotesLink"] ?? c["sparkle:fullReleaseNotesLink"] ?? c["link"],
-                                         channel: c["sparkle:channel"]))
+                                         channel: c["sparkle:channel"], url: c["url"], edSignature: c["sparkle:edSignature"]))
             }
             current = nil
             return

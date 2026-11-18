@@ -40,7 +40,7 @@ struct UpdatesView: View {
 
     @ViewBuilder
     private func results(_ report: UpdateReport) -> some View {
-        let brew = report.updates.filter { $0.source == .homebrew }
+        let ready = report.updates.filter(\.installable)
         let nothingChecked = report.updates.isEmpty && report.upToDate.isEmpty
         HeroHeader(title: "Updates",
                    value: nothingChecked ? "Nothing to check" : report.updates.isEmpty ? "All current" : "\(report.updates.count) available",
@@ -48,8 +48,8 @@ struct UpdatesView: View {
                        + (report.upToDate.isEmpty ? "" : " · \(report.upToDate.count) \(report.upToDate.count == 1 ? "app" : "apps") up to date"),
                    symbol: Module.updates.symbol) {
             Button("Check Again") { Task { await model.checkUpdates() } }.disabled(model.busy != nil)
-            if !brew.isEmpty {
-                Button(brew.count == 1 ? "Update with Homebrew" : "Update All \(brew.count)") { model.confirmBrewUpgrade(brew) }
+            if !ready.isEmpty {
+                Button(ready.count == 1 ? "Update" : "Update All \(ready.count)") { model.confirmUpdates(ready) }
                     .buttonStyle(.brand)
                     .disabled(model.busy != nil)
             }
@@ -92,9 +92,9 @@ struct UpdatesView: View {
 
     private static func howTo(_ source: UpdateSource) -> String {
         switch source {
-        case .homebrew: return "Installed with Homebrew. Spruce runs brew upgrade after you confirm; quit an app first if it's open."
-        case .appStore: return "From the App Store, which installs them."
-        case .builtIn: return "These apps update themselves. Open one and it offers the update, or use its Check for Updates… command."
+        case .homebrew: return "Installed with Homebrew. Spruce updates them with brew upgrade."
+        case .appStore: return "Spruce updates these through the App Store with the mas tool, installing it with Homebrew if needed. You need to be signed in to the App Store."
+        case .builtIn: return "Spruce downloads each new version from the developer, checks its signature, and swaps it in. Open apps are quit and reopened."
         }
     }
 
@@ -114,13 +114,11 @@ struct UpdatesView: View {
             if let notes = update.releaseNotesURL {
                 Button("What's New") { model.openURL(notes) }.buttonStyle(.borderless).controlSize(.small)
             }
-            switch update.source {
-            case .homebrew:
-                Button("Update") { model.confirmBrewUpgrade([update]) }.disabled(model.busy != nil)
-            case .appStore:
-                Button("View") { model.openURL(update.storeURL ?? "macappstore://showUpdatesPage") }
-            case .builtIn:
+            if update.installable {
+                Button("Update") { model.confirmUpdates([update]) }.disabled(model.busy != nil)
+            } else {
                 Button("Open \(update.name)") { model.openApp(update.appPath) }
+                    .help("This app's feed has no download Spruce can verify; it updates itself when opened.")
             }
         }
         .padding(.vertical, 9)

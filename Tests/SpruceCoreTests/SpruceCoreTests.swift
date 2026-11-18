@@ -1,4 +1,7 @@
 import XCTest
+#if canImport(CryptoKit)
+import CryptoKit
+#endif
 @testable import SpruceCore
 #if canImport(Darwin)
 import Darwin
@@ -1016,5 +1019,127 @@ final class MetricsTests: SandboxedTestCase {
         let report = AppUpdates.check(apps, casks: nil, osVersion: "15.0.0", region: "us") { _ in nil }
         XCTAssertEqual(report.failed, ["Gone"])
         XCTAssertFalse(report.usedHomebrew)
+    }
+
+    // MARK: App installer
+
+    func testCatalogueFillsInAppsWithoutAFeed() throws {
+        let json = """
+        [
+          {"token":"google-chrome","version":"158.0.1","sha256":"no_check","url":"https://dl.google.com/chrome.dmg",
+           "artifacts":[{"app":["Google Chrome.app"]}],"depends_on":{"macos":{">=":["13"]}}},
+          {"token":"slack","version":"4.53.2","sha256":"abc","url":"https://slack/arm64.dmg",
+           "variations":{"tahoe":{"url":"https://slack/x64.dmg","sha256":"def"}},"artifacts":[{"app":["Slack.app"]}]},
+          {"token":"future","version":"9.0","sha256":"abc","url":"https://f/f.zip","artifacts":[{"app":["Future.app"]}],
+           "depends_on":{"macos":{">=":["99"]}}}
+        ]
+        """
+        let arm = AppUpdates.parseCatalog(Data(json.utf8), intel: false, codename: "tahoe")
+        XCTAssertEqual(arm["slack.app"]?.url, "https://slack/arm64.dmg")
+        let intel = AppUpdates.parseCatalog(Data(json.utf8), intel: true, codename: "tahoe")
+        XCTAssertEqual(intel["slack.app"]?.url, "https://slack/x64.dmg")
+        XCTAssertEqual(intel["slack.app"]?.sha256, "def")
+
+        let apps = [
+            UpdateCandidate(path: "/Applications/Google Chrome.app", name: "Google Chrome", bundleID: "com.google.Chrome",
+                            version: "157.0.9", build: "157.0.9", feedURL: nil, isAppStore: false, isApple: false),
+            UpdateCandidate(path: "/Applications/Slack.app", name: "Slack", bundleID: "com.tinyspeck.slackmacgap",
+                            version: "4.53.2", build: "1", feedURL: nil, isAppStore: false, isApple: false),
+            UpdateCandidate(path: "/Applications/Future.app", name: "Future", bundleID: "com.example.future",
+                            version: "1.0", build: "1", feedURL: nil, isAppStore: false, isApple: false),
+        ]
+        let report = AppUpdates.check(apps, casks: nil, catalog: arm, osVersion: "26.0.0", region: "us") { _ in nil }
+        XCTAssertEqual(report.updates.map(\.name), ["Google Chrome"])
+        let chrome = try XCTUnwrap(report.updates.first)
+        XCTAssertEqual(chrome.latest, "158.0.1")
+        XCTAssertEqual(chrome.download?.origin, "catalogue")
+        XCTAssertNil(chrome.download?.sha256, "no_check means there's no checksum to compare")
+        XCTAssertTrue(chrome.installable)
+        XCTAssertEqual(report.upToDate, ["Slack"])
+        XCTAssertEqual(report.unchecked, ["Future"], "a version for a newer macOS isn't offered")
+    }
+
+    func testFeedUpdatesCarryTheirDownloadAndSignature() throws {
+        let feed = """
+        <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel><item>
+          <sparkle:deltas><enclosure url="https://x/delta.delta" sparkle:version="510" sparkle:deltaFrom="500"/></sparkle:deltas>
+          <enclosure url="https://x/App-5.1.zip" sparkle:version="510" sparkle:shortVersionString="5.1" sparkle:edSignature="c2ln"/>
+        </item></channel></rss>
+        """
+        let app = UpdateCandidate(path: "/Applications/Feedy.app", name: "Feedy", bundleID: "com.example.feedy", version: "5.0",
+                                  build: "500", feedURL: "https://example.com/appcast.xml", isAppStore: false, isApple: false)
+        let report = AppUpdates.check([app], casks: nil, osVersion: "26.0.0", region: "us") { _ in Data(feed.utf8) }
+        let update = try XCTUnwrap(report.updates.first)
+        XCTAssertEqual(update.download, UpdateDownload(url: "https://x/App-5.1.zip", edSignature: "c2ln", origin: "feed"))
+    }
+
+    func testFeedThatFailsFallsBackToTheCatalogue() {
+        let app = UpdateCandidate(path: "/Applications/Feedy.app", name: "Feedy", bundleID: "com.example.feedy", version: "5.0",
+                                  build: "500", feedURL: "https://example.com/appcast.xml", isAppStore: false, isApple: false)
+        let catalog = ["feedy.app": CatalogApp(token: "feedy", version: "5.2", url: "https://example.com/Feedy.zip", sha256: "ab", minimumSystem: nil)]
+        let report = AppUpdates.check([app], casks: nil, catalog: catalog, osVersion: "26.0.0", region: "us") { _ in nil }
+        XCTAssertEqual(report.updates.first?.download?.origin, "catalogue")
+        XCTAssertTrue(report.failed.isEmpty)
+    }
+
+    func testDownloadsAreRecognisedByTheirFirstBytes() throws {
+        let dir = NSTemporaryDirectory() + "spruce-kind-\(UUID().uuidString)"
+        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+        func write(_ bytes: [UInt8], _ name: String) -> String {
+            let path = dir + "/" + name
+            FileManager.default.createFile(atPath: path, contents: Data(bytes))
+            return path
+        }
+        let url = URL(string: "https://example.com/stable")!
+        XCTAssertEqual(AppInstaller.payloadKind(write([0x50, 0x4B, 0x03, 0x04, 0, 0], "a"), url: url), .zip)
+        XCTAssertEqual(AppInstaller.payloadKind(write(Array("xar!....".utf8), "b"), url: url), .pkg)
+        XCTAssertEqual(AppInstaller.payloadKind(write([0x1F, 0x8B, 8, 0], "c"), url: url), .tar)
+        var dmg = [UInt8](repeating: 0, count: 2048)
+        dmg.replaceSubrange((2048 - 512)..<(2048 - 508), with: Array("koly".utf8))
+        XCTAssertEqual(AppInstaller.payloadKind(write(dmg, "d"), url: url), .dmg)
+    }
+
+    func testFindsTheRightAppInsideADownload() throws {
+        let dir = NSTemporaryDirectory() + "spruce-find-\(UUID().uuidString)"
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+        func app(_ path: String, _ id: String) throws {
+            let contents = dir + "/" + path + "/Contents"
+            try FileManager.default.createDirectory(atPath: contents, withIntermediateDirectories: true)
+            let plist = try PropertyListSerialization.data(fromPropertyList: ["CFBundleIdentifier": id], format: .xml, options: 0)
+            FileManager.default.createFile(atPath: contents + "/Info.plist", contents: plist)
+        }
+        try app("Helper.app", "com.example.helper")
+        try app("Folder/Feedy.app", "com.example.feedy")
+        XCTAssertEqual(AppInstaller.findApp(in: dir, bundleID: "com.example.feedy"), dir + "/Folder/Feedy.app")
+        XCTAssertNil(AppInstaller.findApp(in: dir, bundleID: "com.example.other"))
+    }
+
+    func testChecksumOfADownload() {
+        let path = NSTemporaryDirectory() + "spruce-sha-\(UUID().uuidString)"
+        FileManager.default.createFile(atPath: path, contents: Data("abc".utf8))
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        XCTAssertEqual(AppInstaller.sha256(path), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+    }
+
+    #if canImport(CryptoKit)
+    func testSparkleSignaturesAreChecked() throws {
+        let key = Curve25519.Signing.PrivateKey()
+        let path = NSTemporaryDirectory() + "spruce-ed-\(UUID().uuidString)"
+        let payload = Data("new version".utf8)
+        FileManager.default.createFile(atPath: path, contents: payload)
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        let signature = try key.signature(for: payload).base64EncodedString()
+        let publicKey = key.publicKey.rawRepresentation.base64EncodedString()
+        XCTAssertTrue(AppInstaller.verifyEdDSA(file: path, signature: signature, publicKey: publicKey))
+        let other = Curve25519.Signing.PrivateKey().publicKey.rawRepresentation.base64EncodedString()
+        XCTAssertFalse(AppInstaller.verifyEdDSA(file: path, signature: signature, publicKey: other))
+    }
+    #endif
+
+    func testPrivilegedChainStopsAtTheFirstFailure() {
+        var script = PrivilegedScript()
+        script.addChain([["/usr/bin/ditto", "/tmp/new app.app", "/Applications/.A.app.spruce-new"], ["/bin/mv", "/Applications/A.app", "/x"]])
+        XCTAssertEqual(script.lines.last, "'/usr/bin/ditto' '/tmp/new app.app' '/Applications/.A.app.spruce-new' && '/bin/mv' '/Applications/A.app' '/x'")
     }
 }
